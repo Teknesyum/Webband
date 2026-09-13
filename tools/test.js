@@ -998,7 +998,7 @@ function roadSuite() {
         assert.ok(ids.size >= 20, `pool fell to ${ids.size} events`);
     });
 
-    test('road: every choice runs and produces a displayable result', () => {
+test('road: every choice runs and produces a displayable result', () => {
         // A generous world where every condition passes: money and party are
         // refreshed before every choice, otherwise the first few choices would
         // drain the purse and leave the rest untested.
@@ -1087,6 +1087,20 @@ test('band population tracks a target that rises over 60 days', () => {
     // One band every 6 hours is 4 a day against a target that climbs by a third of one,
     // so the gap should never open more than a few bands wide.
     assert.ok(worst <= 4, `refill can't keep up: population fell ${worst} short of target`);
+});
+
+test('road: the touch that opens an event cannot also choose an answer', () => {
+    const g = H.world({ seed: 41 });
+    const { Game } = g;
+    let ran = 0, stopped = 0;
+    Game._roadEv = { ctx: {}, ev: { choices: [{ run: () => { ran++; return 'ok'; } }] } };
+    Game._roadChoiceLockUntil = Date.now() + 650;
+    Game.roadChoice(0, { detail: 1, preventDefault() {}, stopPropagation() { stopped++; } });
+    assert.strictEqual(ran, 0, 'the opening touch leaked through to a road-event choice');
+    assert.strictEqual(stopped, 1, 'the leaked click was allowed to propagate');
+    Game._roadChoiceLockUntil = 0;
+    Game.roadChoice(0);
+    assert.strictEqual(ran, 1, 'the choice stayed locked after the opening touch had ended');
 });
 
 test('world battle: a lord hunts and disperses a nearby outlaw band', () => {

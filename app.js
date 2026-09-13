@@ -3714,12 +3714,16 @@ const Game = {
         let ev = this.pickEvent(this.ROAD_EVENTS, ctx);
         if(!ev) return null;
         this._roadEv = { ev, ctx };
+        // A road event can appear between a map pointer-down and pointer-up. Without a short
+        // guard, that same touch is retargeted to whichever choice materialised under the finger.
+        // Keyboard activation has detail=0 and remains immediate.
+        this._roadChoiceLockUntil = Date.now() + 650;
         state.player.status = 'idle';   // the walk pauses in front of the decision
         this.showModal(`<h3>${ev.icon} ${T`Yolda`}</h3>
             <p style="font-style:italic;color:var(--text-muted)">${ev.text(ctx)}</p>
             <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem">
                 ${ev.choices.map((ch, i) =>
-                    `<button class="btn" style="text-align:left" onclick="Game.roadChoice(${i})">${ch.label(ctx)}</button>`).join('')}
+                    `<button class="btn" style="text-align:left" onclick="Game.roadChoice(${i}, event)">${ch.label(ctx)}</button>`).join('')}
             </div>`);
         return ev.id;
     },
@@ -3740,7 +3744,12 @@ const Game = {
         if(caught) this._roadDelayEncounter = caught.id;
     },
 
-    roadChoice(i) {
+    roadChoice(i, inputEvent = null) {
+        if(inputEvent && inputEvent.detail !== 0 && Date.now() < (this._roadChoiceLockUntil || 0)) {
+            inputEvent.preventDefault();
+            inputEvent.stopPropagation();
+            return;
+        }
         let e = this._roadEv;
         if(!e) return this.closeModal();
         this._roadEv = null;
