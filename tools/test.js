@@ -282,6 +282,26 @@ test('modal: an encounter window can\'t be dismissed by the user, only by its ow
     state.player.currentEncounterNpcId = null;
 });
 
+test('battle: the real-time damage pace lengthens played fights', () => {
+    const src = { id:'a', x:0, y:0, dmgType:'cut', isPlayerTeam:true };
+    const tgt = { id:'b', x:1, y:0, hp:100, defense:0, isPlayerTeam:false, hitFlash:0 };
+    Battle.bloodStains = []; Battle.sparks = []; Battle.floatingTexts = [];
+    Battle.dealMelee(src, tgt, 20);
+    assert.strictEqual(tgt.hp, 85, '20 raw damage was not paced to 15');
+});
+
+test('courtship: a lady only accepts one compliment every three days', () => {
+    const id = g.LADIES[0].id;
+    state.time.day = 20; state.affection[id] = 50; state.complimentDay = {};
+    g.Nobles.compliment(id, 'beauty');
+    const once = state.affection[id];
+    g.Nobles.compliment(id, 'beauty');
+    assert.strictEqual(state.affection[id], once, 'a second compliment landed on the same day');
+    state.time.day += 3;
+    g.Nobles.compliment(id, 'beauty');
+    assert.notStrictEqual(state.affection[id], once, 'the compliment did not reopen after three days');
+});
+
 // --- Battle speed balance ---
 // The four links of the speed chain used to behave differently for the
 // player and the AI; the biggest risk while fixing that was bringing back the
@@ -952,6 +972,18 @@ function roadSuite() {
         }));
     });
 
+    test('road: a pursuer keeps moving during hours lost to an event', () => {
+        state.time.day = 10; state.time.hour = 6;
+        state.player.x = 4500; state.player.y = 4500; state.player.party = [];
+        let n = Game.createNPC('Takipçi', 'bandit', 8, '#800');
+        n.x = 4600; n.y = 4500; n.targetX = n.x; n.targetY = n.y; n.speed = 60;
+        state.npcParties = [n]; state.encounterCooldown = 0;
+        let before = Game.dist(n, state.player);
+        Game.roadDelay(1);
+        assert.ok(Game.dist(n, state.player) < before, 'the pursuer stood still while an hour passed');
+        assert.strictEqual(state.time.hour, 7);
+    });
+
     test('road: the roll depends on distance, not on days', () => {
         state.player.prisoner = null; state.encounterCooldown = 0;
         state.roadWalked = 0;
@@ -1339,6 +1371,17 @@ test('a ghost finger cannot lock the map out of taking orders (#100)', () => {
     Game.onMapDown(at(4, true)); Game.onMapDown(at(5, false));
     assert.strictEqual(Game._ptr.size, 2, 'two real fingers stay two fingers');
     Game._ptr.clear();
+});
+
+test('returning from a menu centers the map on the player', () => {
+    const map = g._sandbox.document.getElementById('map-view');
+    map.classList.add('active');
+    Game.showScreen('party');
+    map.classList.remove('active'); // the tiny DOM fake has no live class selector
+    Game.camera.offsetX = 700; Game.camera.offsetY = -400;
+    Game.showScreen('map');
+    assert.strictEqual(Game.camera.offsetX, 0);
+    assert.strictEqual(Game.camera.offsetY, 0);
 });
 
 test('a panned camera holds its world position while the player walks', () => {

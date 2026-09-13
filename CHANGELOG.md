@@ -3,6 +3,22 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.10 — Bekleyen Yol (2026-09-13)
+
+- **Yol kenarında geçen saatler gerçekten geçiyor.** Yaralıyla ilgilenirken, fırtınayı beklerken
+  ya da iz sürerken peşindeki düşmanlar da yürür; yetişirlerse sonuç penceresinden sonra önünü keserler.
+- **Diyalog zemini artık kapatma düğmesi değil.** Özellikle hareket hâlindeyken açılan yol olayları,
+  haritaya giden eski dokunuşla yanlışlıkla kapanmıyor; kararlar yalnız görünür düğmelerle veriliyor.
+- **Haritaya dönünce kamera oyuncuyu buluyor.** Menüden veya savaştan çıkarken eski kaydırma ofseti
+  taşınmıyor; yarım kalmış dokunma ve yakınlaştırma hâli de temizlenmeye devam ediyor.
+- **İltifatın üç günlük arası var.** Aynı leydiye durmadan aynı iltifatı basarak ilgi kasılamıyor.
+- **Oynanan savaşlar yaklaşık üçte bir uzadı.** Hasar temposu düşürüldü; zırh, birlik oranları ve
+  otomatik çözüm dengesi değişmedi.
+- **Tek kişilik karşılaşmalar ordu taklidi yapmıyor.** Arena, turnuva ve şeref düellosunda düşman
+  komutanı konuşması ile isimli kırmızı komuta halkaları çıkmıyor. Tavuk avında da emir tuşları yok.
+- **Müzikler dış lisans yükü taşımıyor.** Harita ve savaş parçaları, oyunun Web Audio motorunun
+  çalışma anında besteleyip sentezlediği özgün/prosedürel eserlerdir; haricî kayıt kullanılmaz.
+
 ## 1.09 — Leydi Avrilia (2026-09-13)
 
 - **Leydi Nelda'nın adı Leydi Avrilia oldu.** Swadia'nın dindar leydisi, şafak duasını

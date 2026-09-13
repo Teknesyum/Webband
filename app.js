@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.09', date: '2026-09-13', name: 'Leydi Avrilia' };  // the version name is not translated
+const VERSION = { no: '1.10', date: '2026-09-13', name: 'Bekleyen Yol' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -719,9 +719,10 @@ const Game = {
         ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev =>
             document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
         this.initTouchUI();
+        // A dialog is a decision, not a lightbox. A road event can open under the finger
+        // that was panning the map; the backdrop must never silently discard it.
         document.getElementById('modal-overlay').addEventListener('click', e => {
-            // Don't let the encounter (fight/surrender) modal close by clicking outside it
-            if(e.target.id === 'modal-overlay') this.dismissModal();
+            if(e.target.id === 'modal-overlay') e.preventDefault();
         });
         window.addEventListener('resize', () => this.resizeCanvases());
 
@@ -3285,7 +3286,7 @@ const Game = {
           text: () => T`Devrilmiş bir arabanın yanında bir kervancı ateşler içinde yatıyor. Yoldaşları çoktan gitmiş.`,
           choices: [
             { label: () => T`⚕️ Cerrahını başına yolla (3 saat)`, run() {
-                Game.advanceTime(3); Game.addProficiencyXp('surgery', 60);
+                Game.roadDelay(3); Game.addProficiencyXp('surgery', 60);
                 state.player.renown += 2;
                 return T`Adam akşama doğru gözlerini açtı. Bu hikâye yolun ilerisinde senden önce varacak.<br><b>Cerrahlık +60 tecrübe</b>, itibar <b>+2</b>, şeref <b>+${Game.addHonor('roadKind')}</b>.<br><i>3 saat kaybettin.</i>`;
             }},
@@ -3352,7 +3353,7 @@ const Game = {
           text: () => T`Ufuktan gelen kara bulut yolu bir anda kapattı. Dolu taneleri miğferlerde çınlıyor.`,
           choices: [
             { label: () => T`⛺ Sığınak ara, bekle (4 saat)`, run() {
-                Game.advanceTime(4); Game.addProficiencyXp('pathfinding', 30);
+                Game.roadDelay(4); Game.addProficiencyXp('pathfinding', 30);
                 return T`Kaya dibinde kuru bir oyuk buldun. Fırtına geçene kadar kimse ıslanmadı.<br><b>Yol Bulma +30 tecrübe</b>.<br><i>4 saat kaybettin.</i>`;
             }},
             { label: () => T`🌧️ Doluda yürümeye devam et`, run() {
@@ -3412,13 +3413,13 @@ const Game = {
           text: () => T`Ağaçların arasında yeni ölmüş bir kurt. Postu temiz, leşi henüz soğumamış — yani onu öldüren şey de yakında.`,
           choices: [
             { label: () => T`🔪 Postunu yüz (2 saat)`, run() {
-                Game.advanceTime(2);
+                Game.roadDelay(2);
                 let n = 50 + Math.floor(Math.random() * 60);
                 state.player.money += n; Game.addProficiencyXp('looting', 25);
                 return T`Post kürkçüye gider.<br><b>+${n} dinar</b>, <b>Yağmacılık +25 tecrübe</b>.<br><i>2 saat kaybettin.</i>`;
             }},
             { label: () => T`👀 Kimin öldürdüğünü ara (2 saat)`, run() {
-                Game.advanceTime(2); Game.addProficiencyXp('spotting', 50);
+                Game.roadDelay(2); Game.addProficiencyXp('spotting', 50);
                 return T`İzler bir sürünün geceyi nerede geçirdiğini söyledi. Artık ormanda gözün daha keskin.<br><b>Gözcülük +50 tecrübe</b>.<br><i>2 saat kaybettin.</i>`;
             }},
             { label: () => T`🚶 Burada durmak akıllıca değil`, run() {
@@ -3435,7 +3436,7 @@ const Game = {
                 return T`<b>${T(a.name)}</b> ve <b>${T(b.name)}</b> gruba katıldı. Eski askerlerin bu işe iyi bakmadı.<br>Moral <b>−3</b>.`;
             }},
             { label: () => T`⛓️ Bağla, en yakın kaleye teslim et (−4 saat)`, run() {
-                Game.advanceTime(4);
+                Game.roadDelay(4);
                 let n = 60 + Math.floor(Math.random() * 60);
                 state.player.money += n; state.player.renown += 1;
                 return T`Firari teslim etmenin bir bedeli vardır, alanın da.<br><b>+${n} dinar</b>, itibar <b>+1</b>, şeref <b>+${Game.addHonor('roadKind')}</b>.<br><i>4 saat kaybettin.</i>`;
@@ -3476,7 +3477,7 @@ const Game = {
                          then: () => Game.triggerEncounter(npc) };
             }},
             { label: () => T`🌑 Ateşi arkanda bırak`, run() {
-                Game.advanceTime(1);
+                Game.roadDelay(1);
                 return T`Geniş bir kavis çizdin. Kim olduklarını hiç öğrenmeyeceksin.<br><i>1 saat kaybettin.</i>`;
             }}
           ]},
@@ -3508,7 +3509,7 @@ const Game = {
                 return T`İki top kadife, şehirde bunun iki katı eder — şehre varabilirsen.<br><b>−140 dinar</b>, <b>+2 kadife</b>, <b>Ticaret +40 tecrübe</b>.`;
             }},
             { label: () => T`🛡️ Şehre kadar yanında götür (−3 saat)`, run() {
-                Game.advanceTime(3);
+                Game.roadDelay(3);
                 let n = 100 + Math.floor(Math.random() * 80);
                 state.player.money += n; state.player.renown += 1;
                 return T`Adam sağ vardı ve bunu herkese anlattı.<br><b>+${n} dinar</b>, itibar <b>+1</b>, şeref <b>+${Game.addHonor('roadKind')}</b>.<br><i>3 saat kaybettin.</i>`;
@@ -3536,7 +3537,7 @@ const Game = {
           text: () => T`Yol kenarındaki hanın önünde oturan yaşlı bir asker adamlarını süzdü: "Bunlar mızrağı yanlış tutuyor. Bir gün ver, düzeltirim."`,
           choices: [
             { label: () => T`🎯 Tut, bir gün eğitsin (−100 dinar, 8 saat)`, run() {
-                Game.spend(100); Game.advanceTime(8);
+                Game.spend(100); Game.roadDelay(8);
                 Game.addProficiencyXp('trainer', 80);
                 state.player.party.forEach(t => { t.xp = (t.xp || 0) + 2; });
                 return T`Akşama kadar bağırdı. Sabah duruşları gerçekten değişmişti.<br><b>−100 dinar</b>, <b>Eğitmenlik +80 tecrübe</b>, her askere <b>+2 tecrübe</b>.<br><i>8 saat kaybettin.</i>`;
@@ -3554,7 +3555,7 @@ const Game = {
           text: () => T`Yolun tozunda taze at izleri: çok sayıda, hepsi aynı yöne. Bir saat önce buradan geçmişler.`,
           choices: [
             { label: () => T`🐾 İzi sür (2 saat)`, run() {
-                Game.advanceTime(2); Game.addProficiencyXp('spotting', 40);
+                Game.roadDelay(2); Game.addProficiencyXp('spotting', 40);
                 if(Math.random() < 0.5) {
                     let n = 90 + Math.floor(Math.random() * 110);
                     state.player.money += n;
@@ -3563,7 +3564,7 @@ const Game = {
                 return T`İzler bir dereye girip kayboldu. Kaybedilen tek şey iki saat oldu.<br><b>Gözcülük +40 tecrübe</b>.<br><i>2 saat kaybettin.</i>`;
             }},
             { label: () => T`🧭 Ters yöne sap, karşılaşma`, run() {
-                Game.advanceTime(1); state.encounterCooldown = Math.max(state.encounterCooldown, 8);
+                Game.roadDelay(1); state.encounterCooldown = Math.max(state.encounterCooldown, 8);
                 return T`Kimin geçtiğini öğrenmedin ama kimseyle de karşılaşmadın.<br><i>1 saat kaybettin.</i>`;
             }}
           ]},
@@ -3572,7 +3573,7 @@ const Game = {
           text: () => T`Nehir kabarmış; bilinen geçit boğaza kadar geliyor. Aşağıda daha sığ bir yer olduğunu söylüyorlar.`,
           choices: [
             { label: () => T`🧭 Sığ geçidi ara (3 saat)`, run() {
-                Game.advanceTime(3); Game.addProficiencyXp('pathfinding', 45);
+                Game.roadDelay(3); Game.addProficiencyXp('pathfinding', 45);
                 return T`İki dirsek aşağıda çakıllı bir geçit buldun; kimsenin ayağı ıslanmadı.<br><b>Yol Bulma +45 tecrübe</b>.<br><i>3 saat kaybettin.</i>`;
             }},
             { label: () => T`🌊 Buradan geç`, run() {
@@ -3629,12 +3630,38 @@ const Game = {
         return ev.id;
     },
 
+    // Time spent on a roadside choice belongs to the moving world too. Advancing roaming
+    // parties in small slices lets an existing pursuer genuinely catch the waiting player.
+    roadDelay(hours) {
+        let left = Math.max(0, hours || 0);
+        while(left > 0) {
+            let step = Math.min(0.25, left);
+            this.advanceTime(step);
+            this.updateNPCs(step);
+            left -= step;
+        }
+        let caught = state.npcParties
+            .filter(n => this.isHostile(n) && this.dist(n, state.player) < 45)
+            .sort((a, b) => this.dist(a, state.player) - this.dist(b, state.player))[0];
+        if(caught) this._roadDelayEncounter = caught.id;
+    },
+
     roadChoice(i) {
         let e = this._roadEv;
         if(!e) return this.closeModal();
         this._roadEv = null;
         let r = e.ev.choices[i].run(e.ctx);
         if(typeof r === 'string') r = { html: r };
+        let caughtId = this._roadDelayEncounter;
+        this._roadDelayEncounter = null;
+        if(caughtId) {
+            let after = r.then;
+            r.then = () => {
+                if(after) after();
+                let pursuer = state.npcParties.find(n => n.id === caughtId);
+                if(pursuer && !state.player.currentEncounterNpcId) Game.triggerEncounter(pursuer);
+            };
+        }
         this.updateTopBar();
         this._afterModal = r.then || null;
         this.showModal(`<h3>${e.ev.icon} ${T`Yolda`}</h3><p>${r.html}</p>
@@ -4102,10 +4129,17 @@ const Game = {
     centerOnPlayer() {
         this.camera.offsetX = 0;
         this.camera.offsetY = 0;
+        // Re-anchor the next update too; otherwise a position change that happened inside a
+        // menu is immediately subtracted from the freshly cleared offset.
+        this._camPx = state.player.x;
+        this._camPy = state.player.y;
     },
 
     showScreen(screenId) {
+        let wasMap = document.getElementById('map-view').classList.contains('active');
         this.resetMapInteractionState();   // the map starts every screen from a clean input state (#96)
+        // Returning from a menu/battle with an old free-pan offset made the player appear lost.
+        if(screenId === 'map' && !wasMap) this.centerOnPlayer();
         document.querySelectorAll('.menu-btn').forEach(b => b.classList.toggle('active', b.dataset.view === screenId));
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         let view = document.getElementById(screenId + '-view');

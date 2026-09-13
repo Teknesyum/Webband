@@ -1220,6 +1220,7 @@ I18N.dicts.id = {
   "🌲 Pusu!": "🌲 Penyergapan!",
   "🌹 {0}'a İltifat": "🌹 Pujian untuk {0}",
   "🌹 İltifat et": "🌹 Beri pujian",
+  "🌹 İltifat et ({0} gün sonra)": "🌹 Beri pujian ({0} hari lagi)",
   "🍞 Karnını doyurdun, açlık cezası kalktı.": "🍞 Kamu sudah kenyang, hukuman kelaparan dicabut.",
   "🍞 Ordu doydu, açlık cezası kalktı.": "🍞 Pasukan kenyang, hukuman kelaparan dicabut.",
   "🍷 Şölen Ver (3000 Dinar + 30 et/peynir)": "🍷 Gelar Pesta (3000 dinar + 30 daging/keju)",

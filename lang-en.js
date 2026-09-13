@@ -1220,6 +1220,7 @@ I18N.dicts.en = {
   "🌲 Pusu!": "🌲 Ambush!",
   "🌹 {0}'a İltifat": "🌹 A compliment for {0}",
   "🌹 İltifat et": "🌹 Pay a compliment",
+  "🌹 İltifat et ({0} gün sonra)": "🌹 Pay a compliment (in {0} days)",
   "🍞 Karnını doyurdun, açlık cezası kalktı.": "🍞 You are fed; the starvation penalty is lifted.",
   "🍞 Ordu doydu, açlık cezası kalktı.": "🍞 The army is fed; the starvation penalty is lifted.",
   "🍷 Şölen Ver (3000 Dinar + 30 et/peynir)": "🍷 Host a Feast (3000 denars + 30 meat/cheese)",

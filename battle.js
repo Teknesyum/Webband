@@ -8,6 +8,9 @@
 const Battle = {
     canvas: null, ctx: null, units: [], projectiles: [], bloodStains: [], floatingTexts: [], active: false, loopId: null, clickHandler: null, commandListener: null, currentCommand: 'charge',
     swings: [], sparks: [], corpses: [], knockedOut: false, grass: null,
+    // Keep formations and command opportunities relevant: played battles take roughly
+    // one-third longer without changing troop ratios or the auto-resolve model.
+    DAMAGE_PACE: 0.75,
 
     // Rival suitor duel: 1-on-1, no group, no loot
     startDuel(lord) {
@@ -345,7 +348,9 @@ const Battle = {
         document.getElementById('battle-log-right').innerHTML = '';
 
         setTimeout(() => {
-            if(this.active) {
+            // Arena, tournament and honour duels have an opponent, not an army commander.
+            // This also suppresses the three named red command pings in those modes.
+            if(this.active && !this.isArena && !this.isTourney && !this.isDuel) {
                 let names = [T("Antonius"), T("John"), T("Ragnar"), T("Kel Mahmut"), T("Bozkurt"), T("Topal Rıza"), T("Deli Yürek"), T("Kemikkıran"), T("Kanlı Hasan"), T("Gaius"), T("Bjorn"), T("Dilsiz Suikastçi"), T("Kör Hafız"), T("Barbaros"), T("Turgut")];
                 let n1 = names[Math.floor(Math.random()*names.length)];
                 let n2 = names[Math.floor(Math.random()*names.length)];
@@ -563,7 +568,7 @@ const Battle = {
     dealMelee(src, tgt, raw) {
         let bf = this.blockFactor(tgt, src.x, src.y);
         if(bf === 0) return this.blockedFx(tgt, src.x, src.y);
-        let dmg = this.afterArmor(src.dmgType, raw * bf, tgt.defense, tgt);
+        let dmg = this.afterArmor(src.dmgType, raw * bf * this.DAMAGE_PACE, tgt.defense, tgt);
         tgt.hp -= dmg;
         // Attributes grow through play: strength if the player lands the hit, vitality if the player takes it.
         if(src.id === 'player') Game.trainAttr('str', 0.15);
@@ -697,7 +702,7 @@ const Battle = {
                 if(d < u.radius + 2) {
                     let bf = this.blockFactor(u, proj.x - proj.vx, proj.y - proj.vy);
                     if(bf === 0) { this.blockedFx(u, proj.x - proj.vx, proj.y - proj.vy); hit = true; break; }
-                    let dmg = this.afterArmor(proj.dmgType, proj.damage * bf, u.defense, u);
+                    let dmg = this.afterArmor(proj.dmgType, proj.damage * bf * this.DAMAGE_PACE, u.defense, u);
                     u.hp -= dmg;
                     hit = true;
                     u.hitFlash = 0.15;
@@ -2100,6 +2105,10 @@ const TournamentMinigame = {
         this.canvas = document.getElementById('battle-canvas');
         this.ctx = Game.battleCtx();   // single gate to the shared canvas (#54)
         Game.showScreen('battle');
+        // Chicken chasing and other click challenges have no troops to command. The command
+        // pad is static battle markup, so a previous real fight could leave it visible here.
+        let tc = document.getElementById('tcmds');
+        if(tc) tc.style.display = 'none';
         this.canvas.width = this.canvas.parentElement.clientWidth;
         this.canvas.height = this.canvas.parentElement.clientHeight;
         this.active = true;

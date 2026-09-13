@@ -1011,7 +1011,11 @@ const Nobles = {
             ? `<button class="btn" onclick="Nobles.visitLady('${ladyId}')">${T`💬 Sohbet et (+3)`}</button>`
             : `<button class="btn" disabled style="opacity:0.4">${T`💬 Sohbet et (${3-(today-visited)} gün sonra)`}</button>`;
 
-        html += `<button class="btn" onclick="Nobles.complimentMenu('${ladyId}')">${T`🌹 İltifat et`}</button>`;
+        state.complimentDay = state.complimentDay || {};
+        let complimentWait = 3 - (today - (state.complimentDay[ladyId] ?? -99));
+        html += complimentWait <= 0
+            ? `<button class="btn" onclick="Nobles.complimentMenu('${ladyId}')">${T`🌹 İltifat et`}</button>`
+            : `<button class="btn" disabled style="opacity:0.4">${T`🌹 İltifat et (${complimentWait} gün sonra)`}</button>`;
 
         if(state.player.poems.length)
             html += `<button class="btn" onclick="Nobles.poemMenu('${ladyId}')">${T`📜 Şiir oku`}</button>`;
@@ -1062,6 +1066,8 @@ const Nobles = {
     },
 
     compliment(ladyId, cid) {
+        state.complimentDay = state.complimentDay || {};
+        if(state.time.day - (state.complimentDay[ladyId] ?? -99) < 3) return this.courtMenu(ladyId);
         let L = this.lady(ladyId), t = LADY_TRAITS[L.trait];
         let c = COMPLIMENTS.find(x => x.id === cid);
         let gain, reply;
@@ -1072,6 +1078,7 @@ const Nobles = {
         } else {
             gain = 1;  reply = T`Kibarca başını salladı. Söylediğin bir kulağından girip diğerinden çıktı.`;
         }
+        state.complimentDay[ladyId] = state.time.day;
         this.addAff(ladyId, gain);
         alert(`Sen: ${c.line}\n\n${reply}\n\n${gain > 0 ? '+' : ''}${gain} ilgi`);
         this.courtMenu(ladyId);
