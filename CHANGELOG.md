@@ -3,6 +3,11 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.09 — Leydi Avrilia (2026-09-13)
+
+- **Leydi Nelda'nın adı Leydi Avrilia oldu.** Swadia'nın dindar leydisi, şafak duasını
+  kaçırmayan ve ganimet sandığına elini sürmeyen kişi. Eski kayıtlar bozulmadı.
+
 ## 1.08 — Boş Çadır (2026-09-13)
 
 - **Pususa düşünce sayılan adam, sahaya çıkan adamdır.** Karşılama ekranı yaralıları da
