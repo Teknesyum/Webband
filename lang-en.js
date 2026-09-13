@@ -2192,4 +2192,8 @@ I18N.dicts.en = {
   "İlgi: {0} → {1} ({2}{3})": "Affection: {0} → {1} ({2}{3})",
   "Devam": "Continue",
   "Sen: {0}": "You: {0}",
+  "uzun bir süre sustu; şiir onu gerçekten etkiledi.": "fell silent for a long while; the poem truly moved them.",
+  "Ona zaten bir zafer ithaf etmiştin. İkincisi aynı etkiyi yapmadı.": "You had already dedicated a victory to them. The second did not have the same effect.",
+  "🏆 Zafer İthafı": "🏆 Victory Dedication",
+  "Arenanın ortasında durdun ve zaferini {0}'ya ithaf ettin.<br>Bütün salon ona döndü. Yüzü kızardı ama gözünü kaçırmadı.": "You stood in the middle of the arena and dedicated your victory to {0}.<br>The whole hall turned toward them. They blushed but did not look away.",
 };

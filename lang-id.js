@@ -2192,4 +2192,8 @@ I18N.dicts.id = {
   "İlgi: {0} → {1} ({2}{3})": "Ketertarikan: {0} → {1} ({2}{3})",
   "Devam": "Lanjut",
   "Sen: {0}": "Kamu: {0}",
+  "uzun bir süre sustu; şiir onu gerçekten etkiledi.": "terdiam lama; puisi itu benar-benar menyentuh hatinya.",
+  "Ona zaten bir zafer ithaf etmiştin. İkincisi aynı etkiyi yapmadı.": "Kamu sudah pernah mempersembahkan kemenangan kepadanya. Yang kedua tidak memberi efek yang sama.",
+  "🏆 Zafer İthafı": "🏆 Persembahan Kemenangan",
+  "Arenanın ortasında durdun ve zaferini {0}'ya ithaf ettin.<br>Bütün salon ona döndü. Yüzü kızardı ama gözünü kaçırmadı.": "Kamu berdiri di tengah arena dan mempersembahkan kemenanganmu kepada {0}.<br>Seluruh aula menoleh kepadanya. Wajahnya memerah, tetapi ia tidak mengalihkan pandangan.",
 };

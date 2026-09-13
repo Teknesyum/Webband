@@ -1127,24 +1127,42 @@ const Nobles = {
         if(state.poemsRead[ladyId].includes(pid)) return;
         state.poemsRead[ladyId].push(pid);
         let p = POEMS.find(x => x.id === pid);
+        if(!p) return;
+        let L = this.lady(ladyId), before = this.aff(ladyId), gain = 12;
         this.addAff(ladyId, 12);
-        alert(T`${T(p.text)}\n\n${T(this.lady(ladyId).name)} uzun bir süre sustu.\n\n+12 ilgi`);
-        this.courtMenu(ladyId);
+        let after = this.aff(ladyId);
+        Game.showModal(`<h3>${T`📜 ${T(L.name)}'a Şiir`}</h3>
+            <p style="font-style:italic;line-height:1.7;white-space:pre-line">${T(p.text)}</p>
+            <p>${T(L.name)} ${T('uzun bir süre sustu; şiir onu gerçekten etkiledi.')}</p>
+            <div style="padding:0.8rem;border-left:4px solid var(--success);background:rgba(0,0,0,0.25)">
+                <b style="font-size:1.1rem">${T(this.reaction(gain))}</b><br>
+                ${T`İlgi: ${before} → ${after} (${gain > 0 ? '+' : ''}${gain})`}
+            </div>
+            <button class="btn primary" style="margin-top:1rem" onclick="Nobles.courtMenu('${ladyId}')">${T`Devam`}</button>`);
     },
 
     dedicate(ladyId) {
         if(!state.pendingDedication) return;
         state.pendingDedication = false;
         state.dedicatedTo = state.dedicatedTo || [];
+        let before = this.aff(ladyId), gain, line;
         if(state.dedicatedTo.includes(ladyId)) {
-            alert(T('Ona zaten bir zafer ithaf etmiştin. İkincisi aynı etkiyi yapmaz.'));
-            this.addAff(ladyId, 4);
+            gain = 4;
+            line = T('Ona zaten bir zafer ithaf etmiştin. İkincisi aynı etkiyi yapmadı.');
         } else {
             state.dedicatedTo.push(ladyId);
-            this.addAff(ladyId, 18);
-            alert(T`Arenanın ortasında durdun ve zaferini ${T(this.lady(ladyId).name)}'ya ithaf ettin.\nBütün salon ona döndü. Yüzü kızardı ama gözünü kaçırmadı.\n\n+18 ilgi`);
+            gain = 18;
+            line = T`Arenanın ortasında durdun ve zaferini ${T(this.lady(ladyId).name)}'ya ithaf ettin.<br>Bütün salon ona döndü. Yüzü kızardı ama gözünü kaçırmadı.`;
         }
-        this.courtMenu(ladyId);
+        this.addAff(ladyId, gain);
+        let after = this.aff(ladyId);
+        Game.showModal(`<h3>${T`🏆 Zafer İthafı`}</h3>
+            <p style="line-height:1.7">${line}</p>
+            <div style="padding:0.8rem;border-left:4px solid var(--success);background:rgba(0,0,0,0.25)">
+                <b style="font-size:1.1rem">${T(this.reaction(gain))}</b><br>
+                ${T`İlgi: ${before} → ${after} (${gain > 0 ? '+' : ''}${gain})`}
+            </div>
+            <button class="btn primary" style="margin-top:1rem" onclick="Nobles.courtMenu('${ladyId}')">${T`Devam`}</button>`);
     },
 
     // ---------- Rival suitor ----------

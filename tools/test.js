@@ -360,6 +360,16 @@ test('relations: a gift result stays visible with the reaction and before/after 
     assert.ok(result.includes('Nobles.talk'), 'the result has no explicit continue button');
 });
 
+test('courtship: a poem result stays visible with a clear affection reaction', () => {
+    const id = 'isolla';
+    state.affection[id] = 20; state.poemsRead = {};
+    g.Nobles.recitePoem(id, 'poem_butter');
+    const result = g._sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(result.includes('Çok sevdi') && result.includes('20 → 32'),
+        'the poem reaction was overwritten before its affection result could be read');
+    assert.ok(result.includes('Nobles.courtMenu'), 'the poem result has no explicit continue button');
+});
+
 // --- Battle speed balance ---
 // The four links of the speed chain used to behave differently for the
 // player and the AI; the biggest risk while fixing that was bringing back the
@@ -1198,6 +1208,25 @@ test('world battle: a lord hunts and disperses a nearby outlaw band', () => {
     assert.ok(g.state.npcParties.some(n => n.id === band.id && n.size < 4),
         'the routed outlaw took no losses or vanished instead of scattering');
     assert.ok(g.state.npcParties.some(n => n.id === lord.id && n.size < 80), 'the winning lord took no losses');
+});
+
+test('lord balance: every spawn and daily force target is reduced by ten percent', () => {
+    const gl = H.world({ seed: 25 });
+    const { Game, state } = gl;
+    assert.strictEqual(Game.lordForce(100), 90);
+    assert.strictEqual(Game.lordForce(35), 32);
+    const king = state.npcParties.find(n => n.type === 'king');
+    const regular = state.npcParties.find(n => n.lordId && n.faction === king.faction
+        && n.type !== 'king' && n.type !== 'vizier');
+    assert.strictEqual(king.size, 90, 'a new king still spawned at the old strength');
+    assert.strictEqual(regular.size, 32, 'a new lord still spawned at the old strength');
+    regular.size = 35; // old-save cap
+    state.npcParties = [king, regular];
+    Game.LAIR_COUNT = 0;
+    state.sites = state.sites.filter(s => s.kind !== 'lair');
+    Game.dailyUpdate();
+    assert.ok(regular.size <= 32, 'an old-save lord was not brought down to the new cap');
+    assert.strictEqual(king.size, Game.lordForce(50 + king.level * 3), 'daily king strength bypassed the multiplier');
 });
 
 // --- Bandit lairs (#68) ---
