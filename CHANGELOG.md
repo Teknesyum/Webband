@@ -26,6 +26,10 @@ başlangıç ekranının sağ alt köşesinde yazar.
 - **Erzak sofrası genişledi.** Tütsülenmiş balık, kuru meyve, tereyağı ve bal eklendi; her birinin
   fiyatı ve raf ömrü ayrı. Tüketim, seçkin askerlerin kaliteli yemek ihtiyacı, bozulma ve moraldeki
   yemek çeşitliliği yeni erzakların hepsini tanıyor.
+- **Lordlar yol güvenliğine karışıyor.** Yakınındaki çapulcu, haydut veya kurt sürüsünün üstüne
+  yürüyüp haritada savaşıyor; iki taraf gerçek asker kaybı veriyor, dağılan lord daha sonra kendi
+  yurdunda yeniden toplanıyor. Yenilen çetenin sağ kalanları üç gün saklanıp toparlanıyor. Günlük
+  çatışma sayısı birle sınırlı: dünya hareketlenirken haritadaki toplam çete sayısı kabaca aynı kalıyor.
 - **Müzikler dış lisans yükü taşımıyor.** Harita ve savaş parçaları, oyunun Web Audio motorunun
   çalışma anında besteleyip sentezlediği özgün/prosedürel eserlerdir; haricî kayıt kullanılmaz.
 

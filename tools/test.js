@@ -1085,6 +1085,21 @@ test('band population tracks a target that rises over 60 days', () => {
     assert.ok(worst <= 4, `refill can't keep up: population fell ${worst} short of target`);
 });
 
+test('world battle: a lord hunts and disperses a nearby outlaw band', () => {
+    const g = H.world({ seed: 24 });
+    const lord = g.state.npcParties.find(n => n.lordId);
+    const band = g.state.npcParties.find(n => n.type === 'bandit');
+    lord.x = lord.targetX = 4500; lord.y = lord.targetY = 4500; lord.size = 80; lord.level = 5;
+    band.x = band.targetX = 4600; band.y = band.targetY = 4500; band.size = 6; band.band = 'bandit';
+    g.state.npcParties = [lord, band];
+    g.Game.updateNPCs(0.1);
+    assert.strictEqual(lord.bandTargetId, band.id, 'the lord ignored a nearby outlaw patrol target');
+    assert.strictEqual(g.Game.lordBanditTick(), 1, 'the touching parties did not fight');
+    assert.ok(g.state.npcParties.some(n => n.id === band.id && n.size < 4),
+        'the routed outlaw took no losses or vanished instead of scattering');
+    assert.ok(g.state.npcParties.some(n => n.id === lord.id && n.size < 80), 'the winning lord took no losses');
+});
+
 // --- Bandit lairs (#68) ---
 // Three claims in one run: a lair erodes the region around it, pays out its
 // purse and is removed from the map when cleared, and no lairless world spawns new bands.
@@ -1176,6 +1191,13 @@ test('rumour: every generator produces a story, and a lie only moves the place',
         const target = cities.find(c => c.faction === f2);
         state.campaigns[f1] = { marshalId: 'x', marshalName: 'Mareşal Bahadır',
                                 targetLocId: target.id, day: state.time.day };
+    }
+    // The siege generator has the same conditional nature as war/campaign. A changed patrol
+    // route can legitimately leave day 40 between sieges, so establish its own precondition.
+    if(!state.npcParties.some(n => n.lordId && n.siegeLocId)) {
+        const army = state.npcParties.find(n => n.lordId);
+        const target = cities.find(c => c.faction !== army.faction) || cities[0];
+        army.siegeLocId = target.id;
     }
     Game.RUMORS.forEach((r, i) => assert.ok(cities.some(c => r.run(c, truth)),
         `generator ${i} found nothing to say in any town of a 40-day-old world`));

@@ -2179,4 +2179,6 @@ I18N.dicts.id = {
   "Çelik Eldiven": "Sarung Tangan Baja",
   "Yol Çizmesi": "Sepatu Perjalanan",
   "Çelik Baldırlık": "Pelindung Kaki Baja",
+  "🛡️ {0}, {1} çetesini dağıttı.": "🛡️ {0} membubarkan gerombolan {1}.",
+  "☠️ {0}, {1} ordusunu bozguna uğrattı.": "☠️ {0} mengalahkan pasukan {1}.",
 };

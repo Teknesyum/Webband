@@ -2179,4 +2179,6 @@ I18N.dicts.en = {
   "Çelik Eldiven": "Steel Gauntlets",
   "Yol Çizmesi": "Travel Boots",
   "Çelik Baldırlık": "Steel Greaves",
+  "🛡️ {0}, {1} çetesini dağıttı.": "🛡️ {0} scattered the {1} band.",
+  "☠️ {0}, {1} ordusunu bozguna uğrattı.": "☠️ {0} routed {1}'s army.",
 };

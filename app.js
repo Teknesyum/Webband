@@ -1432,6 +1432,57 @@ const Game = {
         state.npcParties = state.npcParties.filter(n => n.size > 0 || n.lordId);
     },
 
+    // Lords patrol their roads instead of peacefully walking through outlaw parties. At most
+    // one clash resolves per day: the six-hour refill can replace those losses without the
+    // band population oscillating between an empty map and a sudden swarm.
+    LORD_BAND_BATTLES: 1,
+    lordBanditTick() {
+        let lords = state.npcParties.filter(n => n.lordId && n.size > 0);
+        let bands = state.npcParties.filter(n => n.type === 'bandit' && n.size > 0
+                                              && (n.patrolSafeUntil || 0) <= state.time.day);
+        let used = new Set(), fought = 0;
+        for(let lord of lords) {
+            if(fought >= this.LORD_BAND_BATTLES) break;
+            let band = bands.filter(b => !used.has(b.id) && this.dist(lord, b) < 420)
+                            .sort((a, b) => this.dist(lord, a) - this.dist(lord, b))[0];
+            if(!band) continue;
+            used.add(band.id); fought++;
+            // World battles must not consume the shared random stream: diplomacy, quests and
+            // tournament rolls are seeded from it in simulations. A stable id/day roll gives
+            // battle variation without changing every unrelated future event.
+            let roll = salt => {
+                let s = `${lord.id}|${band.id}|${state.time.day}|${salt}`, h = 2166136261;
+                for(let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+                return (h >>> 0) / 4294967296;
+            };
+            let lordPower = lord.size * (1 + (lord.level || 1) * 0.04) * (0.85 + roll(1) * 0.3);
+            let bandPower = band.size * ((BAND_KINDS[band.band] || {}).beast ? 1.2 : 1)
+                          * (0.85 + roll(2) * 0.3);
+            if(lordPower >= bandPower) {
+                lord.size = Math.max(5, Math.round(lord.size * (0.88 + roll(3) * 0.08)));
+                band.size = Math.round(band.size * (0.15 + roll(4) * 0.25));
+                if(band.size < 4) {
+                    // Routed survivors scatter rather than despawn. This keeps the number of
+                    // map parties stable; the same band needs a few days to regroup before a
+                    // lord can farm it again.
+                    band.size = Math.max(1, band.size);
+                    band.patrolSafeUntil = state.time.day + 3;
+                    this.news(T`🛡️ ${T(lord.name)}, ${T(band.name)} çetesini dağıttı.`);
+                }
+            } else {
+                band.size = Math.max(3, Math.round(band.size * (0.78 + roll(5) * 0.12)));
+                lord.size = Math.round(lord.size * (0.20 + roll(6) * 0.25));
+                if(lord.size < 8) {
+                    lord.size = 0;
+                    state.lordRespawn[lord.lordId] = state.time.day + 4 + Math.floor(roll(7) * 6);
+                    this.news(T`☠️ ${T(band.name)}, ${T(lord.name)} ordusunu bozguna uğrattı.`);
+                }
+            }
+        }
+        state.npcParties = state.npcParties.filter(n => n.size > 0);
+        return fought;
+    },
+
     // The continent is 9000 units, your view is ~500: you see ~1% of the map at any moment.
     // With 13 bands roaming, a player was seeing 0.3 bands a day — once every three days, and
     // hunting for a *specific* band was hopeless. So the population is held at a target rather
@@ -2761,6 +2812,34 @@ const Game = {
                 }
             }
 
+            // A nearby lord patrols toward outlaws. Actual losses are resolved once per day
+            // by lordBanditTick; movement remains visible continuously on the campaign map.
+            let patrolCampaign = npc.lordId && state.campaigns[npc.faction];
+            let campaignTarget = patrolCampaign && LOCATIONS.find(l => l.id === patrolCampaign.targetLocId);
+            if(campaignTarget && !npc.siegeLocId) {
+                npc.bandTargetId = null;
+                npc.targetX = campaignTarget.x;
+                npc.targetY = campaignTarget.y;
+            } else if(npc.lordId && !hostile && !npc.siegeLocId) {
+                npc.bandScanCd = (npc.bandScanCd || 0) - dt;
+                let outlaw = state.npcParties.find(b => b.id === npc.bandTargetId && b.type === 'bandit' && b.size > 0
+                                                    && (b.patrolSafeUntil || 0) <= state.time.day);
+                if(!outlaw && npc.bandScanCd <= 0) {
+                    let best = 900;
+                    state.npcParties.forEach(b => {
+                        if(b.type !== 'bandit' || b.size <= 0 || (b.patrolSafeUntil || 0) > state.time.day) return;
+                        let d2 = this.dist(b, npc);
+                        if(d2 < best) { best = d2; outlaw = b; }
+                    });
+                    npc.bandScanCd = 1;
+                    npc.bandTargetId = outlaw ? outlaw.id : null;
+                }
+                if(outlaw && this.dist(outlaw, npc) < 1100) {
+                    npc.targetX = outlaw.x;
+                    npc.targetY = outlaw.y;
+                }
+            }
+
             // Wolves burst out from among the trees: a pack in the forest senses you and
             // charges. The charge range depends on sight — it used to be a fixed 700, meaning
             // the pack closed in at ×2 speed while you could only see it from 125 units away,
@@ -3865,6 +3944,7 @@ const Game = {
         this.campaignTick();    // marshal selection, campaign target, calling the player
         this.envoyTick();       // a companion sent as envoy comes back with an answer (#69)
         this.banditTick();      // bandits hit caravans on the road
+        this.lordBanditTick();  // lords clear nearby outlaw parties; refill holds their population steady
         this.siegeTick();       // siege camp: preparation, starvation, relief army (#25)
 
         Nobles.dailyTick();
