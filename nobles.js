@@ -984,6 +984,41 @@ const Nobles = {
     },
 
     // ---------- COURTSHIP ----------
+    spouseMenu(ladyId) {
+        let L = this.lady(ladyId);
+        if(!L || state.player.spouse !== ladyId) return;
+        let used = (state.spouseTalkDay || -99) === state.time.day;
+        let disabled = used ? ' disabled style="opacity:0.4"' : '';
+        Game.showModal(`<div style="display:flex;gap:1.5rem;align-items:center">${this.portraitCss(L,140)}
+            <div><h3 style="margin:0">${T(L.name)}</h3><p style="font-style:italic">"Eve ne zaman döneceksin? Ama önce otur; konuşacaklarımız var."</p>
+            <p style="font-size:var(--fs-sm);color:var(--text-muted)">Eşin günlük 50 dinar getirir, +5 birlik kapasitesi sağlar ve savaşta yanında süvari olarak dövüşür.</p></div></div>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem">
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','talk')">💬 Dertleş (+5 moral)</button>
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','counsel')">🗺️ Savaş meclisi (+35 liderlik XP)</button>
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','court')">🏛️ Saray desteği (hanedana +2 ilişki)</button>
+            <button class="btn" onclick="Game.closeModal()">${T`Kapat`}</button></div>
+            ${used ? '<p style="color:var(--text-muted);font-size:var(--fs-sm);margin-top:0.7rem">Bugün zaten birlikte vakit geçirdiniz.</p>' : ''}`);
+    },
+
+    spouseAction(ladyId, action) {
+        let L = this.lady(ladyId);
+        if(!L || state.player.spouse !== ladyId || state.spouseTalkDay === state.time.day) return;
+        state.spouseTalkDay = state.time.day;
+        let result;
+        if(action === 'counsel') {
+            Game.addProficiencyXp('leadership', 35);
+            result = 'Harita ve erzak üstünde uzun uzun konuştunuz. Birliğin komutası daha berrak geliyor. (+35 liderlik XP)';
+        } else if(action === 'court') {
+            LORDS.filter(l => l.faction === L.faction).forEach(l => this.addRel(l.id, 2));
+            result = 'Eşin kendi hanesine mektup yazdı; sarayda adın daha sıcak anılacak. (hanedana +2 ilişki)';
+        } else {
+            Game.addMorale(5);
+            result = 'Yolun yükünü paylaştınız. Askerler de komutanlarının yüzünün güldüğünü gördü. (+5 moral)';
+        }
+        Game.updateTopBar();
+        Game.showModal(`<h3>${T(L.name)}</h3><p>${result}</p><button class="btn primary" onclick="Nobles.spouseMenu('${ladyId}')">Geri</button>`);
+    },
+
     courtMenu(ladyId) {
         let L = this.lady(ladyId);
         let a = this.aff(ladyId);
@@ -991,11 +1026,7 @@ const Nobles = {
         let g = this.lord(L.guardianId);
         let rival = state.rivals[ladyId];
 
-        if(state.player.spouse === ladyId) {
-            return Game.showModal(`<div style="display:flex;gap:1.5rem;align-items:center">${this.portraitCss(L,140)}
-                <div><h3 style="margin:0">${T(L.name)}</h3><p style="font-style:italic">${T`"Eve ne zaman döneceksin?"`}</p></div></div>
-                <button class="btn" style="margin-top:1rem" onclick="Game.closeModal()">${T`Kapat`}</button>`);
-        }
+        if(state.player.spouse === ladyId) return this.spouseMenu(ladyId);
 
         let html = `<div style="display:flex;gap:1.5rem;align-items:flex-start">
             ${this.portraitCss(L, 140)}

@@ -1464,6 +1464,19 @@ test('marriage: a married player cannot replace their spouse with a second weddi
     assert.strictEqual(state.player.party.filter(t => t.isSpouse).length, 1, 'more than one spouse joined the party');
 });
 
+test('marriage: spouse council gives one useful daily action, not a blank dialogue', () => {
+    const g = H.world({ seed: 42 });
+    const { Nobles, state, Game } = g;
+    const spouse = Nobles.courtables()[0];
+    state.player.spouse = spouse.id;
+    state.player.proficiencies.leadership = { level:1, xp:0, next:100, focus:1 };
+    Nobles.spouseAction(spouse.id, 'counsel');
+    assert.strictEqual(state.player.proficiencies.leadership.xp, 52.5, 'spouse council gave no leadership benefit');
+    Nobles.spouseAction(spouse.id, 'counsel');
+    assert.strictEqual(state.player.proficiencies.leadership.xp, 52.5, 'spouse action could be farmed repeatedly in one day');
+    assert.strictEqual(Game.getPartyCapacity(), 17, 'marriage benefit disappeared while speaking to spouse');
+});
+
 test('peace: a treaty lifts the player siege against the new partner', () => {
     const g = H.world({ seed: 41 });
     const { Game, state, FACTIONS, LOCATIONS } = g;
