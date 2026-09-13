@@ -15,7 +15,8 @@ başlangıç ekranının sağ alt köşesinde yazar.
 - **Yol olayı dokunmayı çalmıyor.** Haritaya basılıyken açılan rastgele olay, aynı parmağın
   bırakılmasını bir seçenek tıklaması saymıyor; kısa dokunma kilidinden sonra seçim normal çalışıyor.
 - **Turnuva hedefi zafer anında tamamlanıyor.** “Turnuva şampiyonu” hedefi artık ertesi günün
-  dünya güncellemesini beklemiyor; hem turnuva ağacında hem eski arena turnuvasında ödülü hemen veriyor.
+  dünya güncellemesini beklemiyor. Yeni takım turnuvası ve eski arena yolu aynı sonuç hook'una
+  bağlandı; sayaç, hedef ve turnuva görevi tek noktadan ve yalnız gerçek zaferde çalışıyor.
 - **“Sisteki Nokta” görevi kaldırıldı.** Gizli koordinat arayıp sıcak/soğuk bildirimi bekleten
   görev artık hiçbir görev verenden çıkmıyor; tanımı ve kullanılmayan çevirileri de temizlendi.
 - **Yol kenarında geçen saatler gerçekten geçiyor.** Yaralıyla ilgilenirken, fırtınayı beklerken

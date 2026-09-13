@@ -2173,7 +2173,8 @@ const Game = {
         else state.player.ambition = { id, day: state.time.day };
         if(typeof Quests !== 'undefined') Quests.render();
     },
-    // Daily tick: if the selected goal's condition is met, give the reward and open the chain
+    // Daily fallback plus immediate event hooks: if the selected goal's condition is met,
+    // give the reward and open the chain. Tournament wins call this in the result hook itself.
     ambitionTick() {
         if(this.grudgeList().length) state.player.hadGrudge = true;   // "kan bedeli" kapanabilsin (kayda girer)
         let a = this.ambition();
@@ -3726,6 +3727,16 @@ const Game = {
                     `<button class="btn" style="text-align:left" onclick="Game.roadChoice(${i}, event)">${ch.label(ctx)}</button>`).join('')}
             </div>`);
         return ev.id;
+    },
+    // One result hook for every tournament implementation. Keeping the win counter, ambition
+    // and quest event together prevents one arena path from waiting until the daily fallback.
+    tournamentFinished(won, details = {}) {
+        if(won) {
+            state.player.tourneyWins = (state.player.tourneyWins || 0) + 1;
+            state.pendingDedication = true;
+            this.ambitionTick();
+        }
+        Quests.emit('tournament_end', Object.assign({ won: !!won }, details));
     },
 
     // Time spent on a roadside choice belongs to the moving world too. Advancing roaming
@@ -8190,16 +8201,10 @@ const Game = {
             if(!t.paid) {
                 t.paid = true;
                 state.player.money += pay;
-                if(t.champion.you) {
-                    state.player.tourneyWins = (state.player.tourneyWins || 0) + 1;   // ambition chain (#53/1.4)
-                    state.pendingDedication = true;   // a win can still be dedicated to a lady in the hall
-                    this.ambitionTick();              // finish the selected champion goal immediately
-                }
                 (state.tourneyChampions || (state.tourneyChampions = {}))[t.locId] =
                     { name: t.champion.name, day: state.time.day };
-                // The quests that watch the tournament now count rounds survived, not targets hit:
-                // the bracket has no score. `score` rides along for anything still reading the old name.
-                Quests.emit('tournament_end', { won: !!t.champion.you, wins: t.wins, score: t.wins });
+                // The bracket has no hit score; rounds survived ride as both names for old consumers.
+                this.tournamentFinished(!!t.champion.you, { wins: t.wins, score: t.wins });
                 this.updateTopBar();
             }
             let won = this.TOURNEY_PRIZE.slice(0, t.wins).reduce((a, b) => a + b, 0);

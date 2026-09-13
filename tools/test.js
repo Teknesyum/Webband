@@ -686,6 +686,21 @@ test('tournament: a 4v4 round spawns two complete, colour-coded teams', () => {
     Battle.active = false;
 });
 
+test('tournament: the shared result hook completes the ambition immediately and only on a win', () => {
+    const gh = H.world({ seed: 123 });
+    const { Game, state } = gh;
+    state.player.ambition = { id:'champion', day:state.time.day };
+    state.player.ambitionsDone = [];
+    const wins = state.player.tourneyWins || 0;
+    Game.tournamentFinished(false, { score:0 });
+    assert.strictEqual(state.player.tourneyWins || 0, wins, 'a tournament loss incremented the win hook');
+    assert.strictEqual(state.player.ambition.id, 'champion', 'a loss completed the champion ambition');
+    Game.tournamentFinished(true, { score:3 });
+    assert.strictEqual(state.player.tourneyWins, wins + 1, 'the win hook did not increment the tournament counter');
+    assert.ok(!state.player.ambition && state.player.ambitionsDone.includes('champion'),
+        'the shared result hook deferred ambition completion until day end');
+});
+
 test('encounter: the announced band kind wins over a stale global encounter id', () => {
     const gw = H.world({ seed: 15 });
     const { Game, state, Battle } = gw;
