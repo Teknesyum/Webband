@@ -1038,6 +1038,16 @@ test('wait: world parties receive the same fourfold camping acceleration as the 
     assert.strictEqual(Game.npcWorldDelta(0.5), 0.5 * Game.TIME_FLOW * Game.WAIT_SCALE);
 });
 
+test('wait: map orders cannot cancel a running camp', () => {
+    const g = H.world({ seed: 38 });
+    const { Game, state } = g;
+    state.player.status = 'waiting';
+    state.player.wait = { until: 99 };
+    Game.setTarget({ x:state.player.x + 500, y:state.player.y + 500 });
+    assert.strictEqual(state.player.status, 'waiting');
+    assert.strictEqual(state.player.targetLocation, null, 'a map order escaped the camp lock');
+});
+
 test('ambition: honourably releasing the last feuding lord completes blood money immediately', () => {
     const g = H.world({ seed: 34 });
     const { Game, state, LORDS } = g;

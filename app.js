@@ -5344,6 +5344,7 @@ const Game = {
 
     startTargetDrag(e) {
         if(e.button !== 0 || Battle.active || TournamentMinigame.active) return;
+        if(state.player.wait) return;
         if(state.player.status !== 'moving' || !state.player.targetLocation) return;
         let m = this.mapPos(e);
         if(this.dist(state.player.targetLocation, m) > this.targetGrabRadius()) return;
@@ -5372,6 +5373,7 @@ const Game = {
 
     endTargetDrag(e) {
         if(!this.dragTarget) return;
+        if(state.player.wait) { this.dragTarget = null; this.mapCanvas.style.cursor = ''; return; }
         let moved = this.dragTarget.moved;
         this.dragTarget = null;
         this.mapCanvas.style.cursor = '';
@@ -5382,6 +5384,7 @@ const Game = {
 
     // Click and drag use the same target selection: locks onto a settlement/NPC if one is nearby.
     setTarget(m) {
+        if(state.player.wait) return;
         for(let loc of LOCATIONS) {
             if(this.dist(loc, m) < 36) { state.player.targetLocation = loc; state.player.status = 'moving'; return; }
         }
@@ -5401,7 +5404,7 @@ const Game = {
     handleMapClick(e) {
         if(Battle.active || TournamentMinigame.active) return;   // map input is ignored while a battle is open (#42)
         // Raiding, like captivity, holds you in place: you can't walk while emptying the storehouse (#49)
-        if(state.player.status === 'raiding' || state.player.status === 'prisoner') return;
+        if(state.player.status === 'raiding' || state.player.status === 'prisoner' || state.player.wait) return;
         if(this.suppressClick) { this.suppressClick = false; return; }
         this.setTarget(this.mapPos(e));   // the settlement / NPC / empty-area distinction is in setTarget
     },

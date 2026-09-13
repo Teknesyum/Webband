@@ -5,6 +5,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Kamptan hareket emri verilemiyor.** Bekleme sürerken haritaya tıklama, hedef sürükleme ve doğrudan
+  rota atama yok sayılıyor; kamp yalnız süre dolunca ya da karşılaşma kesince bitiyor.
+
 - **Beklerken kamptasın.** Haritada zaman geçirirken oyuncu birliği atlı/ayaklı birlik yerine
   çadır sembolüyle gösteriliyor; isim etiketinde de kamp işareti var.
 
