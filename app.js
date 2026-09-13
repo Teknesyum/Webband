@@ -2610,6 +2610,11 @@ const Game = {
         return !!(hostile || npc.trade);
     },
 
+    mapPartyIsFoe(npc) {
+        return npc.type === 'bandit' || this.atWar(this.playerFaction(), npc.faction)
+            || npc.playerTargetId === 'player';
+    },
+
     campProtected() { return !!state.player.wait; },
 
     partiesTargetEachOther(npc) {
@@ -4985,7 +4990,7 @@ const Game = {
             // `npc.type === 'bandit'` covers every roaming band -- bandit, wolf, forest and
             // mountain all come out of `spawnBand` with that type; `npc.band` does not, because
             // caravans and villagers carry a `BAND_KINDS` entry of their own.
-            let foe = npc.type === 'bandit' || this.atWar(pf, npc.faction);
+            let foe = this.mapPartyIsFoe(npc);
             let friend = !foe && !!npc.faction && (npc.faction === pf || this.allied(pf, npc.faction));
             let txtCol = foe ? '#ff6b5a' : friend ? '#7fd4ff' : '#d8d2c4';
             this.mapLabel(ctx, `${foe ? '⚔ ' : ''}${shortName} (${npc.size})`, npc.x, npc.y + 50, txtCol, nCol);

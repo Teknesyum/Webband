@@ -1395,6 +1395,18 @@ test('map encounter: a friendly lord cannot force a conversation by bumping into
     assert.ok(Nobles.lord(lord.lordId), 'the lord is no longer available for player-initiated talk');
 });
 
+test('map labels: a lord actively pursuing the player is marked hostile outside a formal war', () => {
+    const g = H.world({ seed: 38 });
+    const { Game, state } = g;
+    const lord = state.npcParties.find(n => n.lordId);
+    state.relations[lord.lordId] = -50;
+    assert.ok(!Game.atWar(Game.playerFaction(), lord.faction), 'test lord unexpectedly starts at war');
+    lord.playerTargetId = 'player';
+    assert.ok(Game.mapPartyIsFoe(lord), 'an actively pursuing hostile lord has no red-label state');
+    lord.playerTargetId = null;
+    assert.ok(!Game.mapPartyIsFoe(lord), 'a non-pursuing non-war lord remains marked as a foe');
+});
+
 // --- Bandit lairs (#68) ---
 // Three claims in one run: a lair erodes the region around it, pays out its
 // purse and is removed from the map when cleared, and no lairless world spawns new bands.
