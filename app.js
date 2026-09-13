@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.07', date: '2026-09-13', name: 'Kum Meydanı' };  // the version name is not translated
+const VERSION = { no: '1.08', date: '2026-09-13', name: 'Boş Çadır' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -2508,7 +2508,7 @@ const Game = {
 
         // Six wolves don't jump a large army: a band setting an ambush also does the math.
         // (The `backOff` branch in the encounter only runs when `!ambush`, so it must be excluded here.)
-        let mine = state.player.party.filter(t => !t.wounded).length + 1;
+        let mine = this.fieldSize();
         let lurker = state.npcParties.find(n => n.type === 'bandit'
             && this.dist(n, state.player) < Math.min(this.AMBUSH_RANGE, this.spotRange(n))
             && mine < n.size * 1.5
@@ -2592,6 +2592,9 @@ const Game = {
     // Escape in an ambush isn't disabled, it's expensive: the chance to slip away while surrounded is halved.
     // The multiplier lives here so the percentage shown on screen matches the percentage the roll uses.
     AMBUSH_FLEE: 0.5,
+    // Who actually steps onto the field: the leader plus the unwounded (#116). `Battle.start`
+    // filters the wounded out, so every announcement has to ask this and not `party.length`.
+    fieldSize() { return state.player.party.filter(t => !t.wounded).length + 1; },
     fleeChance(npc) {
         // Ratio, not difference: taking the speed difference linearly (0.45 + diff/90), even
         // a large army escaped Kergit horsemen at 89%. As a ratio, equal speed gives 24%, 1.5x speed gives 84%.
@@ -2610,7 +2613,9 @@ const Game = {
             alert(T`Geride bıraktın — atlarını sürüp uzaklaştın. (Kaçış şansı %${Math.round(chance*100)})`);
         } else {
             alert(T`Kaçamadın, yolunu kestiler! (Kaçış şansı %${Math.round(chance*100)})`);
-            Battle.start(npc ? npc.name : 'Kurt Sürüsü', npc ? npc.size : 6, null, (npc && npc.faction) || '');
+            // The announced count, not today's: `npc.size` may have moved since the modal (#116)
+            Battle.start(npc ? npc.name : 'Kurt Sürüsü', state.encounterSize || (npc ? npc.size : 6),
+                         null, (npc && npc.faction) || '');
         }
     },
     // "Send your troops": let the engine itself resolve the battle without opening the arena (#30)
@@ -2618,7 +2623,7 @@ const Game = {
         let npc = state.npcParties.find(n => n.id === npcId);
         if(!npc) return this.closeModal();
         this.closeModal();
-        Battle.start(npc.name, npc.size, null, npc.faction || '', null, true);
+        Battle.start(npc.name, state.encounterSize || npc.size, null, npc.faction || '', null, true);
     },
 
     isHostile(npc) {
@@ -2804,8 +2809,7 @@ const Game = {
     troopChatter(npc) {
         let party = state.player.party;
         if(!party.length) return null;
-        let mine = party.filter(t => !t.wounded).length + 1;
-        let ratio = npc.size / Math.max(1, mine);
+        let ratio = npc.size / Math.max(1, this.fieldSize());
         let fs = this.foodStock(), lead = this.profLvl('leadership'), mo = this.morale();
         let pool = ratio >= 1.3 + (lead - 1) * 0.08 || mo < 25 ? 'scared'
                  : fs.total < fs.need ? 'hungry'
@@ -2847,9 +2851,16 @@ const Game = {
 
         let dialog = this.getHumorousDialog(npc.type, npc);
 
+        // The two numbers in this modal are the two rosters that will actually stand on the
+        // field (#116). The enemy's is frozen here, because the battle can start seconds later
+        // — from the button, or from a failed escape — and a band's size moves in between; the
+        // player's counts the unwounded only, since `Battle.start` leaves the wounded in camp.
+        state.encounterSize = npc.size;
+        let hurt = state.player.party.filter(t => t.wounded).length;
         let html = `<h3>${ambush === 'ambush' ? T('🌲 Pusu!') : ambush === 'raid' ? T('🔥 Baskın!') : T('⚔️ Karşılaşma:')} ${this.npcName(npc)}</h3>
         <p style="margin-top:0.5rem;">${T`Düşman grup büyüklüğü: <b>${npc.size}</b> kişi</p>
-        <p>Senin grubun: <b>${state.player.party.length + 1}</b> kişi`}</p>`;
+        <p>Senin grubun: <b>${this.fieldSize()}</b> kişi`}</p>`
+        + (hurt ? `<p style="color:var(--text-muted);font-size:var(--fs-sm);margin-top:-0.4rem">${T`${hurt} yaralı kampta kalır, savaşa girmez.`}</p>` : '');
 
         if(ambush === 'ambush') {
             // You didn't notice: the battle starts with you surrounded (Battle.start reads this)
@@ -2864,7 +2875,7 @@ const Game = {
         // A band can decide it's "not worth it" and back off. An animal pack doesn't know renown
         // or reputation, it knows numbers: it jumps a small party, but weighs a large army from a distance and backs off (#79).
         let bk = BAND_KINDS[npc.band] || {};
-        let strong = state.player.party.filter(t => !t.wounded).length + 1 >= npc.size * 1.5;
+        let strong = this.fieldSize() >= npc.size * 1.5;
         let backOff = !ambush && npc.type === 'bandit' && (bk.beast
             ? strong && Math.random() < 0.5
             : state.time.day <= 14 && Math.random() < 0.25);
@@ -2887,8 +2898,7 @@ const Game = {
             let canFlee = ambush !== 'raid';
             let flee = Math.round(this.fleeChance(npc) * 100);
             // If your army is 1.5x the enemy's, you don't have to step into the arena for every bandit
-            let mine = state.player.party.filter(t => !t.wounded).length + 1;
-            let canAuto = !ambush && mine >= npc.size * 1.5;
+            let canAuto = !ambush && this.fieldSize() >= npc.size * 1.5;
             let chat = this.troopChatter(npc);   // your men have something to say too (#35)
             let prey = this.preyWarning(npc);    // warn before the battle if the reward will be cut (#55)
             html += `<p><i>${dialog}</i></p>
@@ -3038,7 +3048,12 @@ const Game = {
 
         this.ambitionTick();   // did the ambition condition get met (#53/1.4)
         // Honor decays to zero over time but not quickly (#49/#53): one raid takes ~24 days
-        if(state.player.honor) state.player.honor += state.player.honor > 0 ? -0.5 : 0.5;
+        // Infamy is easy to earn and slow to shed (#104): honor climbs back at 0.15 a day, and
+        // not at all on a day you raided. Good honor still fades at the old rate -- a reputation
+        // for decency is the thing you have to keep earning.
+        if(state.player.honor > 0) state.player.honor -= 0.5;
+        else if(state.player.honor < 0 && state.player.lastRaidDay !== state.time.day - 1)
+            state.player.honor = Math.min(0, state.player.honor + 0.15);
         // Expired blood feuds are removed
         Object.keys(state.grudges).forEach(id => { if(!this.hasGrudge(id)) delete state.grudges[id]; });
 
@@ -3200,10 +3215,13 @@ const Game = {
         let avail = pool.filter(e => e.when(ctx) && (!extra || extra(e)));
         if(!avail.length) return null;
         let fresh = avail.filter(e => !recent.includes(e.id));
-        let side = fresh.length ? fresh : avail;
-        let ev = side[Math.floor(Math.random() * side.length)];
+        // With the pool exhausted this used to fall back to the *whole* pool, so the event you
+        // just read could come straight back. `recent` is ordered oldest-first, so the one with
+        // the smallest index is the one you've gone longest without seeing (#94).
+        let ev = fresh.length ? fresh[Math.floor(Math.random() * fresh.length)]
+                              : avail.reduce((a, b) => recent.indexOf(a.id) <= recent.indexOf(b.id) ? a : b);
         recent.push(ev.id);
-        if(recent.length > 6) recent.shift();
+        if(recent.length > 12) recent.shift();
         return ev;
     },
 
@@ -3238,10 +3256,18 @@ const Game = {
     //
     // The roll depends on distance, not the day: one ROAD_CHANCE roll per ROAD_EVERY units,
     // so the expected interval is 4800 units. A party of six covers ~111 units/hour.
-    // Measured (seeds 1-5, 30 days *uninterrupted* on the road): 13-20 events, average 16.
+    // Measured (seeds 1-5, 30 days *uninterrupted* on the road): average 15.6 events, mean
+    // gap 4968 units, shortest gap 3663 — the rate is unchanged, the pile-up is gone.
     // In a real game you don't spend the whole day on the road, so you'll see about half that.
     ROAD_EVERY: 1200,
-    ROAD_CHANCE: 0.25,
+    ROAD_CHANCE: 0.5,
+    // Silence after an event (#94). The roll used to be memoryless: two events 1200 units
+    // apart was a 25% occurrence and three in a row 6%, which is exactly the "a journey turns
+    // into a chain of events" complaint. The counter now goes negative after an event, so no
+    // dice are thrown at all for the next ROAD_QUIET units. The chance is doubled to pay for
+    // it: quiet 2400 + a geometric mean of 2400 leaves the old ~4800-unit average interval,
+    // but back-to-back is no longer unlikely, it is impossible.
+    ROAD_QUIET: 2400,
     ROAD_EVENTS: [
         { id: 'beggar', icon: '🥖', when: c => c.money >= 30,
           text: () => T`Yol kenarında oturan yaşlı bir adam elini uzattı. "Üç gündür bir şey yemedim," diyor.`,
@@ -3583,7 +3609,9 @@ const Game = {
         if(state.roadWalked < this.ROAD_EVERY) return null;
         state.roadWalked -= this.ROAD_EVERY;
         if(Math.random() > this.ROAD_CHANCE) return null;
-        return this.roadEvent();
+        let ev = this.roadEvent();
+        if(ev) state.roadWalked = -this.ROAD_QUIET;   // the road goes quiet for a while (#94)
+        return ev;
     },
 
     roadEvent() {
@@ -3770,8 +3798,13 @@ const Game = {
         // than one open tournament on average, so the player almost never walked into one: the
         // board is topped up towards TOURNEY_OPEN instead, and each still closes on its own.
         let free = LOCATIONS.filter(l => l.type === 'city' && !state.activeTournaments[l.id]);
-        while(Object.keys(state.activeTournaments).length < this.TOURNEY_OPEN && free.length && Math.random() < 0.5)
-            state.activeTournaments[free.splice(Math.floor(Math.random() * free.length), 1)[0].id] = true;
+        // The roll used to sit in the `while` condition, so the first failed coin toss ended the
+        // whole top-up for the day and the board settled at ~1.35 open instead of 3. Each empty
+        // slot gets its own roll now; which city fills it is still random.
+        while(Object.keys(state.activeTournaments).length < this.TOURNEY_OPEN && free.length) {
+            let l = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+            if(Math.random() < 0.5) state.activeTournaments[l.id] = true;
+        }
         // End some tournaments
         for(let cid in state.activeTournaments) {
             if(Math.random() < 0.3) delete state.activeTournaments[cid];
@@ -5188,7 +5221,7 @@ const Game = {
                         () => this.besiegeLocation(loc, !state.player.vassalOf));
         } else {
             let chickenQ = state.player.quests.find(q => q.id === 'crazy_chickens' && q.data.locId === loc.id);
-            if(chickenQ) this.addBtn(ac, T('🐔 Tavukları Kovala (15 sn)'), () => TournamentMinigame.start({ mode:'chicken', goal:8, time:15 }));
+            if(chickenQ) this.addBtn(ac, T('🐔 Tavukları Kovala (25 sn)'), () => TournamentMinigame.start({ mode:'chicken', goal:16, time:25 }));
             if(loc.owner === 'player' && loc.type !== 'village') {
                 this.addBtn(ac, T`🛡️ Garnizon (${(loc.garrison || []).length} asker)`, () => this.openGarrison(loc));
                 this.addBtn(ac, T`📦 Depo (${(loc.storage || []).length} kalem)`, () => this.openStorage(loc));
@@ -6062,6 +6095,8 @@ const Game = {
         let edge = Math.min(0.25, (this.profLvl('trade') - 1) * 0.02);
         let loc = this._marketLoc;
         let mult = (loc ? this.priceMult(loc, id) : 1) * (selling ? 0.7 * (1 + edge) : 1 - edge);
+        // A village that has heard what you do to villages doesn't haggle kindly (#104)
+        if(loc && loc.type === 'village' && this.infamyPenalty() > 0) mult *= selling ? 0.9 : 1.1;
         return Math.max(1, Math.floor(it.basePrice * mult));
     },
     // The three numbers that decide every purchase — room left, days of food, purse — printed
@@ -7852,9 +7887,13 @@ const Game = {
     ARENA_BET_MAX: 1000,
     openArena(loc) {
         let lv = state.player.stats.level;
+        state.arenaLocId = loc.id;   // the purse is the town's, so the fight has to remember which town (#115)
         this.showModal(`<h3>${T`🤺 ${T(loc.name)} Arenası`}</h3>
         <p style="color:var(--text-muted)">${T`Kum meydanında tahta silahlarla dövüşülür. Ganimet, nam ve esaret yok —
-        kazanan da kaybeden de kendi ayağıyla çıkar. Kazandığın tek şey <b>yeterlilik</b>, ödediğin tek bedel <b>zaman</b>.`}</p>
+        kazanan da kaybeden de kendi ayağıyla çıkar. Kazanana kesenin dibinden birkaç kuruş çıkar; asıl kazandığın <b>yeterlilik</b>,
+        ödediğin tek bedel <b>zaman</b>.`}</p>
+        <p style="color:var(--text-muted);font-size:var(--fs-sm)">${T`Maç başı <b>${this.arenaPurse()} dinar</b>.
+        Üst üste 3. galibiyette +25, 5.'te +60 dinar; yenilgide seri sıfırlanır.`}</p>
         <div class="action-list" style="margin-top:1rem">
             ${Battle.ARENA_FOES.map((f, i) => `<button class="btn" onclick="Game.startArena(${i})">
                 <b>${T(f.name)}</b> <span style="color:var(--text-muted)">${T`· Sv. ${Math.max(1, lv + f.dLv)} · ~${f.xp} XP`}</span>
@@ -7862,6 +7901,15 @@ const Game = {
         </div>`);
     },
     startArena(idx) { this.closeModal(); Battle.startArena(idx); },
+    // The arena paid nothing at all, so a loss cost a day and a win cost three hours for no
+    // coin either (#115). It is still not a living: the purse is a town's pocket change, and
+    // a rich town's arena pays better than a poor one's.
+    ARENA_PURSE: 10,
+    arenaPurse() {
+        let loc = LOCATIONS.find(l => l.id === state.arenaLocId);
+        let p = loc ? loc.prosperity : 50;
+        return Math.max(1, Math.round(this.ARENA_PURSE * Math.max(0.5, Math.min(1.5, p / 50))));
+    },
     finishArena(foe, won) {
         let wp = state.player.equipment.weapon ? state.player.equipment.weapon.weaponType : 'oneHanded';
         if(!state.player.proficiencies[wp]) wp = 'oneHanded';
@@ -7870,21 +7918,29 @@ const Game = {
         // risk, because nobody dies in the arena and HP is floored at 5. The sand teaches
         // nothing to the man lying in it, so a loss is now only the day it costs (#99).
         if(!won) {
+            state.player.arenaStreak = 0;
             this.advanceTime(24);
             this.updateTopBar();
             alert(T`${T(foe.name)} seni yere serdi. Bir gün kendine gelemedin.`
-                + T`\n\nYenilgiden ustalık çıkmaz — bu maçtan yeterlilik kazanmadın.`);
+                + T`\n\nYenilgiden ustalık çıkmaz — bu maçtan yeterlilik kazanmadın, seri de bozuldu.`);
             return;
         }
         let xp = foe.xp;
         let moveProf = state.player.equipment.horse ? 'riding' : 'athletics';
         this.addProficiencyXp(wp, xp);
         this.addProficiencyXp(moveProf, Math.round(xp * 0.6));
+        // A series is five fights: the third and the fifth carry a bonus, then it starts over.
+        // Without the reset the fifth win would keep paying its 60 on every fight after it.
+        let streak = (state.player.arenaStreak || 0) + 1;
+        let purse = this.arenaPurse(), bonus = streak === 3 ? 25 : streak === 5 ? 60 : 0;
+        state.player.arenaStreak = streak === 5 ? 0 : streak;
+        state.player.money += purse + bonus;
         this.advanceTime(3);          // a few hours in the ring
         this.updateTopBar();
         alert(T`${T(foe.name)} kumun üstünde kaldı, kalabalık ıslık çalıyor.`
             + T`\n\n+${xp} ${this.profName(wp)}, +${Math.round(xp * 0.6)} ${this.profName(moveProf)} yeterlilik XP'si.`
-            + T`\nArena para vermez — burada yalnız ustalık kazanılır.`);
+            + T`\n+${purse} dinar maç ücreti.`
+            + (bonus ? T`\n+${bonus} dinar seri primi (${streak}. galibiyet).` : ''));
     },
 
     // --- TOURNAMENT (#122) ---
@@ -9155,7 +9211,20 @@ const Game = {
     // Price/volunteer multiplier: at 60 dishonor volunteers halve, mercenaries cost 60% more
     // Now two-sided: negative honor scares villagers off, positive honor opens the gate (#53/1.5).
     // The negative side is the same as the old raider penalty, so #49's measurements still hold.
-    infamyPenalty() { return Math.max(-0.3, Math.min(0.6, -this.honor() / 100)); },
+    infamyPenalty() { return Math.max(-0.3, Math.min(0.95, -this.honor() / 100)); },
+    // What the village asks of you, in one place (#104). The stigma used to be linear and
+    // barely there: at the worst reputation in the game volunteers only fell to x0.4 and the
+    // fee went 10 -> 16 denars, so a village-burner recruited about as well as a clean lord.
+    // The penalty side is cubed for the turnout and squared for the fee; the *bonus* side of
+    // honor stays linear, because being liked should open a door, not print money.
+    // Measured: clean 10 denars x1.00 turnout; one raid (honor -12) 22 denars x0.68;
+    // "Köy Yakan" (-36) 60 denars x0.26; rock bottom (-95) 230 denars and nobody comes out.
+    volunteerTerms() {
+        let pen = this.infamyPenalty();
+        return pen > 0
+            ? { pen, cost: Math.round(10 * Math.pow(1 + pen * 4, 2)), mult: Math.pow(1 - pen, 3) }
+            : { pen, cost: Math.max(5, Math.round(10 * (1 + pen))), mult: 1 - pen };
+    },
 
     // --- BLOOD FEUD (#53 item 1.3) ---
     // A lord whose village you burned, whose caravan you robbed, whose prisoner you ransomed never forgets:
@@ -9265,6 +9334,7 @@ const Game = {
         loc.raidedDay = state.time.day;
         state.player.renown = Math.max(0, (state.player.renown || 0) - 6);   // eats the victory's +3 as well
         this.addHonor('raid');            // honor drops, the stigma is just its label (#49/#53)
+        state.player.lastRaidDay = state.time.day;   // no fading on a day you burned a village (#104)
         let owner = this.ownerLord(loc);
         if(owner) this.addGrudge(owner.id);   // the owning lord hunts you for 30 days (#53/1.3)
         if(typeof Nobles !== 'undefined') {
@@ -9287,24 +9357,29 @@ const Game = {
     // How many volunteers to take is a choice. It used to be all-or-nothing:
     // with 3 slots of capacity, a village with 5 volunteers couldn't give you even one recruit.
     recruitVolunteers(loc) {
-        // A villager joins a raider reluctantly, and for a higher price (#49)
-        let pen = this.infamyPenalty();
-        let cost = Math.max(5, Math.round(10 * (1 + pen)));
-        let avail = Math.floor(loc.volunteersAvailable * (1 - pen));
+        // A villager joins a raider reluctantly, and for a higher price (#49, #104)
+        let { pen, cost, mult } = this.volunteerTerms();
+        let avail = Math.floor(loc.volunteersAvailable * mult);
         let space = Math.max(0, this.getPartyCapacity() - state.player.party.length);
         let afford = Math.floor(state.player.money / cost);
         let max = Math.min(avail, space, afford);
 
+        // The stain is usually the reason the tent is empty (#104), so it has to show in
+        // both branches — otherwise a rich raider is told he can't afford a single man.
+        let note = pen > 0 ? `<p style="color:var(--danger);font-size:var(--fs-sm)">${T`${this.infamyLabel()} damgası: köyün yarısı seni görünce ambara saklandı (gönüllü −%${Math.round((1-mult)*100)}, ücret ×${(cost/10).toFixed(1)}).`}</p>`
+          : pen < 0 ? `<p style="color:#7fd8a0;font-size:var(--fs-sm)">${T`${this.honorLabel()} adın buraya da ulaşmış: fazladan gönüllü çıktı, ücreti de kırdılar (+%${Math.round(-pen*100)} gönüllü, −%${Math.round(-pen*100)} ücret).`}</p>` : '';
+
         if(max <= 0) {
             return this.showModal(`<h3>${T`🪖 Gönüllü Topla</h3>
             <p>${avail} gönüllü hazır. Kişi başı ${cost} Dinar.`}</p>
-            <p style="color:var(--danger)">${space <= 0 ? T('Grubunda yer yok.') : T('Bir gönüllüye bile yetecek dinarın yok.')}</p>`);
+            ${note}
+            <p style="color:var(--danger)">${avail <= 0 ? T('Köyden sana tek bir gönüllü çıkmıyor.')
+                : space <= 0 ? T('Grubunda yer yok.') : T('Bir gönüllüye bile yetecek dinarın yok.')}</p>`);
         }
 
         this.showModal(`<h3>${T`🪖 Gönüllü Topla</h3>
         <p>${avail} gönüllü hazır. Kişi başı ${cost} Dinar. En fazla <b>${max}</b> kişi alabilirsin.`}</p>
-        ${pen > 0 ? `<p style="color:var(--danger);font-size:var(--fs-sm)">${T`${this.infamyLabel()} damgası: köyün yarısı seni görünce ambara saklandı (gönüllü −%${Math.round(pen*100)}, ücret +%${Math.round(pen*100)}).`}</p>`
-          : pen < 0 ? `<p style="color:#7fd8a0;font-size:var(--fs-sm)">${T`${this.honorLabel()} adın buraya da ulaşmış: fazladan gönüllü çıktı, ücreti de kırdılar (+%${Math.round(-pen*100)} gönüllü, −%${Math.round(-pen*100)} ücret).`}</p>` : ''}
+        ${note}
         <input type="range" id="recruit-n" min="1" max="${max}" value="${max}" style="width:100%;margin:0.8rem 0"
                oninput="Game.updateRecruitLabel(${cost})">
         <button class="btn primary" id="recruit-btn"
@@ -9317,7 +9392,7 @@ const Game = {
     },
     doRecruit(locId, amount, cost) {
         let loc = LOCATIONS.find(l => l.id === locId);
-        amount = Math.min(amount, loc ? Math.floor(loc.volunteersAvailable * (1 - this.infamyPenalty())) : amount);
+        amount = Math.min(amount, loc ? Math.floor(loc.volunteersAvailable * this.volunteerTerms().mult) : amount);
         let total = amount * cost;
         if(amount < 1) { this.sfx('error'); return alert(T('Alınacak gönüllü yok!')); }
         if(state.player.money < total) { this.sfx('error'); return alert(T('Yeterli dinarın yok!')); }

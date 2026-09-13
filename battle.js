@@ -2137,13 +2137,19 @@ const TournamentMinigame = {
 
         this.spawnTimer -= dt;
         if(this.spawnTimer <= 0) {
+            // A 42px circle alive for 1.2s was a target you could hardly miss (#123). The bird
+            // is smaller, quicker and shrinks further in the closing seconds, and one in four is
+            // a goose that costs you a bird if you grab it. Agility and strength still help --
+            // they just no longer play the game for you.
+            let rush = this.timeLeft <= 5 ? 0.75 : 1;
             this.targets.push({
                 x: 40 + Math.random()*(this.canvas.width-80),
                 y: 40 + Math.random()*(this.canvas.height-80),
-                radius: (42 + agiBonus * 1.2) * (this.gear ? this.gear.size : 1),
-                timeLeft: (1.2 + strBonus * 0.12) * (this.gear ? this.gear.life : 1),
+                radius: (24 + agiBonus * 0.8) * rush * (this.gear ? this.gear.size : 1),
+                timeLeft: (0.8 + strBonus * 0.12) * (this.gear ? this.gear.life : 1),
+                bad: this.mode === 'chicken' && Math.random() < 0.25
             });
-            this.spawnTimer = 0.4 + Math.random()*0.4;
+            this.spawnTimer = 0.25 + Math.random()*0.3;
         }
 
         for(let i=this.targets.length-1; i>=0; i--) {
@@ -2175,7 +2181,7 @@ const TournamentMinigame = {
         this.targets.forEach(t => {
             let alpha = Math.min(t.timeLeft, 1);
             ctx.beginPath(); ctx.arc(t.x,t.y,t.radius,0,Math.PI*2);
-            ctx.fillStyle = `rgba(200,40,40,${alpha})`; ctx.fill();
+            ctx.fillStyle = t.bad ? `rgba(60,110,200,${alpha})` : `rgba(200,40,40,${alpha})`; ctx.fill();
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
             // Shrinking inner
             ctx.beginPath(); ctx.arc(t.x,t.y,t.radius*alpha,0,Math.PI*2);
@@ -2190,8 +2196,14 @@ const TournamentMinigame = {
         for(let i=this.targets.length-1; i>=0; i--) {
             let t = this.targets[i];
             if(Math.sqrt(Math.pow(t.x-mx,2)+Math.pow(t.y-my,2)) <= t.radius) {
-                this.score++;
                 this.targets.splice(i,1);
+                if(t.bad) {   // the goose (#123): grabbing it costs you a bird
+                    this.score = Math.max(0, this.score - 1);
+                    document.getElementById('battle-log-left').innerHTML =
+                        `${T`🦢 Kaz! Elindeki tavuk da kaçtı.`} (${this.score}/${this.goal})`;
+                    break;
+                }
+                this.score++;
                 let msg = `${this.mode === 'chicken' ? T('Yakaladın!') : T('İsabet!')} (${this.score}/${this.goal})`;
                 // Round over: a new draw, a clean field, and a breather between rounds
                 if(this.mode !== 'chicken' && this.score < this.goal && this.score % this.perRound === 0) {

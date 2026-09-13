@@ -438,7 +438,149 @@ test('tournament: eight enter, one is crowned, and the ladder pays per round (#1
         assert.ok(n <= gw.Game.TOURNEY_OPEN, `${n} tournaments open at once`);
         seen += n;
     }
-    assert.ok(seen / 40 > 1.5, `only ${(seen / 40).toFixed(2)} tournaments open on an average day`);
+    // Measured over 5 seeds x 120 days: 2.11 open on an average day, never more than the cap,
+    // and 2.7% of days with none at all.
+    assert.ok(seen / 40 > 1.8, `only ${(seen / 40).toFixed(2)} tournaments open on an average day`);
+});
+
+// --- The arena's purse (#115) ---
+// The sand paid nothing, so three hours in the ring bought proficiency and no coin. It pays
+// pocket change now -- and the streak bonus has to stop, or the fifth win keeps paying its 60
+// on every fight after it.
+test('chicken: a goose costs a bird, and the closing seconds shrink the birds (#123)', () => {
+    reset();
+    const M = g.TournamentMinigame;
+    Object.assign(M, { active: true, mode: 'chicken', goal: 16, gear: null, score: 0, targets: [] });
+    M.canvas = { width: 400, height: 300, getBoundingClientRect: () => ({ left: 0, top: 0 }) };
+    // One spawn per update: zero dt, zero spawn timer, and take the bird straight back off the field.
+    const spawn = (timeLeft, n) => {
+        const out = [];
+        for(let i = 0; i < n; i++) { M.timeLeft = timeLeft; M.spawnTimer = 0; M.update(0); out.push(M.targets.pop()); }
+        return out;
+    };
+    const early = spawn(20, 400), late = spawn(4, 400);
+    assert.strictEqual(late[0].radius / early[0].radius, 0.75,
+        `the closing seconds scale the bird by ${late[0].radius / early[0].radius}`);
+    const geese = early.filter(t => t.bad).length / early.length;
+    between(geese, 0.15, 0.35, 'share of geese among the birds');
+    M.mode = 'tournament'; M.gear = { size: 1, life: 1 };
+    assert.ok(!spawn(20, 100).some(t => t.bad), 'a goose wandered into the tournament minigame');
+
+    M.mode = 'chicken'; M.score = 3;
+    const click = bad => {
+        M.targets = [{ x: 100, y: 100, radius: 20, timeLeft: 1, bad }];
+        M.onClick({ clientX: 100, clientY: 100 });
+    };
+    click(true);
+    assert.strictEqual(M.score, 2, 'grabbing a goose should cost a chicken');
+    click(false);
+    assert.strictEqual(M.score, 3, 'a caught chicken should score');
+    M.score = 0; click(true);
+    assert.strictEqual(M.score, 0, 'a goose at zero should not push the score negative');
+    M.active = false;
+});
+
+test('arena: a bout pays, and the streak bonus starts over at five (#115)', () => {
+    const gw = H.world({ seed: 9 });
+    const { Game, state, LOCATIONS } = gw;
+    const town = LOCATIONS.find(l => l.type === 'city');
+    state.arenaLocId = town.id;
+    town.prosperity = 50;                       // the purse rides on the town's prosperity
+    const foe = { name: 'Arena Gediklisi', xp: 180 };
+
+    assert.strictEqual(Game.arenaPurse(), Game.ARENA_PURSE, 'a middling town pays something other than the base purse');
+    town.prosperity = 100;
+    assert.strictEqual(Game.arenaPurse(), Math.round(Game.ARENA_PURSE * 1.5), 'a rich town is not capped at +50%');
+    town.prosperity = 50;
+
+    state.player.arenaStreak = 0;
+    // The hours in the ring drag wages and food along with them, and a day boundary inside the
+    // loop would show up as a negative purse. The clock is what's being held still, not the payout.
+    const clock = Game.advanceTime;
+    Game.advanceTime = () => {};
+    const pay = [];
+    for(let i = 0; i < 10; i++) {
+        const before = state.player.money;
+        Game.finishArena(foe, true);
+        pay.push(Math.round(state.player.money - before));
+    }
+    const base = Game.ARENA_PURSE;
+    assert.deepStrictEqual(pay, [base, base, base + 25, base, base + 60,
+                                 base, base, base + 25, base, base + 60],
+        `the streak pays ${pay.join(',')}`);
+
+    // A loss breaks it: the next win starts the count from one
+    state.player.arenaStreak = 2;
+    Game.finishArena(foe, false);
+    assert.strictEqual(state.player.arenaStreak, 0, 'the streak survived a defeat');
+    const before = state.player.money;
+    Game.finishArena(foe, true);
+    assert.strictEqual(Math.round(state.player.money - before), base, 'the bonus was paid on the first win after a loss');
+    Game.advanceTime = clock;
+});
+
+// --- Infamy at the recruiting tent (#104) ---
+// A village-burner used to recruit almost as well as a clean lord: x0.4 turnout and a 16-denar
+// fee at the very bottom of the honor scale. The gap has to be felt, and it has to be slow to
+// undo -- otherwise waiting a few days is the whole penalty.
+test('infamy: burning villages empties the recruiting tent, and the stain is slow (#104)', () => {
+    const gw = H.world({ seed: 7 });
+    const { Game, state } = gw;
+    const terms = h => { state.player.honor = h; return Game.volunteerTerms(); };
+
+    const clean = terms(0), raider = terms(-36), worst = terms(-95);
+    assert.strictEqual(clean.cost, 10, 'a clean reputation no longer recruits at the base fee');
+    assert.ok(worst.cost / clean.cost >= 20, `the fee only spreads ${(worst.cost / clean.cost).toFixed(1)}x`);
+    assert.ok(clean.mult / raider.mult >= 3.5 && worst.mult * 20 < 0.01,
+        `turnout spread is too narrow: ${raider.mult.toFixed(3)} / ${worst.mult.toFixed(3)}`);
+    // Honor's good side stays linear -- a good name opens a door, it doesn't print recruits
+    assert.ok(terms(40).mult <= 1.35, 'a good name now hands out free volunteers');
+
+    // One raid is 12 dishonor at 0.15 a day: nearly three months, and nothing fades on the
+    // day of the raid itself.
+    state.player.honor = -12; state.player.lastRaidDay = state.time.day - 1;
+    const frozen = state.player.honor;
+    Game.dailyUpdate();
+    assert.strictEqual(state.player.honor, frozen, 'the stain faded on the day of the raid');
+    state.player.lastRaidDay = -99;
+    let days = 0;
+    while(state.player.honor < 0 && days < 500) { Game.dailyUpdate(); days++; }
+    assert.ok(days >= 60, `one raid washes off in ${days} days`);
+});
+
+// --- The announcement and the roster (#116) ---
+// "Six of them blocked the road" and then seven bandits walk out. The two numbers came from
+// two places: the modal counted the whole party (the wounded included, who stay in camp) and
+// read the band's size at render time, while the battle that starts seconds later -- from the
+// button, or from a failed escape -- read it again. Both sides are read once now.
+test('encounter: the announced roster is the roster that takes the field (#116)', () => {
+    const gw = H.world({ seed: 5 });
+    const { Game, state, Battle } = gw;
+    state.player.party = ['a', 'b', 'c', 'd'].map((k, i) =>
+        ({ id: k, name: 'Svadya Milisi', level: 1, wounded: i >= 2 }));   // two of the four are wounded
+    const npc = { id: 'npc_x', name: 'Çapulcu', type: 'bandit', band: 'looter',
+                  size: 6, x: state.player.x + 10, y: state.player.y, speed: 60, faction: '' };
+    state.npcParties.push(npc);
+    state.encounterCooldown = 0;
+    Game.triggerEncounter(npc, 'ambush');
+
+    const html = gw._sandbox.document.getElementById('modal-body').innerHTML;
+    const nums = [...html.matchAll(/<b>(\d+)<\/b> kişi/g)].map(m => +m[1]);
+    assert.strictEqual(nums.length, 2, 'the encounter window no longer announces two rosters');
+    const [foes, mine] = nums;
+
+    // The band grows between the announcement and the fight -- a caravan raid, a lord's army
+    // rebuilt. The battle must still field what the player was told.
+    npc.size = 9;
+    Game.fleeChance = () => 0;             // the escape fails, the road is cut off
+    Battle.endBattle = () => { Battle.active = false; };
+    Game.fleeEncounter(npc.id);
+
+    const onField = t => Battle.units.filter(u => u.isPlayerTeam === t).length
+                       + Battle.reserves[t ? 'p' : 'e'].length;
+    assert.strictEqual(onField(false), foes, `announced ${foes} enemies, ${onField(false)} took the field`);
+    assert.strictEqual(onField(true), mine, `announced ${mine} of your own, ${onField(true)} took the field`);
+    assert.strictEqual(mine, 3, 'the wounded were counted into the announcement again');
 });
 
 test('speed: morale doesn\'t scale troop speed (the enemy has no morale)', () => {
@@ -821,10 +963,21 @@ function roadSuite() {
         // chance to 1.
         const chance = Game.ROAD_CHANCE;
         Game.ROAD_CHANCE = 1;
-        for(let i = 0; i < 40; i++) Game.roadTick(Game.ROAD_EVERY / 4);
+        const marks = [];
+        let walked = 0;
+        for(let i = 0; i < 40; i++) {
+            walked += Game.ROAD_EVERY / 4;
+            if(Game.roadTick(Game.ROAD_EVERY / 4)) marks.push(walked);
+        }
         Game.ROAD_CHANCE = chance;
         Game.roadEvent = orig;
-        assert.strictEqual(counter, 10, `40×(ROAD_EVERY/4) of travel produced ${counter} events, expected 10`);
+        // Every roll hits (chance 1), so the spacing here is the silence margin alone (#94):
+        // ROAD_EVERY to earn a roll, plus ROAD_QUIET of enforced quiet after each event.
+        const step = Game.ROAD_EVERY + Game.ROAD_QUIET;
+        assert.strictEqual(counter, Math.floor((walked - Game.ROAD_EVERY) / step) + 1,
+            `40×(ROAD_EVERY/4) of travel produced ${counter} events`);
+        marks.slice(1).forEach((d, i) => assert.ok(d - marks[i] >= step,
+            `two events ${d - marks[i]} units apart, silence margin is ${step}`));
     });
 
     test('road: the recent-events window blocks repeats', () => {
@@ -835,7 +988,7 @@ function roadSuite() {
         const a = Game.pickEvent(pool.map(e => ({ ...e, when: always })), ctx);
         const b = Game.pickEvent(pool.map(e => ({ ...e, when: always })), ctx);
         assert.ok(a && b && a.id !== b.id, 'the same event repeated back-to-back while fresh options existed');
-        assert.ok(state.recentEvents.length <= 6, 'the repeat window grows without bound');
+        assert.ok(state.recentEvents.length <= 12, 'the repeat window grows without bound');
     });
 }
 roadSuite();
@@ -937,7 +1090,19 @@ test('rumour: every generator produces a story, and a lie only moves the place',
     // five nearest neighbours all trade the same goods. Pinned to a single town this assertion
     // was really testing a coincidence: it passed on seed 3 with a margin of 0.169 against a
     // threshold of 0.15, and any change that nudged the world at all tipped it over.
+    // Two generators speak only of a war and of the campaign marching out of one, and whether
+    // either exists on day 40 is the world's coin-flip, not the generator's doing -- any change
+    // that shifts the random stream by one call used to take this assertion down with it. The
+    // preconditions are set here instead, so what is tested is the generator.
     const cities = LOCATIONS.filter(l => l.type === 'city');
+    const facs = [...new Set(cities.map(c => c.faction))];
+    const f1 = facs[0], f2 = facs.find(f => f !== f1 && !Game.allied(f1, f));
+    Game.declareWar(f1, f2);
+    if(!Object.keys(state.campaigns).length) {
+        const target = cities.find(c => c.faction === f2);
+        state.campaigns[f1] = { marshalId: 'x', marshalName: 'Mareşal Bahadır',
+                                targetLocId: target.id, day: state.time.day };
+    }
     Game.RUMORS.forEach((r, i) => assert.ok(cities.some(c => r.run(c, truth)),
         `generator ${i} found nothing to say in any town of a 40-day-old world`));
 

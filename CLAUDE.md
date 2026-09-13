@@ -102,7 +102,7 @@ The bottleneck isn't JS, it's the **compositor**: battle JS runs ~1.2 ms per fra
 exports: `{ load, world, run, mulberry32, args, seeds, writeReport }` — there's no `boot`.
 
 ```
-node tools/test.js [--fast]     # 89 assertions ~5s / pure-logic only ~0.15s
+node tools/test.js [--fast]     # 93 assertions ~5s / pure-logic only ~0.15s
 node tools/framegate.js         # frame-skip gate + #42 parity regression
 node tools/sim.js --days 200 --seed 1-5 | duel.js --n 200 | economy.js --days 60 --troops 10
 ```

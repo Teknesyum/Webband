@@ -266,14 +266,16 @@ const QUESTS = {
         givers: ['goodnatured', 'quarrelsome', 'debauched'],
         minRelation: -10,
         days: 10,
-        reward: { money: 400, renown: 4, rel: 8 },
+        reward: { money: 700, renown: 6, rel: 8 },   // 25 seconds of chasing, not 15 (#123)
         setup(q, giver) { q.data = { locId: giver.homeLocId, done: false }; },
         offer(q) {
-            return `${T`"Aşçım Deli Hüsnü kümesin kapısını açık bırakmış. On beş tavuk kaleye dağıldı.<br><br>
+            return `${T`"Aşçım Deli Hüsnü kümesin kapısını açık bırakmış. Yirmi tavuk kaleye dağıldı.<br><br>
                 Bak, bunu adamlarıma yaptıramam — bütün kale bana güler.
-                Sen bir yabancısın, senin şerefin buna dayanır. <b>15 saniyen var, 8 tavuk yakala.`}</b>"`;
+                Sen bir yabancısın, senin şerefin buna dayanır. <b>25 saniyen var, 16 tavuk yakala.
+                Kazlara dokunma, onlar Hüsnü'nün değil.`}</b>"`;
         },
-        desc(q) { return T`<b>${Quests.locName(q.data.locId)}</b>'a gir ve avluda tavuk kovala — 15 saniyede 8 tavuk.
+        desc(q) { return T`<b>${Quests.locName(q.data.locId)}</b>'a gir ve avluda tavuk kovala — 25 saniyede 16 tavuk.
+            Mavi olanlar kaz, onları yakalarsan bir tavuk kaybedersin.
             Kaçırırsan süre dolana kadar yeniden deneyebilirsin.`; },
         where(q) { return q.data.locId; },
         on(q, ev, d) {

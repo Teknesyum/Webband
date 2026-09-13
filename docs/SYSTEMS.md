@@ -499,7 +499,10 @@ job.
 - Kings/viziers strengthen over time (king reaches lvl 20 / 110 troops in 90 days, vizier lvl
   10 / 50 troops)
 - Tournaments are topped up towards `Game.TOURNEY_OPEN` = **3** open at once (each free city
-  rolls 50% until the board is full), an open tournament has a 30% chance to close
+  rolls 50% until the board is full), an open tournament has a 30% chance to close. The roll
+  used to sit *in* the `while` condition, so the first failed toss ended the day's whole top-up
+  and the board settled at 1.35 open. Measured now (5 seeds × 120 days): **2.11 open on an
+  average day**, never over the cap, and **2.7%** of days with none at all
 - `Game.lairTick()` — lairs earn and grow (band respawn itself is hourly, see below)
 - `Nobles.dailyTick()` — ages location markers, raises rival suitors' interest, marriage
   income, wedding-day check
@@ -1313,6 +1316,15 @@ are **much richer**. Convoy count stays fixed at 14 thanks to `ensureTraders`.
   vassal of the enemy kingdom or relation ≤ −50; otherwise a collision opens **dialogue**.
 - Encounter modal: fight / **send your troops** / **flee** / surrender (#30). You can't
   surrender to an animal pack.
+- **The announced roster is the roster that takes the field** (#116). The modal counted
+  `party.length`, but `Battle.start` leaves the wounded in camp — so a party of 4 with 2
+  wounded was announced as 5 and 3 walked out. `Game.fieldSize()` (leader + the unwounded) is
+  the single source for the count, and the modal names how many stay behind. The enemy number
+  is snapshotted into `state.encounterSize` when the modal opens: `fleeEncounter` and
+  `autoBattle` used to re-read `npc.size` live, so a band that grew while you were deciding
+  fought you at its new size. The issue's other half — "the enemies didn't even fight" — is
+  not reproducible: a probe stepping 3 seconds of frames through an ambush and a plain battle
+  found every enemy with a target and the field count equal to the announcement.
 - **The withdraw branch looks at the band's kind (#79)**: a bandit band in its first 14 days
   gives a 25% chance of a "walk away" option — it looks down on a rookie. **An animal pack
   doesn't talk**: wolves know neither renown nor words, only numbers; if your party is
@@ -1882,7 +1894,15 @@ you to win 1–2 rounds and then lose, since a bracket has no score to throw.
 
 `TournamentMinigame` (clicking targets, `ROUNDS`/`GEAR`/`ODDS`) is still in `battle.js` but its
 tournament branch is unreachable: `start()` defaults to `mode: 'chicken'` and the only caller left
-is the chicken-chasing quest (`goal: 8`, `time: 15`), which fires `chickens_caught`.
+is the chicken-chasing quest (`goal: 16`, `time: 25`), which fires `chickens_caught`.
+
+**The chicken chase is a game now, not a formality** (#123). A 42px circle that sat still for
+1.2 seconds was a target you could not miss with 8 of 15 seconds to spare. The bird is **24px
+base** (`+0.8` per point of agility instead of 1.2), lives **0.8s** (`+0.12` per point of
+strength), spawns every **0.25–0.55s**, and **shrinks to ×0.75 in the last 5 seconds**. One
+spawn in four is a **goose** — drawn blue, and grabbing one costs you a caught chicken
+(floored at 0). 16 birds in 25 seconds, and the purse went 400 → **700 denars** to match.
+Measured (400 spawns): goose share **~25%**, radius 32 → **24** once the clock passes 5 s.
 
 **Arena** (`Game.openArena` → `Battle.startArena(idx)`) — a variant of the duel machinery: no
 party enters the arena, **no loot, renown, prisoners, or captivity**. The opponent is picked
@@ -1897,7 +1917,16 @@ also applied to `startDuel`.*
 | Arena Gediklisi | player +2 | 180 |
 | Arena Şampiyonu | player +8 | 340 |
 
-A loss gives **nothing** (#99). It used to pay 40%, which made throwing a match the fastest
+**A win pays a purse** (`Game.ARENA_PURSE` **10**, #115). The sand used to pay only XP, so the
+arena was the one place in the game where a day's work bought nothing you could spend — and the
+town crowd betting on the bouts was paying somebody. The purse scales with the host town's
+prosperity (`arenaPurse()`, clamped to ×0.5–×1.5 around prosperity 50; `state.arenaLocId` is
+written by `openArena`, so the fight knows whose sand it's standing on). A series is **five
+fights**: the third carries **+25**, the fifth **+60**, and then the streak starts over — without
+the reset the fifth win's bonus would pay on every fight after it. A loss resets the streak to 0.
+Measured (prosperity 51 → purse 13, ten straight wins): `13, 13, 38, 13, 73` twice over.
+
+A loss gives **no XP** (#99). It used to pay 40%, which made throwing a match the fastest
 proficiency in the game: pick the champion — the one worth 340 — walk in, fall over, collect 136
 XP in a few seconds of real time, with no risk at all, because nobody dies in the arena and the
 player's HP is floored at 5 on the way out. The day in the sickbed was the only brake, and
@@ -1945,14 +1974,23 @@ a troop getting wounded, or a straight battle.
 
 - **The die depends on distance, not the day.** `Game.roadTick(step)` accumulates distance
   walked every frame inside the movement branch; every `ROAD_EVERY` **1200** units it rolls
-  `ROAD_CHANCE` **0.25**, so the expected interval is 4800 units. The counter pauses during
-  captivity and while `encounterCooldown` runs — a player fresh out of a battle doesn't
-  immediately get another decision thrown at them.
+  `ROAD_CHANCE` **0.5**. The counter pauses during captivity and while `encounterCooldown`
+  runs — a player fresh out of a battle doesn't immediately get another decision thrown at them.
+- **After an event the road goes quiet** (`ROAD_QUIET` **2400**, #94). A memoryless roll can
+  fire twice in a row, and it did: two decisions inside a few seconds of travel read as a bug,
+  not as luck. The counter is set to `-ROAD_QUIET` after a hit, so the **shortest possible gap
+  is `ROAD_EVERY + ROAD_QUIET` = 3600 units** — back-to-back is impossible rather than merely
+  unlikely. `ROAD_CHANCE` was doubled to pay for the silence, so the *rate* is unchanged.
+  The issue also offered a ramped probability; the margin is one line and has a floor you can
+  state, a ramp has neither. Measured (seeds 1–5, 30 days of uninterrupted travel):
+  **15.6 events, mean gap 4968 units, minimum gap 3663** — no gap below the floor.
+- **The last twelve events are remembered**, not the last six: with a 20-event pool a window of
+  6 let the same story come back three times in a stretch of road.
 - **No second event system was built.** The day's event and a road event share the same three
   pieces: context `Game.eventCtx()` (party/capacity, the nearest settlement within 900 units
   and its faction, food, morale, purse, honor, whether it's night, terrain name, whether on a
   road), selection `Game.pickEvent(pool, ctx, extra?)`, and a shared **last-6-events** window
-  (`state.recentEvents`). Two pools, one machine.
+  (`state.recentEvents`, 12 deep). Two pools, one machine.
 - **Filters genuinely use context**: `pelt` only in a forest, `ford` only at a river crossing,
   `lost_scout` only off-road, `peddler` only on a road, `night_fire`/`tracks` only at night,
   `survivor` only right by a village raided within the last 10 days, `treat` only appears if
@@ -1969,7 +2007,7 @@ a troop getting wounded, or a straight battle.
   capacity is full), `addMorale/addItem/takeFood/addHonor/advanceTime`.
 
 Measured (seeds 1–5, 30 days of **uninterrupted** travel, a 6-person party ≈111 units/hour):
-**13–20 events, average 16**. In real play, since not the whole day is spent traveling, this
+**15.6 events on average**. In real play, since not the whole day is spent traveling, this
 shows up at about half that rate.
 
 ### Debug report (#52)
@@ -2730,21 +2768,35 @@ Renown measures "how known you are"; honor (`state.player.honor`, **−100..100*
 | Not chasing down a routed foe (`spare`) | **+3** |
 
 Tier (`honorTier` / `honorLabel`): ≥40 ⚜️ Honorable, ≥15 🕊️ True to Their Word, ≤−10 🔥
-Raider, ≤−36 💀 Village Burner. Decays **0.5** toward zero per day (both directions).
+Raider, ≤−36 💀 Village Burner. Honor decays **0.5** per day, **infamy only 0.15** — and not at
+all on a day you raided (`state.player.lastRaidDay`, #104). Washing one raid off takes **80
+days**; the old symmetric 0.5 washed it off in 24, so a raider could burn a village, ride two
+towns over, and recruit clean. Good behaviour still fades at the old rate: a reputation is
+faster to lose than to earn.
 
 | Effect | Rule |
 |---|---|
-| Volunteers and their wage | `infamyPenalty()` = `−honor/100`, **−0.3 .. +0.6** — positive honor also brings the villager |
+| Volunteers and their wage | `volunteerTerms()` — see below |
+| Village market | with infamy, a village buys your goods at **×0.9** and sells at **×1.1** |
 | Mercenary | `mercPrice` scales by the same multiplier |
 | Weight with nobles | `Nobles.standing` now reads **personality**, not tier: `Game.honorWeight(personality)` — good-natured `honor/40`, cunning `−honor/60`, debauched `−honor/90`, others `honor/55` (clamped to ±2) |
 | Feast | `Feast.HONOR_REQ = −30`: renown opens the gate, honor holds it there |
 | Village elder | at tier 2, "get out quick" even in a friendly village (already existed in #50, now reads from honor) |
 
-Measured: one raid −12 (🔥 Raider), **five raids −60** (💀 Village Burner, a 60% penalty);
-volunteers/wage 8 people–10₺ → **3 people–16₺**, a lvl 12 mercenary 204 → **326 denars**;
-honor +30/+60 give **10 people–7₺** and **143 denars**. −60 honor decayed to zero in **119
-days**. That same −60 honor moves `standing` **−1** with a good-natured lord, **+1** with a
-cunning or debauched one — a dishonorable man's word carries further in a cunning lord's hall.
+**The recruiting tent** (`Game.volunteerTerms()` → `{ pen, cost, mult }`, #104). `infamyPenalty()`
+is `−honor/100`, clamped to **−0.3 .. +0.95**. The penalty side is cubed on volunteers and
+squared on the wage — `cost = 10·(1 + 4·pen)²`, `mult = (1 − pen)³` — while the **bonus side stays
+linear** (`cost = 10·(1 + pen)`, `mult = 1 − pen`). Cubing both ways was the issue's suggestion,
+but it would have handed an honourable player 2.2× volunteers for almost nothing; the thing that
+needed teeth was the punishment, not the reward. Measured (a village holding 12 volunteers):
+clean **12 men at 10₺**; −20 honor **6 at 32₺**; −40 honor **2 at 68₺**; −60 honor **0 at 116₺**;
+−100 honor **0 at 230₺**; +40 honor **15 at 7₺**. The empty tent says so in its own words — it used to tell a man with 5000 denars in his
+purse that he couldn't afford a single recruit.
+
+Measured: one raid −12 (🔥 Raider), **five raids −60** (💀 Village Burner); a lvl 12 mercenary
+204 → **326 denars**, honor +60 gives **143 denars**. That same −60 honor moves `standing` **−1**
+with a good-natured lord, **+1** with a cunning or debauched one — a dishonorable man's word
+carries further in a cunning lord's hall.
 
 ### Blood feud — the world remembers you (#53 item 1.3)
 

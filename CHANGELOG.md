@@ -3,6 +3,24 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.08 — Boş Çadır (2026-09-13)
+
+- **Pususa düşünce sayılan adam, sahaya çıkan adamdır.** Karşılama ekranı yaralıları da
+  sayıyordu, oysa onlar kampta kalıyor: artık "senin grubun" satırı sahaya çıkacak kadroyu
+  yazıyor ve kaç yaralının geride kaldığını söylüyor. Kaçmayı deneyip tutulursan da ilan
+  edilen düşman sayısıyla dövüşüyorsun — aradan geçen sürede grup büyümüş olsa bile. (#116)
+- **Yol olayları arka arkaya gelmiyor.** Bir olaydan sonra yol bir süre susuyor; olay sıklığı
+  aynı kaldı, ama iki olayın sırt sırta patlaması artık mümkün değil. Son on iki olay hatırlanıyor,
+  aynı hikâye üst üste çıkmıyor. (#94)
+- **Köy yakmanın bedeli ağırlaştı.** Şerefsizlik arttıkça gönüllü çadırı boşalıyor, kalanların
+  ücreti katlanıyor, köy pazarı sana pahalıya satıp ucuza alıyor. Leke de yavaş çıkıyor: bir
+  baskının izini silmek iki aydan fazla sürüyor, baskın yaptığın gün hiç azalmıyor. (#104)
+- **Arena para veriyor.** Her galibiyet kesenin refahına göre ~10 dinar; üçüncü galibiyette
+  +25, beşincide +60 ve seri baştan başlıyor. Yenilirsen seri sıfırlanır. (#115)
+- **Tavuk kovalamaca artık kovalamaca.** Tavuklar küçüldü ve hızlandı, son beş saniyede iyice
+  küçülüyor, aralarına kaz karıştı — kaza dokunursan elindeki tavuk da kaçıyor. 25 saniyede
+  16 tavuk, ödül de buna göre arttı. (#123)
+
 ## 1.07 — Kum Meydanı (2026-09-13)
 
 - **Turnuva artık gerçek dövüş.** Eskiden ekrana çıkan daireye tıklıyordun; şimdi sekiz
