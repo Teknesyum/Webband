@@ -180,7 +180,8 @@ const Battle = {
         }
 
         let weaponAtk = state.player.equipment.weapon ? state.player.equipment.weapon.attack : 0;
-        let armorDef = state.player.equipment.armor ? state.player.equipment.armor.defense : 0;
+        let armorDef = ['shield','armor','helmet','gloves','boots']
+            .reduce((n, slot) => n + ((state.player.equipment[slot] || {}).defense || 0), 0);
 
         // Mount: if there's a horse the player enters as cavalry — the engine already knows cavalry (and being unhorsed)
         let mounted = !!state.player.equipment.horse;
@@ -466,8 +467,7 @@ const Battle = {
     playerWeaponProf() { return this.prof(this.playerWeaponType()); },
     playerHasBow() { return this.playerWeaponType() === 'bow'; },
     playerDmgType() { let w = state.player.equipment.weapon; return (w && w.dmgType) || 'cut'; },
-    // A shield occupies the armor slot: block or armor — the player's choice
-    playerHasShield() { let a = state.player.equipment.armor; return !!a && a.id === 'shield'; },
+    playerHasShield() { return !!state.player.equipment.shield; },
 
     // Bow: the quiver is limited, movement and being mounted both hurt accuracy
     playerShoot(p) {

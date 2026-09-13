@@ -156,6 +156,33 @@ test('foodStock: empty inventory is 0 days, never infinite', () => {
     assert.strictEqual(Game.foodStock().days, 0);
 });
 
+test('foodStock: every added ration joins consumption, quality and variety', () => {
+    const p = reset();
+    p.inventory = ['wheat','bread','meat','cheese','fish','fruit','butter','honey']
+        .map(id => ({ ...g.ITEMS[id], qty: 1 }));
+    const fs = Game.foodStock();
+    assert.strictEqual(fs.total, 8);
+    assert.strictEqual(fs.kinds, 8);
+    assert.strictEqual(fs.low, 3);
+    assert.strictEqual(fs.high, 5);
+    assert.strictEqual(Game.takeFood(8), 8);
+    assert.strictEqual(Game.foodStock().total, 0);
+});
+
+test('equipment: seven slots stack defense and shield no longer replaces armour', () => {
+    const p = reset();
+    p.stats.eff.vit = 10;
+    p.equipment = {
+        weapon: null, horse: null,
+        shield: { id:'shield', defense:10 }, armor: { id:'mail', defense:25 },
+        helmet: { id:'nasal', defense:8 }, gloves: { id:'gauntlets', defense:6 },
+        boots: { id:'greaves', defense:7 }
+    };
+    Game.updateStatsFromEquip();
+    assert.strictEqual(p.stats.maxHp, 106);
+    assert.ok(Battle.playerHasShield());
+});
+
 // Frame gate: refresh rate → passed fps. Rule is "the largest whole divisor
 // that doesn't drop below 60 fps". framegate.js writes this out as a table;
 // here it's a threshold.

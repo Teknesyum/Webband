@@ -19,6 +19,13 @@ başlangıç ekranının sağ alt köşesinde yazar.
 - **Karşılaşmada söylenen düşman, sahaya çıkan düşman.** Eski bir karşılaşma kimliği bellekte
   kaldığında "haydut çetesi" başlığının altından kurt sürüsü çıkabiliyordu; ilan edilen birlik türü
   artık savaş motoruna doğrudan taşınıyor.
+- **Teçhizat artık yedi parçalı.** Silah, kalkan, gövde zırhı ve atın yanına başlık, eldiven ve
+  çizme yuvaları geldi. Deri/plaka zırhlar, üç miğfer, iki eldiven ve iki çizme pazar ile keşif
+  ganimetine eklendi; kalkan artık gövde zırhını çıkarmadan kuşanılıyor ve bütün parçaların
+  savunması savaşta birlikte hesaplanıyor.
+- **Erzak sofrası genişledi.** Tütsülenmiş balık, kuru meyve, tereyağı ve bal eklendi; her birinin
+  fiyatı ve raf ömrü ayrı. Tüketim, seçkin askerlerin kaliteli yemek ihtiyacı, bozulma ve moraldeki
+  yemek çeşitliliği yeni erzakların hepsini tanıyor.
 - **Müzikler dış lisans yükü taşımıyor.** Harita ve savaş parçaları, oyunun Web Audio motorunun
   çalışma anında besteleyip sentezlediği özgün/prosedürel eserlerdir; haricî kayıt kullanılmaz.
 

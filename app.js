@@ -277,6 +277,10 @@ const ITEMS = {
     bread:  { id:'bread',  name:'Ekmek',         type:'food',  quality:'low', basePrice:6,  icon:'🍞', spoil:20 },
     meat:   { id:'meat',   name:'Kurutulmuş Et', type:'food',  quality:'high',basePrice:20, icon:'🥩', spoil:30 },
     cheese: { id:'cheese', name:'Peynir',        type:'food',  quality:'high',basePrice:16,  icon:'🧀', spoil:40 },
+    fish:   { id:'fish',   name:'Tütsülenmiş Balık', type:'food', quality:'high', basePrice:14, icon:'🐟', spoil:24 },
+    fruit:  { id:'fruit',  name:'Kuru Meyve',    type:'food',  quality:'low', basePrice:9,  icon:'🍎', spoil:45 },
+    butter: { id:'butter', name:'Tereyağı',      type:'food',  quality:'high',basePrice:18, icon:'🧈', spoil:14 },
+    honey:  { id:'honey',  name:'Bal',           type:'food',  quality:'high',basePrice:24, icon:'🍯', spoil:90 },
     iron:   { id:'iron',   name:'Demir',         type:'trade', basePrice:150, icon:'⛏️' },
     velvet: { id:'velvet', name:'Kadife',        type:'trade', basePrice:400, icon:'🧵' },
     ale:    { id:'ale',    name:'Bira',          type:'trade', basePrice:50,  icon:'🍺' },
@@ -286,8 +290,17 @@ const ITEMS = {
     mace:   { id:'mace',   name:'Topuz',         type:'weapon', weaponType:'oneHanded', dmgType:'blunt',  basePrice:220, attack:16, icon:'🔨' },
     lance:  { id:'lance',  name:'Mızrak',        type:'weapon', weaponType:'polearm',   dmgType:'pierce', basePrice:200, attack:12, icon:'🔱' },
     bow:    { id:'bow',    name:'Yay',           type:'weapon', weaponType:'bow',       dmgType:'pierce', basePrice:220, attack:10, icon:'🏹' },
-    shield: { id:'shield', name:'Kalkan',        type:'armor',  basePrice:150, defense:10, icon:'🛡️' },
+    shield: { id:'shield', name:'Kalkan',        type:'shield', basePrice:150, defense:10, icon:'🛡️' },
     mail:   { id:'mail',   name:'Zincir Zırh',   type:'armor',  basePrice:500, defense:25, icon:'🦺' },
+    leather:{ id:'leather',name:'Deri Zırh',     type:'armor',  basePrice:280, defense:14, icon:'🥋' },
+    plate:  { id:'plate',  name:'Plaka Zırh',    type:'armor',  basePrice:900, defense:38, icon:'🦺' },
+    cap:    { id:'cap',    name:'Deri Başlık',   type:'helmet', basePrice:90,  defense:3,  icon:'🧢' },
+    nasal:  { id:'nasal',  name:'Burunluklu Miğfer', type:'helmet', basePrice:260, defense:8, icon:'⛑️' },
+    greathelm:{ id:'greathelm', name:'Büyük Miğfer', type:'helmet', basePrice:520, defense:14, icon:'🪖' },
+    gloves: { id:'gloves', name:'Deri Eldiven',  type:'gloves', basePrice:80,  defense:2,  icon:'🧤' },
+    gauntlets:{ id:'gauntlets', name:'Çelik Eldiven', type:'gloves', basePrice:300, defense:6, icon:'🧤' },
+    shoes:  { id:'shoes',  name:'Yol Çizmesi',   type:'boots',  basePrice:75,  defense:2,  icon:'🥾' },
+    greaves:{ id:'greaves',name:'Çelik Baldırlık',type:'boots', basePrice:340, defense:7,  icon:'🥾' },
     horse:  { id:'horse',  name:'Savaş Atı',     type:'horse',  basePrice:600, icon:'🐴' },
     boss_map: { id:'boss_map', name:'Boss Haritası', type:'special', basePrice:5000, icon:'🗺️' },
     lvl51_token: { id:'lvl51_token', name:'Savaş Tanrısı Nişanı', type:'special', basePrice:10000, icon:'🏅' }
@@ -429,7 +442,7 @@ const state = {
         partyCapacity: 50,
         party: [],
         inventory: [{...ITEMS.bread, qty:1}],   // a single loaf: the food problem starts on day one (#75)
-        equipment: { weapon: null, armor: null, horse: null },
+        equipment: { weapon: null, shield: null, armor: null, helmet: null, gloves: null, boots: null, horse: null },
         x: 4500, y: 4500,
         targetLocation: null,
         status: 'idle',
@@ -902,13 +915,15 @@ const Game = {
             return { html: `${T`Devrilmiş bir taşın altında toprağa gömülü küçük bir kese buldun.<br><b>+${n} dinar`}</b>.` };
         }},
         gear: { run(s) {
-            let ids = ['sword','axe','mace','lance','bow','shield','mail'];
+            let ids = ['sword','axe','mace','lance','bow','shield','mail','leather','plate',
+                       'cap','nasal','greathelm','gloves','gauntlets','shoes','greaves'];
             let id = ids[Math.floor(Math.random() * ids.length)];
             Game.addItem(id, 1);
             return { html: `${T`Paslı bir sandığın dibinde işe yarar tek şey kalmış: <b>${ITEMS[id].icon} ${T(ITEMS[id].name)}</b>.<br>Envanterine girdi.`}` };
         }},
         food: { run(s) {
-            let id = ['wheat','cheese','meat'][Math.floor(Math.random() * 3)], n = 3 + Math.floor(Math.random() * 6);
+            let foods = Object.values(ITEMS).filter(i => i.type === 'food');
+            let id = foods[Math.floor(Math.random() * foods.length)].id, n = 3 + Math.floor(Math.random() * 6);
             Game.addItem(id, n);
             return { html: `${T`Ambarın bir köşesi farelerden kurtulmuş.`}<br><b>+${n} ${T(ITEMS[id].name)}</b>.` };
         }},
@@ -3182,7 +3197,7 @@ const Game = {
         let left = n, got = 0;
         for(let i = 0; i < state.player.inventory.length && left > 0; i++) {
             let it = state.player.inventory[i];
-            if(!['wheat','bread','meat','cheese'].includes(it.id)) continue;
+            if((ITEMS[it.id] || {}).type !== 'food') continue;
             let take = Math.min(it.qty, left);
             it.qty -= take; left -= take; got += take;
             if(it.qty <= 0) { state.player.inventory.splice(i, 1); i--; }
@@ -9807,7 +9822,8 @@ const Game = {
     // the whole unit fights weaker.
     moraleTarget(paid, hungry) {
         let p = state.player;
-        let foods = ['wheat','bread','meat','cheese'].filter(id => p.inventory.some(i => i.id === id && i.qty > 0)).length;
+        let foods = Object.values(ITEMS).filter(i => i.type === 'food' &&
+            p.inventory.some(x => x.id === i.id && x.qty > 0)).length;
         let over = Math.max(0, p.party.length - this.getPartyCapacity());
         let lead = (p.proficiencies.leadership || { level: 1 }).level;
         let parts = {
@@ -9876,7 +9892,9 @@ const Game = {
     foodStock() {
         let inv = state.player.inventory;
         let sum = q => inv.filter(i => q.includes(i.id)).reduce((a, i) => a + i.qty, 0);
-        let low = sum(['wheat','bread']), high = sum(['meat','cheese']);
+        let lowIds = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'low').map(i => i.id);
+        let highIds = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'high').map(i => i.id);
+        let low = sum(lowIds), high = sum(highIds);
         let up = this.upkeep();
         let need = Math.ceil(up.foodLow);
         // Spoilage eats into the stock too; "how many days it lasts" would be too optimistic without it.
@@ -9886,7 +9904,7 @@ const Game = {
             need, needHigh: Math.ceil(up.foodHigh), spoil: this.spoilRate(),
             // Correct even with mixed stock: high quality covers both its own share and the general one
             days: drain > 0 ? Math.floor((low + high) / drain) : Infinity,
-            kinds: ['wheat','bread','meat','cheese'].filter(id => inv.some(i => i.id === id && i.qty > 0)).length
+            kinds: [...lowIds, ...highIds].filter(id => inv.some(i => i.id === id && i.qty > 0)).length
         };
     },
 
@@ -10140,7 +10158,11 @@ const Game = {
         <div style="flex:1;">
             <h3 style="color:var(--primary)">${T`Kuşanılan`}</h3>
             ${this._eqSlot(T('Silah'),'weapon',e.weapon)}
+            ${this._eqSlot(T('Kalkan'),'shield',e.shield)}
             ${this._eqSlot(T('Zırh'),'armor',e.armor)}
+            ${this._eqSlot(T('Başlık'),'helmet',e.helmet)}
+            ${this._eqSlot(T('Eldiven'),'gloves',e.gloves)}
+            ${this._eqSlot(T('Çizme'),'boots',e.boots)}
             ${this._eqSlot(T('At'),'horse',e.horse)}
         </div>
         <div style="flex:2;">
@@ -10149,7 +10171,7 @@ const Game = {
         else {
             html += '<div style="display:flex;gap:0.8rem;flex-wrap:wrap;">';
             state.player.inventory.forEach((item,i) => {
-                let canEquip = item.type==='weapon'||item.type==='armor'||item.type==='horse';
+                let canEquip = ['weapon','shield','armor','helmet','gloves','boots','horse'].includes(item.type);
                 let isUse = item.type === 'special' && item.id === 'boss_map';
                 html += `<div style="padding:0.8rem;background:rgba(0,0,0,0.3);border:1px solid var(--panel-border);border-radius:6px;width:120px;text-align:center;">
                 <div style="font-size:1.5rem">${item.icon||'📦'}</div>
@@ -10230,7 +10252,9 @@ const Game = {
     updateStatsFromEquip() {
         let s = state.player.stats;
         let e = state.player.equipment;
-        s.maxHp = 50 + (s.level - 1) * 10 + Math.round((this.attr('vit') - 10) * 5) + (e.armor ? (e.armor.defense||0) : 0);
+        let defense = ['shield','armor','helmet','gloves','boots']
+            .reduce((n, slot) => n + ((e[slot] || {}).defense || 0), 0);
+        s.maxHp = 50 + (s.level - 1) * 10 + Math.round((this.attr('vit') - 10) * 5) + defense;
         if(s.hp > s.maxHp) s.hp = s.maxHp;
     },
 
@@ -10335,6 +10359,13 @@ const Save = {
             if(d.state.muted !== undefined) { d.state.settings = d.state.settings || {}; d.state.settings.muted = d.state.muted; }
             d.state.meta = { v: 2, createdAt: d.savedAt || Date.now(), playtime: 0, gocEdildi: true };
             d.v = 2;
+        }
+        // Shields used to occupy the body-armour slot. Preserve both the shield and the new
+        // dedicated slot when an older save is opened.
+        let eq = (((d || {}).state || {}).player || {}).equipment;
+        if(eq && eq.armor && eq.armor.id === 'shield' && !eq.shield) {
+            eq.shield = eq.armor;
+            eq.armor = null;
         }
         return d;
     },
