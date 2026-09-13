@@ -2050,7 +2050,7 @@ const Battle = {
 
             // Troops disband, prisoners are freed from their chains
             state.player.party = [];
-            state.player.prisoners.filter(p => p.noble).forEach(p => Game.respawnLordParty(p));
+            state.player.prisoners.filter(p => p.noble).forEach(p => Game.scheduleLordRespawn(p.lordId, 4));
             state.player.prisoners = [];
             state.player.stats.hp = Math.max(5, Math.floor(state.player.stats.maxHp * 0.3));
 
@@ -2106,7 +2106,7 @@ const Battle = {
         else {
             alert(wasSiege ? T('Kuşatmadan çekildin. Birliğin dağıldı.') : T('Teslim oldun! Birliğini kaybettin.'));
             state.player.party = [];
-            state.player.prisoners.filter(p => p.noble).forEach(p => Game.respawnLordParty(p));
+            state.player.prisoners.filter(p => p.noble).forEach(p => Game.scheduleLordRespawn(p.lordId, 4));
             state.player.prisoners = [];
             state.player.stats.hp = Math.max(5, Math.floor(state.player.stats.maxHp * 0.3));
         }

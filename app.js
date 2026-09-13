@@ -1478,7 +1478,7 @@ const Game = {
                 lord.size = Math.round(lord.size * (0.20 + roll(6) * 0.25));
                 if(lord.size < 8) {
                     lord.size = 0;
-                    state.lordRespawn[lord.lordId] = state.time.day + 4 + Math.floor(roll(7) * 6);
+                    this.scheduleLordRespawn(lord.lordId, 4 + Math.floor(roll(7) * 6));
                     this.news(T`☠️ ${T(band.name)}, ${T(lord.name)} ordusunu bozguna uğrattı.`);
                 }
             }
@@ -1507,6 +1507,13 @@ const Game = {
     // Replacements take time. Directly assigning the daily target made an army that had
     // just lost a fight jump from 25 to 87 men overnight (or a fresh king drop by forty).
     LORD_REINFORCE_PER_DAY: 3,
+    LORD_RETURN_DAYS: 6,
+    LORD_RETURNING_FORCE: 0.35,
+    scheduleLordRespawn(lordId, days = this.LORD_RETURN_DAYS) {
+        if(!lordId) return;
+        let due = state.time.day + days;
+        state.lordRespawn[lordId] = Math.max(state.lordRespawn[lordId] || 0, due);
+    },
     adjustLordForce(npc, target) {
         let gap = target - npc.size;
         if(!gap) return;
@@ -3104,7 +3111,7 @@ const Game = {
 
         // All troops are lost, prisoners go free
         state.player.party = [];
-        state.player.prisoners.filter(p => p.noble).forEach(p => this.respawnLordParty(p));
+        state.player.prisoners.filter(p => p.noble).forEach(p => this.scheduleLordRespawn(p.lordId, 4));
         state.player.prisoners = [];
         state.player.stats.hp = Math.max(5, Math.floor(state.player.stats.maxHp * 0.3));
 
@@ -8778,7 +8785,7 @@ const Game = {
         });
         // A scattered party is removed from the map, it regroups at home a few days later
         state.npcParties.filter(n => n.size <= 0 && n.lordId).forEach(n => {
-            state.lordRespawn[n.lordId] = state.time.day + 4 + Math.floor(Math.random() * 6);
+            this.scheduleLordRespawn(n.lordId, 4 + Math.floor(Math.random() * 6));
         });
         state.npcParties = state.npcParties.filter(n => !(n.lordId && n.size <= 0));
     },
@@ -10251,7 +10258,7 @@ const Game = {
         let lord = Nobles.lord(pr.lordId);
         if(!lord || state.npcParties.some(n => n.lordId === lord.id)) return;
         let level = this.lordLevel(lord.rank);
-        let size = this.lordForceTarget(lord.rank, level);
+        let size = Math.max(5, Math.ceil(this.lordForceTarget(lord.rank, level) * this.LORD_RETURNING_FORCE));
         let npc = this.createNPC(lord.name, lord.rank, size, FACTIONS[lord.faction].color, lord.faction, 1);
         npc.lordId = lord.id;
         npc.level = level;
@@ -10268,7 +10275,7 @@ const Game = {
         this.addHonor('ransom'); this.addGrudge(pr.lordId);   // a noble sold for money doesn't forget (#53)
         Nobles.addRel(pr.lordId, -20);
         LORDS.filter(l => l.faction === pr.faction && l.id !== pr.lordId).forEach(l => Nobles.addRel(l.id, -4));
-        this.respawnLordParty(pr);
+        this.scheduleLordRespawn(pr.lordId);
         this.addProficiencyXp('prisonerMgmt', 40);
         this.updateTopBar();
         this.renderPartyScreen();
@@ -10287,7 +10294,7 @@ const Game = {
         // to leave "Kan bedeli" permanently unfinished.
         if(this.hasGrudge(pr.lordId)) state.player.hadGrudge = true;
         this.addHonor('release'); delete state.grudges[pr.lordId];   // an honorable act wipes the debt (#53)
-        this.respawnLordParty(pr);
+        this.scheduleLordRespawn(pr.lordId);
         this.ambitionTick();
         this.updateTopBar();
         this.renderPartyScreen();

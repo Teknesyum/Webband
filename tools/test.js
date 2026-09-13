@@ -1101,6 +1101,25 @@ test('ambition: honourably releasing the last feuding lord completes blood money
         'releasing the feud prisoner did not complete the selected goal');
 });
 
+test('lord prisoners: released nobles return only after recovery with a small retinue', () => {
+    const g = H.world({ seed: 37 });
+    const { Game, state, LORDS } = g;
+    const lord = LORDS[0];
+    state.npcParties = state.npcParties.filter(n => n.lordId !== lord.id);
+    state.player.prisoners = [{ id:'held_lord', name:lord.name, noble:true, lordId:lord.id,
+                                faction:lord.faction, ransom:1000 }];
+    Game.releaseLord('held_lord');
+    assert.ok(!state.npcParties.some(n => n.lordId === lord.id), 'released lord returned immediately');
+    const due = state.lordRespawn[lord.id];
+    assert.ok(due >= state.time.day + Game.LORD_RETURN_DAYS, 'lord recovery delay was not scheduled');
+    state.time.day = due;
+    Game.dailyUpdate();
+    const returned = state.npcParties.find(n => n.lordId === lord.id);
+    assert.ok(returned, 'lord did not return after recovery');
+    assert.ok(returned.size <= Math.ceil(Game.lordForceTarget(lord.rank, returned.level) * Game.LORD_RETURNING_FORCE),
+        'lord returned with a full army');
+});
+
 // --- Ambush: only what you can see can ambush you ---
 // The fixed 240-unit ambush range was wider than the starting character's
 // sight in a forest (125): a band ambushing you would, by definition, never
