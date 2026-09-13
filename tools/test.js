@@ -347,6 +347,57 @@ test('no party, no orders (#114)', () => {
     gw.state.player.party = [];
 });
 
+test('pause: one door, and the clock is the only thing that stops (#113)', () => {
+    // Two loops, one flag each: on the map the flag is Game.paused, in battle it is Battle.paused,
+    // and setPaused routes to whichever loop is alive. The map render must NOT be gated on it —
+    // the watchtower reveal (#125) is a frozen map you are meant to look at.
+    gw.Game.setPaused(true);
+    assert.ok(gw.Game.paused && gw.Game.clockStopped(), 'Esc on the map did not stop the clock');
+    gw.Game.closeModal();   // Esc, ×, clicking outside and "Devam Et" all land here
+    assert.ok(!gw.Game.paused, 'closing the pause menu left the game frozen');
+
+    gw.state.player.party = [{ id: 'q1', name: 'Svadya Milisi', level: 1 }];
+    gw.Battle.start('Çapulcular', 3);
+    gw.Game.setPaused(true);
+    assert.ok(gw.Battle.paused, 'in battle the flag landed on the map clock instead');
+    assert.ok(!gw.Game.paused, 'and it froze the map clock too — the battle would never resume');
+    gw.Game.setPaused(false);
+    gw.Battle.active = false;
+    gw.state.player.party = [];
+});
+
+test('watchtower: the horizon opens, then closes on its own (#125)', () => {
+    // The reveal rides getVisibility(), the one number spotRange/locSpotRange/lairSeen and the
+    // map draw gate all read, so nothing in the drawing code knows a tower exists.
+    const base = gw.Game.getVisibility();
+    gw.Game.startTowerReveal();
+    assert.strictEqual(gw.Game.getVisibility(), base * gw.Game.TOWER_REVEAL_MUL, 'the horizon did not widen');
+    assert.ok(gw.Game.clockStopped(), 'time kept running while the player was looking');
+
+    // The countdown starts on the first frame, not at the call: the reveal is kicked off from a
+    // modal, and the map draws nothing until that modal is gone.
+    gw.Game.towerRevealTick(1000);
+    assert.ok(gw.Game.towerReveal.until > 1000, 'the countdown never started');
+    gw.Game.towerRevealTick(1000 + gw.Game.towerReveal.secs * 1000);
+    assert.strictEqual(gw.Game.towerReveal, null, 'the tower left the map permanently revealed');
+    assert.strictEqual(gw.Game.getVisibility(), base, 'sight stayed boosted after the reveal ended');
+});
+
+test('roster: "11+2" counts what is new, and losses move the mark (#111)', () => {
+    gw.state.player.party = [{ id: 'r1', name: 'Svadya Milisi', level: 1 }];
+    gw.Game.markRosterSeen('party');
+    assert.strictEqual(gw.Game.newCount('party'), 0, 'a party just looked at still shows arrivals');
+    gw.state.player.party.push({ id: 'r2', name: 'Svadya Milisi', level: 1 });
+    assert.ok(/^2<span[^>]*>\+1<\/span>\/9$/.test(gw.Game.rosterTag('party', 9)), gw.Game.rosterTag('party', 9));
+    // A wiped-out party must not owe a permanent "+N" it never earned.
+    gw.state.player.party = [];
+    assert.strictEqual(gw.Game.newCount('party'), 0, 'losses left the seen mark above the real count');
+    gw.state.player.party = [{ id: 'r3', name: 'Svadya Milisi', level: 1 }];
+    assert.strictEqual(gw.Game.newCount('party'), 1, 'the rebuilt party\'s first recruit was not new');
+    gw.state.player.party = [];
+    gw.Game.markRosterSeen('party');
+});
+
 test('speed: morale doesn\'t scale troop speed (the enemy has no morale)', () => {
     const speedAt = morale => {
         gw.state.player.morale = morale;

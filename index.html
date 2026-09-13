@@ -286,6 +286,9 @@
     </div>
     <!-- Hata rozeti (#55 madde 2): oyun sessizce ölmesin, konsolu açmayan da görsün -->
     <div id="err-badge" class="hidden" onclick="Debug.open()"></div>
+    <!-- Duraklatma şeridi (#113): saat durduğunda görünür bir işaret olsun, yoksa
+         oyuncu oyunun donduğunu sanar. Metnini Game.setPaused yazar. -->
+    <div id="pause-bar" class="hidden"></div>
     <!-- Modals -->
     <div id="modal-overlay" class="hidden">
         <div id="modal-content" class="glass-panel">

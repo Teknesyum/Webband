@@ -1044,6 +1044,20 @@ body.touch .menu-btn kbd { display: none; }
 }
 #err-badge:hover { background: rgba(160, 30, 30, 0.95); }
 
+/* Duraklatma şeridi (#113). Modalın (z-index 1000) da üstünde durur: duraklatma
+   menüsü açıkken de "DURAKLATILDI" görünsün. Tıklamayı yemez. */
+#pause-bar {
+    position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+    z-index: 1100; pointer-events: none;
+    padding: 0.28rem 1.3rem;
+    background: rgba(20, 20, 25, 0.93);
+    border: 1px solid var(--primary); border-top: none; border-radius: 0 0 8px 8px;
+    color: var(--primary); font-family: 'Cinzel', serif; font-weight: 700;
+    font-size: var(--fs-sm); letter-spacing: 0.16em;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+}
+#pause-bar.hidden { display: none; }
+
 /* Hareket azaltma: sistem tercihi ya da ayarlar ekranı. Animasyon ve geçişler
    kapanır — canvas tarafındaki karşılığı Game.reduceMotion() ile okunur. */
 body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::after {

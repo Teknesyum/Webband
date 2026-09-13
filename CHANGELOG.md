@@ -3,6 +3,28 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.06 — Kule Nöbeti (2026-09-13)
+
+- **Esc artık oyunu gerçekten duraklatıyor.** Eskiden Esc yalnızca açık pencereyi kapatıp
+  haritaya dönüyordu; saat akmaya devam ediyordu, yani "bir dakika düşüneyim" diye
+  durduğunda grubun yol almaya, erzağın erimeye devam ediyordu. Artık haritadayken Esc
+  duraklatma menüsünü açıyor — Devam Et / Kaydet / Ayarlar / Ana Menü — ve ekranın üstünde
+  "⏸ DURAKLATILDI" şeridi duruyor ki oyunun donduğunu sanmayasın. Savaşta da Esc aynı kapıdan
+  geçiyor: menüsüz, sade bir duraklatma.
+- **Gözetleme kulesine çıkınca çevre birkaç saniye açılıyor.** Kule şimdiye kadar haritaya
+  yalnızca uzaktaki bir grubu işaretleyen bir nokta bırakıyordu. Artık pencereyi kapattığın
+  anda görüş menzilin dört katına çıkıyor ve zaman duruyor: çeteler, lord orduları, in ağızları
+  ve yerleşimlerin durumu o an olduğu gibi önüne seriliyor. Süre Gözcülük yeteneğiyle uzuyor
+  (3 saniyeden başlayıp en fazla 8 saniyeye çıkıyor). Kulenin 12 günlük bekleme süresi duruyor —
+  bu bedava bir yetenek değil.
+- **Pazarda artık ne aldığını bilerek alıyorsun.** 5x düğmesi alt satıra kayıyordu; artık
+  1x / x5 / **Tümü** üçlüsü tek satırda. Başlığın altında sabit bir şerit var: çantanda kalan
+  yer (aşarsan kırmızı, hız cezasını da yazıyor), kaç günlük yiyeceğin kaldığı ve kesendeki
+  para. Her malın yanında "sende N" yazıyor — satmadan önce envantere gidip gelmek yok.
+- **Grup ve esir sayacı yeni geleni ayrı gösteriyor.** Üst şeritte `23+4/30`, esir başlığında
+  `11+2/16` biçiminde: yeşil "+N" son baktığından beri katılanları söylüyor. Grup ekranını
+  açınca sayaç sıfırlanıyor.
+
 ## 1.05 — Kızıl Ad (2026-09-13)
 
 - **Düşman artık haritada kırmızı yazıyor.** Bir lordun adı hangi krallıktan olursa olsun

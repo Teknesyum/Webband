@@ -139,7 +139,8 @@ applies the choices from one place and `enterWorld()` (the old `startGame` body)
   from the first frame. The only thing hidden is **parties** — `Game.canSee(npc)` /
   `Game.spotRange(npc)` are still the single gate, so distant and forest-hidden bands stay
   invisible. Sight is `Game.getVisibility()` = `500 + (int−10)×30 + (Scouting−1)×25`, **×0.7 at
-  night**; it no longer scrapes away fog, it only sets the party-notice range.
+  night**, **×4 while a watchtower reveal is running** (#125, below); it no longer scrapes away
+  fog, it only sets the party-notice range.
   *(Removed: `exploredCanvas`/`exploredCtx`/`exploredGrid`, `markExplored`, `repaintFog`,
   `loadExplored`, the layer that darkened everything outside the sight circle with
   `evenodd`.)*
@@ -352,10 +353,28 @@ safe.
 | `food` | 3–8 grain/cheese/meat |
 | `shelter` | morale +4 |
 | `recruit` | a local villager joins the party (if there's capacity) |
-| `scout` | the closest party more than 700 units away is **marked on the map** — the "where is it?" mechanic's `state.knownLocations` marker, auto-removed by `Nobles.dailyTick` after 3 days |
+| `scout` | the closest party more than 700 units away is **marked on the map** (the "where is it?" mechanic's `state.knownLocations` marker, auto-removed by `Nobles.dailyTick` after 3 days), **and the horizon opens for a few seconds** (below) |
 | `trap` | 8–25 health |
 | `ambush` | a band spawns based on the site's type (cave → wolves, ruins → mountain bandits, others → marauders) and `triggerEncounter(npc, 'ambush')` |
 | `empty` | three different empty-handed flavor lines |
+
+**The watchtower's few seconds (#125).** Climbing the tower used to leave nothing but one
+distant pin. Now `scout`'s `then` calls `Game.startTowerReveal()`: `getVisibility()` returns
+**×`TOWER_REVEAL_MUL` = 4** while `Game.towerReveal` is set, and the clock stops
+(`clockStopped()`), so every band, lord army and lair inside the widened circle is drawn live
+and the player can actually look. It rides `getVisibility()` on purpose — that is the one number
+`spotRange`, `locSpotRange`, `lairSeen` and the map draw gate all read, so **no drawing code
+learns that towers exist**. Duration is `min(8, 3 + (Scouting − 1) × 0.3)` seconds, counted off
+the rAF timestamp in `towerRevealTick` rather than a `setTimeout`: there is no timer to cancel
+and a backgrounded tab freezes it on its own. The countdown starts on the **first frame**, not at
+the call — the reveal is kicked off from the site window and `renderMap` draws nothing while a
+modal is open. Two things that normally happen over time are done once up front, since the clock
+is about to stop: `scoutTick()` writes every in-range settlement's status to memory, and lairs
+need no help because `lairSeen` marks them from the draw path. `renew: 12` is untouched — this is
+not a free ability. *(Not done: item 3 of the issue, a 1-day faint ghost marker for every party
+seen. ~30 entries into `state.knownLocations`, each drawn by `Nobles.drawMarkers` as a loud
+dashed yellow ring — 30 of them would make the map unreadable, and the 3-day `scout` pin already
+covers the "I saw something over there" intent.)*
 
 An ambush outcome's battle opens on the modal's **close**: `run` returns a `then`,
 `Game.siteDone()` closes the modal and then runs it — otherwise the battle modal was
@@ -377,7 +396,25 @@ has no points — `Game.ensureSites()` inside `Save.apply` fills them in, same p
 
 ### Time & daily cycle (`advanceTime` / `dailyUpdate`)
 Time flows **only** on the map screen, only while no modal is open and the player is moving
-(or in captivity) (`dt * Game.timeScale()`). Flow speed is left to the player: clicking the
+(or in captivity) (`dt * Game.timeScale()`).
+
+**Pause (#113).** There is no single clock to stop — the map and the battle are two loops — so
+the flag lands on whichever one is alive: `Game.setPaused(on)` writes `Battle.paused` during a
+battle and `Game.paused` otherwise, and `Game.clockStopped()` (`paused || towerReveal`) is what
+gates `update(dt)` in the map loop. **`renderMap()` is deliberately left outside that gate**: the
+watchtower reveal (#125) is a frozen map you are meant to look at. The flag sits on `Game`, not
+in `state` — `state` is what gets saved, and a pause is a session thing.
+
+Esc is one key with three jobs, in order: a window is open → close it (unchanged); not on the map
+→ go to the map (unchanged); already on the map, nothing left to back out of → **pause**, opening
+the menu (Resume / Save / Settings / Main Menu). In battle Esc goes through the same door with no
+menu. Resuming lives in **`closeModal`**, the one place Esc, ×, clicking outside and "Resume" all
+reach; it clears `Game.paused` directly rather than through `setPaused`, which during a battle
+would reach for `Battle.paused` and leave the map flag stuck on. "Main Menu" is a
+`location.reload()` behind a confirmation — a page load is a cleaner reset than any teardown we
+would write, and the autosave ring is what survives it. The `#pause-bar` banner is shared by both
+pauses and by the tower reveal; `Game.pauseBar()` parks it under `#top-bar`'s live bottom edge, so
+it never covers the day, the purse and the food count — the numbers you want while stopped. Flow speed is left to the player: clicking the
 calendar badge in the top bar cycles `state.timeScale` through 0.5 → 1 → 2 (default 1; it used
 to be a fixed 2, and days passed too fast).
 
@@ -690,10 +727,27 @@ speed (66 → 105). Trade goods are bought and sold at the market (sell price ×
 measured, a 20-person army eats 20 grain a day: it used to cost ~270₺, now **40₺** (the same
 army's wages are 40₺). Trade goods (iron, velvet, ale, salt) weren't discounted — those are
 carried for profit. Caravans carry cartloads of food for this reason (see "Trade parties").
-There's an **x5** next to the Buy/Sell buttons; every transaction writes the item + quantity +
-amount paid/received + remaining denars to the `#market-msg` strip (`Game.marketMsg`). If
-there's not enough money it buys as much as it can and says so — `alert()` is never used, it
-would close the market.
+Quantity is **1x / x5 / All** (`Game.qtyBtns`/`qtyBtn`, #103). `.btn` is a block, so two of them
+loose in an `<li>` wrapped and the x5 fell to its own line; an `inline-flex` wrapper with
+`flex-wrap: nowrap` is what keeps the three side by side. **"All" is just a big count** —
+`buyItem(id, 999)` stops at the first of money, stock and pack room and its message says which
+one it hit, so no second code path exists; selling passes the stack's own quantity. Every
+transaction writes the item + quantity + amount paid/received + remaining denars to the
+`#market-msg` strip (`Game.marketMsg`). If there's not enough money it buys as much as it can and
+says so — `alert()` is never used, it would close the market.
+
+**The status strip (#103).** The three numbers that decide a purchase — room left, days of food,
+purse — are printed under the market's heading (`Game.marketStatusHtml`), not one screen away on
+the map HUD; over capacity the load chip turns red and carries the speed penalty
+(`cargoMult()`). Each row also shows **"you have N"** (`Game.haveTag`), so deciding whether to
+sell doesn't need a round trip to the inventory. It is redrawn by `refreshMarket`, which every
+buy and sell already calls, so it can't go stale.
+
+*(Gotcha found here: `Game.setHtml` skips the write when the html matches what it wrote last
+time, but `showModal` had just destroyed and rebuilt every id inside the body — so the cache was
+lying and the strip stayed blank on the second visit to the same market. `showModal` now clears
+`_htmlCache`; it is a write-skip optimization, so clearing it can only cost one redundant
+`innerHTML` write.)*
 
 #### Carry capacity — the pack has a bottom (#78)
 Inventory used to be unlimited: a solo character could carry 500 units of wheat. The limit is
@@ -1561,6 +1615,13 @@ move with it — you're tracking a trail, not an address.
   sold one at a time or in bulk from the town's **⛓️ Slave Trader** screen. Can be released from
   the party screen.
 - Every day, `max(1%, 6% − skill×0.5%)` chance a prisoner escapes; nobles never do.
+- **"11+2" (#111)**: the prisoner heading and the top bar's party chip mark what arrived since
+  the player last looked — `11+2/16`, `23+4/30`, the `+N` in green. It is a **baseline count**
+  (`state.player.seenRoster`), not a per-unit flag: battle spoils, a village's volunteers, a
+  quest reward and a rescued companion all just push onto the array, and none of them has to
+  learn a counter exists (`Game.newCount`/`rosterTag`/`markRosterSeen`). Losses move the mark
+  down too, otherwise a party wiped out and rebuilt would owe a permanent `+N` it never earned.
+  Opening the party screen clears both marks — seen means seen.
 - **A noble prisoner**: when a lord's party is defeated, that lord is taken prisoner (removed
   from the map). Demand ransom from the party screen (2500–4500 denars, −20 relation, −4 with
   that kingdom's other lords) or release them honorably (+25 relation, +6 with the faction, +3

@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.05', date: '2026-09-13', name: 'Kızıl Ad' };  // the version name is not translated
+const VERSION = { no: '1.06', date: '2026-09-13', name: 'Kule Nöbeti' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -537,14 +537,20 @@ const Input = {
                 }
                 return;
             }
+            // Esc in battle goes through the same pause door as the map (#113), just without a menu.
+            if(e.key === 'Escape' && Battle.active) { Game.togglePause(); return; }
             // Menu shortcuts (Warband-style) — inactive while battle/tournament/a modal is open
             if(!Battle.active && !TournamentMinigame.active && !e.ctrlKey && !e.metaKey &&
                document.getElementById('modal-overlay').classList.contains('hidden') &&
                document.getElementById('main-ui').classList.contains('active')) {
                 let scr = { m:'map', c:'character', p:'party', i:'inventory', q:'quests' }[k];
                 if(scr) Game.showScreen(scr);
-                // Esc returns to the map from any screen
-                else if(e.key === 'Escape') Game.showScreen('map');
+                // Esc returns to the map from any screen; a second Esc — already on the map,
+                // nothing left to back out of — pauses the game (#113).
+                else if(e.key === 'Escape') {
+                    if(document.getElementById('map-view').classList.contains('active')) Game.togglePause();
+                    else Game.showScreen('map');
+                }
                 // Space brings the camera back to the player (if the map was panned away from the edge)
                 else if(e.key === ' ' && document.getElementById('map-view').classList.contains('active')) Game.centerOnPlayer();
                 // K: kingdoms' war/peace status
@@ -922,11 +928,14 @@ const Game = {
             // it?" mechanic's marker, so Nobles.dailyTick removes it by itself after 3 days.
             let far = state.npcParties.filter(n => Game.dist(n, s) > 700)
                                       .sort((a, b) => Game.dist(a, s) - Game.dist(b, s))[0];
-            if(!far) return { html: T('Ufukta kıpırdayan bir şey yok. Boşuna tırmandın.') };
-            state.knownLocations[s.id] = { x: far.x, y: far.y, radius: 200,
-                day: state.time.day, name: far.name, live: false };
             Game.addProficiencyXp('spotting', 40);
-            return { html: `${T`Kuleden bakınca toz bulutu gördün: <b>${T(far.name)}</b>.<br>📍 Haritaya bir işaret düştü (3 gün geçerli).`}` };
+            // #125: the climb is never wasted — the marker is the bonus, the live look is the point.
+            let html = far ? T`Kuleden bakınca toz bulutu gördün: <b>${T(far.name)}</b>.<br>📍 Haritaya bir işaret düştü (3 gün geçerli).`
+                           : T('Ufukta kıpırdayan uzak bir şey yok — ama yakını avucunun içi gibi görüyorsun.');
+            if(far) state.knownLocations[s.id] = { x: far.x, y: far.y, radius: 200,
+                day: state.time.day, name: far.name, live: false };
+            return { html: html + `<br>${T`Pencereyi kapatınca çevre birkaç saniyeliğine açılacak — o sırada zaman durur.`}`,
+                     then: () => Game.startTowerReveal() };
         }},
         trap: { run(s) {
             let dmg = 8 + Math.floor(Math.random() * 18);
@@ -1797,10 +1806,92 @@ const Game = {
             if(dt > 0.1) dt = 0.1;
             lastTime = t;
             // Don't let an exception break the rAF chain: the error is reported once, the loop lives on (#55)
-            Debug.guard('map loop', () => { this.update(dt); this.renderMap(); });
+            // The clock stops, the picture doesn't: the watchtower reveal (#125) is only
+            // worth pausing for if the player can still look at the frozen map.
+            Debug.guard('map loop', () => {
+                if(this.towerReveal) this.towerRevealTick(t);
+                if(!this.clockStopped()) this.update(dt);
+                this.renderMap();
+            });
             this._loopId = requestAnimationFrame(loop);
         };
         this._loopId = requestAnimationFrame(loop);
+    },
+
+    // ---- PAUSE (#113) ----
+    // The map and the battle run separate loops, so there is no one clock to stop: the flag
+    // lands on whichever loop is alive, and every caller asks through this one door. It sits on
+    // `Game`, not in `state`, because `state` is what gets saved and a pause is a session thing.
+    paused: false,
+    clockStopped() { return this.paused || !!this.towerReveal; },
+    isPaused() { return (typeof Battle !== 'undefined' && Battle.active) ? Battle.paused : this.paused; },
+    setPaused(on, msg) {
+        if(typeof Battle !== 'undefined' && Battle.active) Battle.paused = on;
+        else this.paused = on;
+        this.pauseBar(on ? (msg || T('⏸ DURAKLATILDI')) : '');
+    },
+    // The banner is shared: the pause menu and the watchtower's look around (#125) both
+    // stop the clock, and both have to say so somewhere the player is already looking.
+    pauseBar(msg) {
+        let b = document.getElementById('pause-bar');
+        if(!b) return;
+        b.textContent = msg || '';
+        // Under the campaign bar, not across it — the day, the purse and the food count are
+        // exactly what the player wants to read while stopped. In battle that bar is hidden and
+        // its rect collapses to zero, which drops the banner to the top of the screen by itself.
+        let tb = document.getElementById('top-bar');
+        if(msg && tb && tb.getBoundingClientRect) b.style.top = tb.getBoundingClientRect().bottom + 'px';
+        b.classList.toggle('hidden', !msg);
+    },
+    // Esc's second press. In battle it's a bare freeze — the arena is no place to browse
+    // settings; on the map it opens the menu, which is what makes the stop useful.
+    togglePause() {
+        if(this.isPaused()) { this.setPaused(false); this.closeModal(); return; }
+        this.setPaused(true);
+        if(!(typeof Battle !== 'undefined' && Battle.active)) this.pauseMenu();
+    },
+    pauseMenu() {
+        let it = (ico, label, call) => `<button class="btn" style="display:flex;align-items:center;gap:0.6rem;width:100%;justify-content:flex-start;min-height:52px"
+            onclick="${call}"><span style="font-size:1.3rem">${ico}</span>${label}</button>`;
+        this.showModal(`<h3>${T`⏸ Duraklatıldı`}</h3>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+            ${it('▶️', T('Devam Et'), 'Game.closeModal()')}
+            ${it('💾', T('Kaydet'), 'Save.open()')}
+            ${it('⚙️', T('Ayarlar'), 'Game.showSettings()')}
+            ${it('🏠', T('Ana Menü'), 'Game.confirmMainMenu()')}
+        </div>`, '340px');
+    },
+    // A page reload IS the clean reset: every module is rebuilt from scratch, which no
+    // hand-written teardown would manage. What survives is the autosave ring, so it asks first.
+    confirmMainMenu() {
+        this.showModal(`<h3>${T`🏠 Ana Menü`}</h3>
+        <p>${T`Son kayıttan sonraki ilerleme kaybolur. Ana menüye dönülsün mü?`}</p>
+        <button class="btn primary" onclick="location.reload()">${T`Evet, dön`}</button>
+        <button class="btn" onclick="Game.pauseMenu()">${T`Hayır, kal`}</button>`, '380px');
+    },
+
+    // ---- WATCHTOWER REVEAL (#125) ----
+    // From the top of the tower the horizon opens up for a few seconds: every band, lord army
+    // and lair inside a much wider circle is drawn, and the clock stops so the player can look.
+    // It rides `getVisibility()` — the one number spotRange, locSpotRange, lairSeen and the map
+    // draw gate all read — so no drawing code learns anything about towers.
+    TOWER_REVEAL_MUL: 4,
+    towerReveal: null,
+    startTowerReveal() {
+        this.towerReveal = { secs: Math.min(8, 3 + (this.profLvl('spotting') - 1) * 0.3), until: 0 };
+        // The clock is about to stop, so the one thing that normally happens *over time* is
+        // done once up front: every settlement in the widened circle writes its status to memory.
+        // Lairs need no help — `lairSeen` marks them from the draw path, which keeps running.
+        this.scoutTick();
+    },
+    towerRevealTick(t) {
+        let r = this.towerReveal;
+        // The countdown starts on the first frame the map is actually on screen: the reveal is
+        // kicked off from the site window, and `renderMap` draws nothing while a modal is up.
+        if(!r.until) r.until = t + r.secs * 1000;
+        let left = (r.until - t) / 1000;
+        if(left <= 0) { this.towerReveal = null; this.pauseBar(''); return; }
+        this.pauseBar(T`🗼 ÇEVREYİ GÖZLÜYORSUN · ${left.toFixed(1)}s`);
     },
 
     // --- UPDATE ---
@@ -3710,6 +3801,28 @@ const Game = {
         this.dailyEvent();      // daily event pool (#35) — last, after the day's accounting closes
     },
 
+    // ---- "11+2": what arrived since the player last looked (#111) ----
+    // A baseline count, not a per-unit flag: every place that gains a prisoner or a recruit
+    // (battle spoils, a village's volunteers, a quest reward, a rescued companion) just pushes
+    // onto the array, and none of them has to learn that a counter exists.
+    rosterOf(kind) { return kind === 'prisoners' ? (state.player.prisoners || []) : state.player.party; },
+    newCount(kind) {
+        let n = this.rosterOf(kind).length;
+        let seen = state.player.seenRoster || (state.player.seenRoster = {});
+        // Losses move the mark down too, otherwise a party wiped out and rebuilt would owe a
+        // permanent "+N" it never earned.
+        if(!(kind in seen) || seen[kind] > n) seen[kind] = n;
+        return n - seen[kind];
+    },
+    markRosterSeen(kind) {
+        (state.player.seenRoster || (state.player.seenRoster = {}))[kind] = this.rosterOf(kind).length;
+    },
+    // `11+2/16` — the new ones in a faint green, so one glance answers "did I gain anything?".
+    rosterTag(kind, cap) {
+        let n = this.rosterOf(kind).length, d = this.newCount(kind);
+        return `${n}${d > 0 ? `<span style="color:#7ddc8a;font-weight:600">+${d}</span>` : ''}/${cap}`;
+    },
+
     updateTopBar() {
         let p = state.player;
         let set = (id, v) => { let e = document.getElementById(id); if(e) e.innerText = v; };
@@ -3729,7 +3842,7 @@ const Game = {
         let fe = document.getElementById('chip-food');
         if(fe) fe.classList.toggle('warn', fs.days < 3);
         set('ui-renown', p.renown);
-        set('ui-party', `${p.party.length}/${cap}`);
+        this.setHtml('ui-party', this.rosterTag('party', cap));   // "23+4/30" (#111)
         let ccap = this.cargoCap(), cload = this.cargoLoad();
         set('ui-cargo', `${cload}/${ccap}`);
         let ce = document.getElementById('chip-cargo');
@@ -3990,7 +4103,12 @@ const Game = {
         this.Music.sync();
         if(screenId === 'quests') Quests.render();
         else if(screenId === 'character') this.renderCharacterScreen();
-        else if(screenId === 'party') this.renderPartyScreen();
+        else if(screenId === 'party') {
+            this.renderPartyScreen();
+            // Seen means seen: opening the party screen clears both "+N" marks (#111). It runs
+            // after the render so the screen itself still shows what was new on the way in.
+            this.markRosterSeen('party'); this.markRosterSeen('prisoners');
+        }
         else if(screenId === 'inventory') this.renderInventoryScreen();
     },
 
@@ -5738,6 +5856,11 @@ const Game = {
         }
         let mb = document.getElementById('modal-body');
         mb.innerHTML = html;
+        // Every id inside the body was just destroyed and rebuilt, so the "same html, skip the
+        // write" cache in `setHtml` is now lying about them — a market status strip or a trade
+        // message whose text happened to match the last one stayed blank. Clearing the whole
+        // cache only ever costs one redundant innerHTML write.
+        this._htmlCache = {};
         // The modal HTML is generated via a template string; a button left with an empty label is caught here (#35)
         mb.querySelectorAll('button').forEach(b => {
             if(!this.btnLabelOk(b.textContent, 'showModal')) b.style.display = 'none';
@@ -5753,7 +5876,15 @@ const Game = {
     // while currentEncounterNpcId is still set, and asking there too would leave the window stuck open.
     canDismiss() { return !state.player.currentEncounterNpcId; },
     dismissModal() { if(this.canDismiss()) this.closeModal(); },
-    closeModal() { this.skipType(); document.getElementById('modal-overlay').classList.add('hidden'); },
+    closeModal() {
+        this.skipType();
+        // Every self-serve way out of the pause menu — Esc, ×, clicking outside, "Devam Et" —
+        // funnels through here, so resuming lives here instead of on four separate buttons (#113).
+        // Clearing the map flag directly, not through setPaused: while a battle is running
+        // setPaused would reach for Battle.paused and leave this one stuck on forever.
+        if(this.paused) { this.paused = false; this.pauseBar(''); }
+        document.getElementById('modal-overlay').classList.add('hidden');
+    },
 
     // --- TYPEWRITER (#59) ---
     // Text is typed out gradually; any click or a new call completes it.
@@ -5789,6 +5920,7 @@ const Game = {
     // --- MARKET ---
     openMarket(loc) {
         let html = `<h3>${T`🛒 Pazar - ${T(loc.name)}`}</h3>
+        <div id="market-status"></div>
         <div id="market-cols" style="display:flex;flex-wrap:wrap;gap:2rem;margin-top:1rem;">
         <div style="flex:1;min-width:220px;"><h4>${T`Satın Al`}</h4><ul id="market-buy" style="list-style:none;"></ul></div>
         <div style="flex:1;min-width:220px;"><h4>${T`Sat`}</h4><ul id="market-sell" style="list-style:none;"></ul></div>
@@ -5925,7 +6057,33 @@ const Game = {
         let mult = (loc ? this.priceMult(loc, id) : 1) * (selling ? 0.7 * (1 + edge) : 1 - edge);
         return Math.max(1, Math.floor(it.basePrice * mult));
     },
+    // The three numbers that decide every purchase — room left, days of food, purse — printed
+    // where the buying happens instead of one screen away on the map HUD (#103). Redrawn by
+    // `refreshMarket`, which every buy and sell already calls, so it can't go stale.
+    marketStatusHtml() {
+        let cap = this.cargoCap(), load = this.cargoLoad(), over = load > cap;
+        let fs = this.foodStock();
+        let chip = (txt, col) => `<span style="padding:0.15rem 0.5rem;border:1px solid ${col || 'var(--panel-border)'};border-radius:5px;${col ? `color:${col}` : ''}">${txt}</span>`;
+        return `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;font-size:var(--fs-sm);margin-top:0.5rem">
+            ${chip(T`🎒 Yük: ${load} / ${cap}` + (over ? ` · ${T`hız ${this.pct((this.cargoMult() - 1) * 100, true)}`}` : ''), over ? '#e0463a' : '')}
+            ${chip(T`🍞 Yiyecek: ${isFinite(fs.days) ? fs.days : '∞'} gün`, fs.days < 3 ? '#e8a13a' : '')}
+            ${chip(T`💰 ${Math.floor(state.player.money)}₺`)}
+        </div>`;
+    },
+    // "Sende: N" next to the price (#103): deciding whether to sell shouldn't need a trip
+    // to the inventory screen and back.
+    haveTag(id) {
+        let it = state.player.inventory.find(i => i.id === id);
+        return it && it.qty > 0 ? `<span style="font-size:var(--fs-xs);color:#7ddc8a">${T`sende ${it.qty}`}</span> ` : '';
+    },
+    // 1x / 5x / All on one line. `.btn` is a block, so two of them in a plain `<li>` wrapped (#103);
+    // the inline-flex wrapper with `nowrap` is what keeps them side by side.
+    qtyBtns(html) { return `<span style="display:inline-flex;gap:4px;flex-wrap:nowrap;vertical-align:middle">${html}</span>`; },
+    qtyBtn(label, call) {
+        return `<button class="btn" style="padding:0.2rem 0.5rem;font-size:var(--fs-sm);white-space:nowrap" onclick="${call}">${label}</button>`;
+    },
     refreshMarket() {
+        this.setHtml('market-status', this.marketStatusHtml());
         let buy = document.getElementById('market-buy'); buy.innerHTML = '';
         Object.values(ITEMS).forEach(item => {
             let price = this.marketPrice(item.id);
@@ -5938,9 +6096,13 @@ const Game = {
             li.innerHTML = `${item.icon} ${T(item.name)} - <b>${price}₺</b> `
                 + `<span style="font-size:var(--fs-xs)">${this._marketLoc ? this.priceTag(this._marketLoc, item.id) : ''}</span> `
                 + (isFinite(st) ? `<span style="font-size:var(--fs-xs);color:${empty ? '#e0463a' : st < 6 ? '#e8a13a' : 'var(--text-muted)'}">${T`stok ${st}`}</span> ` : '')
+                + this.haveTag(item.id)
                 + (empty ? `<i style="font-size:var(--fs-sm);color:var(--text-muted)">${T`tükendi`}</i>`
-                    : `<button class="btn" style="padding:0.2rem 0.5rem;font-size:var(--fs-sm)" onclick="Game.buyItem('${item.id}')">${T`Al`}</button> `
-                    + `<button class="btn" style="padding:0.2rem 0.5rem;font-size:var(--fs-sm)" onclick="Game.buyItem('${item.id}',5)">x5</button>`)
+                    // "Tümü" is just a big count: buyItem already stops at the first of money,
+                    // stock and bag room, and says in the message which one it hit.
+                    : this.qtyBtns(this.qtyBtn(T`Al`, `Game.buyItem('${item.id}')`)
+                        + this.qtyBtn('x5', `Game.buyItem('${item.id}',5)`)
+                        + this.qtyBtn(T`Tümü`, `Game.buyItem('${item.id}',999)`)))
                 + (note ? `<div style="font-size:var(--fs-xs);color:#cbb26b">${note}</div>` : '');
             buy.appendChild(li);
         });
@@ -5952,8 +6114,9 @@ const Game = {
                 li.id = 'mrow-sell-' + item.id;
                 li.innerHTML = `${item.icon||'📦'} ${T(item.name)} x${item.qty} - <b>${price}₺</b> `
                     + `<span style="font-size:var(--fs-xs)">${this._marketLoc ? this.priceTag(this._marketLoc, item.id) : ''}</span> `
-                    + `<button class="btn" style="padding:0.2rem 0.5rem;font-size:var(--fs-sm)" onclick="Game.sellItem('${item.id}')">${T`Sat`}</button> `
-                    + (item.qty >= 5 ? `<button class="btn" style="padding:0.2rem 0.5rem;font-size:var(--fs-sm)" onclick="Game.sellItem('${item.id}',5)">x5</button>` : '');
+                    + this.qtyBtns(this.qtyBtn(T`Sat`, `Game.sellItem('${item.id}')`)
+                        + (item.qty >= 5 ? this.qtyBtn('x5', `Game.sellItem('${item.id}',5)`) : '')
+                        + (item.qty >= 2 ? this.qtyBtn(T`Tümü`, `Game.sellItem('${item.id}',${item.qty})`) : ''));
                 sell.appendChild(li);
             }
         });
@@ -9227,7 +9390,8 @@ const Game = {
     // Vision from a single source: intelligence + Spotting skill. It used to be that
     // state.player.visibility only updated when an intelligence point was spent.
     getVisibility() {
-        return 500 + (this.attr('int') - 10) * 30 + (this.profLvl('spotting') - 1) * 25;
+        let v = 500 + (this.attr('int') - 10) * 30 + (this.profLvl('spotting') - 1) * 25;
+        return this.towerReveal ? v * this.TOWER_REVEAL_MUL : v;   // #125: the watchtower's few seconds
     },
 
     addStat(type) {
@@ -9623,7 +9787,7 @@ const Game = {
         let ps = state.player.prisoners || [];
         let pm = (state.player.proficiencies.prisonerMgmt || { level: 1 }).level;
         let risk = Math.max(1, 6 - pm * 0.5).toFixed(1);
-        let html = `<h3 style="color:var(--primary);margin-top:1.5rem">${T`⛓️ Esirler ${ps.length}/${this.prisonerCapacity()}`}</h3>
+        let html = `<h3 style="color:var(--primary);margin-top:1.5rem">${T`⛓️ Esirler`} ${this.rosterTag('prisoners', this.prisonerCapacity())}</h3>
             <p style="font-size:var(--fs-sm);color:var(--text-muted);margin:0 0 0.5rem">${T`Esir Yönetimi ${pm} · her esir günde <b>%${risk}</b> ihtimalle kaçar (soylular kaçmaz) · toplam değer ~${ps.reduce((a, p) => a + (p.noble ? p.ransom : this.prisonerValue(p)), 0)} dinar`}</p>`;
         if(ps.length === 0) return html + `<p style="color:var(--text-muted);font-size:var(--fs-sm)">${T`Zincirlerin boş. Kazandığın savaşlarda düşen düşmanların bir kısmı esir alınır; şehirdeki köle tüccarına satılır.`}</p>`;
         let groups = {};
