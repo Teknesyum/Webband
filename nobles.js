@@ -1253,6 +1253,7 @@ const Nobles = {
     MIN_REL: 25,
 
     askForHand(ladyId) {
+        if(state.betrothed || state.pendingWedding) return;
         let L = this.lady(ladyId);
         let g = this.lord(L.guardianId);
         let a = this.aff(ladyId);
@@ -1385,6 +1386,7 @@ const Nobles = {
     },
 
     betroth(ladyId, msg) {
+        if(state.player.spouse || state.betrothed || state.pendingWedding) return;
         state.betrothed = ladyId;
         state.dowryOffer = null;
         let L = this.lady(ladyId);
@@ -1402,6 +1404,7 @@ const Nobles = {
     },
 
     marry(ladyId, msg) {
+        if(state.player.spouse) return;
         let L = this.lady(ladyId);
         state.player.spouse = ladyId;
         state.betrothed = null;
@@ -1409,6 +1412,7 @@ const Nobles = {
         delete state.rivals[ladyId];
         state.player.rightToRule += 15;
         LORDS.filter(l => l.faction === L.faction).forEach(l => this.addRel(l.id, 20));
+        state.player.party = state.player.party.filter(t => !t.isSpouse);
         state.player.party.push({
             id: 'spouse_' + ladyId, name: L.name + T(' (Eş)'), level: 10, xp: 0, xpNext: 999,
             type: 'noble', isSpouse: true

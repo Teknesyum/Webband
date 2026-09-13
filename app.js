@@ -2043,7 +2043,8 @@ const Game = {
         // Since attributes are effective (fractional), capacity came out fractional too
         // ("15/15.785700000000002"). The fraction is truncated at the source so the
         // comparison, the info-card readout, and the badge all see the same whole number (#43).
-        return 12 + Math.floor((cha - 10) * 3) + (leadership - 1) * 4 + Math.floor((state.player.renown || 0) / 40);
+        return 12 + Math.floor((cha - 10) * 3) + (leadership - 1) * 4 + Math.floor((state.player.renown || 0) / 40)
+            + (state.player.spouse ? 5 : 0);
     },
 
     // Unpaid wages cost 1 morale every hour and the debt accumulates. It's paid off
@@ -2167,7 +2168,7 @@ const Game = {
             return { hp: 55, speed: c.troopType === 'cavalry' ? 90 : 68, attack: 14, defense: 6,
                      type: c.troopType || 'infantry', icon: c.icon || '🎖️' };
         }
-        if(t.isSpouse) return { hp: 45, speed: 70, attack: 10, defense: 4, type: 'infantry', icon: '💍' };
+        if(t.isSpouse) return { hp: 60, speed: 90, attack: 14, defense: 8, type: 'cavalry', icon: '💍' };
         return TROOP_TYPES[t.name] || { hp: 30, speed: 60, attack: 8, defense: 0, type: 'infantry', icon: '🪖' };
     },
 
@@ -8450,6 +8451,15 @@ const Game = {
         if(!this.atWar(a, b)) return;
         delete state.wars[this.warKey(a, b)];
         let mine = this.playerFaction() === a || this.playerFaction() === b;
+        if(mine) {
+            let other = this.playerFaction() === a ? b : a;
+            state.npcParties.filter(n => n.faction === other && n.playerTargetId === 'player').forEach(n => {
+                n.playerTargetId = null;
+                let lord = n.lordId && Nobles.lord(n.lordId);
+                let home = lord && LOCATIONS.find(l => l.id === lord.homeLocId);
+                if(home) { n.targetX = home.x; n.targetY = home.y; }
+            });
+        }
         this.news(T`🕊️ ${this.factionName(a)} ile ${this.factionName(b)} barış imzaladı.`, mine);
     },
     // ---- ALLIANCE ----

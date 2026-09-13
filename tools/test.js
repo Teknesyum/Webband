@@ -101,6 +101,15 @@ test('getPartyCapacity: fractional attribute source is floored (#43)', () => {
     assert.strictEqual(Game.getPartyCapacity(), 17);   // floor(1.9286*3) = 5
 });
 
+test('getPartyCapacity: marriage adds a household retinue allowance', () => {
+    const p = reset();
+    p.spouse = null;
+    assert.strictEqual(Game.getPartyCapacity(), 12);
+    p.spouse = 'lady_test';
+    assert.strictEqual(Game.getPartyCapacity(), 17);
+    p.spouse = null;
+});
+
 test('prisonerValue: type multiplier, noble ransom', () => {
     assert.strictEqual(Game.prisonerValue({ level: 10, type: 'infantry' }), 145);
     assert.strictEqual(Game.prisonerValue({ level: 10, type: 'archer' }), 174);
@@ -1419,6 +1428,28 @@ test('map labels: a lord actively pursuing the player is marked hostile outside 
 // --- Bandit lairs (#68) ---
 // Three claims in one run: a lair erodes the region around it, pays out its
 // purse and is removed from the map when cleared, and no lairless world spawns new bands.
+test('peace: a treaty immediately cancels an enemy lord pursuit', () => {
+    const g = H.world({ seed: 39 });
+    const { Game, state, FACTIONS } = g;
+    const lord = state.npcParties.find(n => n.lordId);
+    const mine = Object.keys(FACTIONS).find(f => f !== lord.faction);
+    state.player.vassalOf = mine;
+    Game.declareWar(mine, lord.faction);
+    lord.playerTargetId = 'player';
+    Game.makePeace(mine, lord.faction);
+    assert.strictEqual(lord.playerTargetId, null, 'lord kept pursuing after the treaty');
+});
+
+test('marriage: a married player cannot replace their spouse with a second wedding', () => {
+    const g = H.world({ seed: 40 });
+    const { Nobles, state } = g;
+    const [first, second] = Nobles.courtables();
+    Nobles.marry(first.id, 'test wedding');
+    Nobles.marry(second.id, 'second test wedding');
+    assert.strictEqual(state.player.spouse, first.id, 'a second wedding replaced the spouse');
+    assert.strictEqual(state.player.party.filter(t => t.isSpouse).length, 1, 'more than one spouse joined the party');
+});
+
 test('bandit lair: erodes the region, pays out when cleared, and is a band source', () => {
     const g = H.world({ seed: 6 });
     const lairs = g.Game.lairs();
