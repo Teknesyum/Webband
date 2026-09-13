@@ -3,6 +3,22 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.07 — Kum Meydanı (2026-09-13)
+
+- **Turnuva artık gerçek dövüş.** Eskiden ekrana çıkan daireye tıklıyordun; şimdi sekiz
+  dövüşçülük bir eleme cetveline giriyorsun ve üç turun her birini arenanın kendi motorunda,
+  tahta silahlarla, bizzat dövüşüyorsun. Rakipler isimli: şehrin lordları, turnuvaları takip
+  eden müdavimler, hatta grubundaki yoldaşın. Canın turlar arasında yenilenmiyor — finale
+  yorgun çıkarsın.
+- **Cetvel ekranda.** Kimin kime denk geldiği, kimin elendiği, senin yolun altın çerçeveyle
+  görünüyor; her turun kazananı bir üst kutuya kayarak yerleşiyor. Sen elensen bile turnuva
+  sonuna kadar oynanıyor ve şampiyonun adını şehir hatırlıyor.
+- **Ödül kademeli, bahis oranı gerçek.** Çeyrek finali kazanmak 50, yarı finali 150, finali
+  500 dinar ve 20 nam getiriyor. Bahis oranı artık sabit tablodan değil, cetveldeki
+  rakiplerin seviyesinden hesaplanıyor — zayıf bir kuraya yatırmak para kazandırmaz.
+- **Aynı anda üç şehirde turnuva var.** Eskiden haritada ortalama birden az turnuva açıktı ve
+  denk gelmek şanstı; artık meydanlar dolu.
+
 ## 1.06 — Kule Nöbeti (2026-09-13)
 
 - **Esc artık oyunu gerçekten duraklatıyor.** Eskiden Esc yalnızca açık pencereyi kapatıp

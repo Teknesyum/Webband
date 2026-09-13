@@ -398,6 +398,49 @@ test('roster: "11+2" counts what is new, and losses move the mark (#111)', () =>
     gw.Game.markRosterSeen('party');
 });
 
+test('tournament: eight enter, one is crowned, and the ladder pays per round (#122)', () => {
+    const city = gw.LOCATIONS.find(l => l.type === 'city');
+    gw.state.player.money = 1000;
+    gw.state.activeTournaments[city.id] = true;
+    gw.Game.joinTournament(city);
+    const t = gw.state.tourney;
+    assert.strictEqual(t.rounds[0].length, 8, 'the draw is not eight fighters');
+    assert.strictEqual(t.rounds[0].filter(f => f.you).length, 1, 'the player is not in the draw exactly once');
+    gw.Game.startTournament();
+    // Knocked out in the first round: the player is done, but the bracket still has to crown
+    // somebody — that name is what the city remembers afterwards.
+    gw.Game.tourneyRoundDone(false);
+    assert.ok(t.done, 'the bracket stopped when the player went out');
+    assert.ok(t.champion && !t.champion.you, 'nobody was crowned');
+    assert.strictEqual(t.wins, 0, 'a first-round loss counted as a win');
+    assert.ok(gw.state.tourneyChampions[city.id], 'the city did not remember the winner');
+
+    // Win all three and the prizes arrive as you climb, not only at the end.
+    gw.state.tourney = null;
+    gw.state.activeTournaments[city.id] = true;
+    gw.Game.joinTournament(city);
+    gw.Game.startTournament();
+    const m0 = gw.state.player.money, r0 = gw.state.player.renown, w0 = gw.state.player.tourneyWins || 0;
+    for(let i = 0; i < 3; i++) gw.Game.tourneyRoundDone(true);
+    assert.ok(gw.state.tourney.champion.you, 'the player won every round and was still not crowned');
+    assert.strictEqual(gw.state.player.money - m0, 700, 'the prize ladder did not add up to 50+150+500');
+    assert.strictEqual(gw.state.player.renown - r0, 20, 'the championship paid no renown');
+    assert.strictEqual((gw.state.player.tourneyWins || 0) - w0, 1, 'the ambition counter did not tick');
+    gw.state.tourney = null;
+
+    // The board is topped up, not rolled once: a player crossing the map should keep running
+    // into open tournaments, and the top-up must never overfill or spin on an empty city list.
+    gw.state.activeTournaments = {};
+    let seen = 0;
+    for(let d = 0; d < 40; d++) {
+        gw.Game.dailyUpdate();
+        let n = Object.keys(gw.state.activeTournaments).length;
+        assert.ok(n <= gw.Game.TOURNEY_OPEN, `${n} tournaments open at once`);
+        seen += n;
+    }
+    assert.ok(seen / 40 > 1.5, `only ${(seen / 40).toFixed(2)} tournaments open on an average day`);
+});
+
 test('speed: morale doesn\'t scale troop speed (the enemy has no morale)', () => {
     const speedAt = morale => {
         gw.state.player.morale = morale;
@@ -592,7 +635,7 @@ function questSuite() {
         },
         hungry_army: q => { give('wheat', q.data.need); enter(q.data.locId); },
         brother_in_chains: q => Quests.emit('battle_won', { npcId: q.data.npcId }),
-        fixed_match: q => Quests.emit('tournament_end', { won: false, score: q.data.lo }),
+        fixed_match: q => Quests.emit('tournament_end', { won: false, wins: q.data.lo }),
         false_news: q => LORDS.filter(l => l.faction === q.data.faction && l.id !== q.data.about)
                               .forEach(l => Quests.emit('talked_to', { lordId: l.id })),
         crazy_chickens: q => Quests.emit('chickens_caught', { won: true }),

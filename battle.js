@@ -34,24 +34,37 @@ const Battle = {
         { name: 'Arena Gediklisi', dLv: 2,  xp: 180, desc: 'Senden bir gömlek üstün.' },
         { name: 'Arena Şampiyonu', dLv: 8,  xp: 340, desc: 'Dayak yersin ama çok şey öğrenirsin.' }
     ],
-    startArena(idx) {
-        let f = this.ARENA_FOES[idx] || this.ARENA_FOES[1];
+    // The rig behind both the arena and the tournament (#122): the party steps out, one
+    // wooden-weapon opponent steps in. `foe.lv` is an absolute level, `foe.dLv` one relative
+    // to the player — a fixed ladder is written the second way, a drawn bracket the first.
+    soloFoe(foe, color) {
         this._duelParty = state.player.party;
         state.player.party = [];
-        this.isArena = f;
-        this.start(f.name, 1);
+        this.start(foe.name, 1);
         let e = this.units.find(u => !u.isPlayerTeam);
-        if(e) {
-            let lv = Math.max(1, state.player.stats.level + f.dLv);
-            e.level = lv;
-            e.hp = e.maxHp = 50 + lv * 6;
-            e.attack = 10 + lv;
-            e.defense = 6 + Math.floor(lv / 3);
-            // Wooden weapon: blunt, i.e. it knocks out instead of killing — nobody dies in the arena
-            e.name = f.name; e.type = 'infantry'; e.dmgType = 'blunt';
-            e.speed = 70; e.radius = 9; e.color = '#ffcc55';
-        }
+        if(!e) return;
+        let lv = Math.max(1, foe.lv || state.player.stats.level + (foe.dLv || 0));
+        e.level = lv;
+        e.hp = e.maxHp = 50 + lv * 6;
+        e.attack = 10 + lv;
+        e.defense = 6 + Math.floor(lv / 3);
+        // Wooden weapon: blunt, i.e. it knocks out instead of killing — nobody dies on the sand
+        e.name = foe.name; e.type = 'infantry'; e.dmgType = 'blunt';
+        e.speed = 70; e.radius = 9; e.color = color || '#ffcc55';
+    },
+    startArena(idx) {
+        let f = this.ARENA_FOES[idx] || this.ARENA_FOES[1];
+        this.isArena = f;
+        this.soloFoe(f);
         document.getElementById('battle-log-left').innerHTML = `<b>${T`🤺 Arena:</b> ${T(f.name)} — kum meydanı, tahta silahlar, ganimet yok.`}`;
+    },
+    // One round of the bracket (#122). Same sand, same wooden weapons; what differs is where
+    // the result goes — `Game.tourneyRoundDone` puts it back on the board instead of the map.
+    startTourneyFight(foe) {
+        this.isTourney = foe;
+        this.soloFoe(foe, '#d9a441');
+        document.getElementById('battle-log-left').innerHTML =
+            `<b>${T`🏆 Turnuva:</b> ${T(foe.name)} · Sv. ${foe.lv} — ${T(foe.round)}`}`;
     },
 
     start(enemyName, enemyCount, bossLevel = null, faction = null, siegePlan = null, auto = false) {
@@ -1769,15 +1782,17 @@ const Battle = {
         window.removeEventListener('keydown', this.commandListener);
         cancelAnimationFrame(this.loopId);
 
-        if(this.isArena) {
-            let foe = this.isArena;
-            this.isArena = null;
+        // The arena and a tournament round leave through the same door: nobody dies, the party
+        // comes back, and the result is handed to whoever asked for the fight (#122).
+        if(this.isArena || this.isTourney) {
+            let foe = this.isArena || this.isTourney, bracket = !!this.isTourney;
+            this.isArena = this.isTourney = null;
             state.player.party = this._duelParty || [];
             this._duelParty = null;
             let aUnit = this.units[0];
             state.player.stats.hp = Math.max(5, aUnit ? Math.floor(aUnit.hp) : 5);
             Game.showScreen('map');
-            Game.finishArena(foe, won);
+            if(bracket) Game.tourneyRoundDone(won); else Game.finishArena(foe, won);
             return;
         }
 
@@ -2022,7 +2037,7 @@ const Battle = {
     surrender() {
         // Withdrawing from a duel/arena match is a defeat, not a captivity — this path used to
         // not restore _duelParty, permanently wiping out the group.
-        if(this.isDuel || this.isArena) { this.active = false; this.endBattle(false); return; }
+        if(this.isDuel || this.isArena || this.isTourney) { this.active = false; this.endBattle(false); return; }
         this.active = false;
         this.canvas.removeEventListener('mousedown', this.clickHandler);
         window.removeEventListener('mouseup', this.upHandler);
@@ -2073,7 +2088,10 @@ const TournamentMinigame = {
     rollGear() { return this.GEAR[Math.floor(Math.random() * this.GEAR.length)]; },
 
     start(opts = {}) {
-        this.mode = opts.mode || 'tournament';
+        // Chicken chasing is the only thing left riding this engine: the tournament moved to the
+        // real Battle rig and a bracket (#122). The 'tournament' branches below stay because they
+        // are the click-minigame's own round/gear machinery — but nothing defaults into them.
+        this.mode = opts.mode || 'chicken';
         this.goal = opts.goal || 12;
         this.bet = opts.bet || 0;
         this.round = 1;

@@ -1452,3 +1452,40 @@ body.lite #map-view, body.lite #battle-view { box-shadow: none; }
 }
 #coach-box .coach-row span { flex: 1; font-size: var(--fs-xs); color: var(--text-muted); }
 #coach-box .coach-row .btn { min-height: 44px; padding: 0.4rem 0.9rem; }
+
+/* Turnuva eşleşme cetveli (#122). Four columns, each a round; the last is the champion.
+   Wide on a phone, so the whole board scrolls inside itself instead of the page. */
+.tbr {
+    display: flex; gap: 6px; overflow-x: auto; padding: 0.4rem 0 0.6rem;
+    margin: 0.6rem 0; -webkit-overflow-scrolling: touch;
+}
+.tbr-col { display: flex; flex-direction: column; min-width: 112px; flex: 1; }
+.tbr-cells { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 4px; }
+.tbr-hd {
+    font-size: var(--fs-xs); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted); text-align: center; margin-bottom: 2px;
+}
+.tbr-c {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.45rem; border: 1px solid var(--panel-border); border-radius: 5px;
+    background: rgba(255,255,255,0.03); font-size: var(--fs-xs); min-height: 30px;
+}
+.tbr-c .tbr-n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbr-c .tbr-l { color: var(--text-muted); }
+.tbr-c.me { border-color: var(--primary); color: var(--primary); background: rgba(212,175,55,0.10); }
+.tbr-c.out { opacity: 0.4; text-decoration: line-through; }
+.tbr-c.tbr-empty { border-style: dashed; opacity: 0.25; }
+/* The win visibly moves into the box above: the cell drops into place from the column before. */
+.tbr-c.adv { animation: tbr-adv 0.45s ease-out both; }
+@keyframes tbr-adv {
+    from { opacity: 0; transform: translate(-16px, 10px); }
+    to   { opacity: 1; transform: none; }
+}
+/* On a phone the four columns must all fit: a champion column parked off the right edge is
+   the one box the player actually wants to see. Names truncate, the shape survives. */
+@media (max-width: 430px) {
+    .tbr { gap: 3px; }
+    .tbr-col { min-width: 66px; }
+    .tbr-c { padding: 0.25rem 0.3rem; gap: 0.2rem; font-size: 10px; }
+    .tbr-hd { font-size: 9px; letter-spacing: 0.02em; }
+}

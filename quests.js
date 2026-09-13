@@ -200,19 +200,19 @@ const QUESTS = {
         minRelation: 20,
         days: 20,
         reward: { money: 2500, renown: -15, rel: 20 },
-        setup(q) { q.data = { lo: 5, hi: 8 }; },
+        setup(q) { q.data = { lo: 1, hi: 2 }; },   // rounds survived — the bracket has no score (#122)
         offer(q) {
             return `${T`"Bir turnuvaya gireceksin. Kazanmayacaksın.<br><br>
-                Ama rezil de olmayacaksın — <b>${q.data.lo} ile ${q.data.hi} arası</b> bir skorla eleneceksin.
-                Bahisçiler tam oraya oynadı. Erken düşersen şüphelenirler, kazanırsan iflas ederim.<br><br>
+                Ama rezil de olmayacaksın — <b>${q.data.lo} ile ${q.data.hi} arası</b> tur kazanıp eleneceksin.
+                Bahisçiler tam oraya oynadı. İlk turda düşersen şüphelenirler, kazanırsan iflas ederim.<br><br>
                 Kesen dolacak, adın biraz kirlenecek. Karar senin."`}`;
         },
-        desc(q) { return T`🏆 işaretli bir şehrin arenasına çık ve <b>${q.data.lo}-${q.data.hi}</b> skorla elen.
-            Kazanırsan da erken elenirsen de görev yanar.`; },
+        desc(q) { return T`🏆 işaretli bir şehrin turnuvasına gir, <b>${q.data.lo}-${q.data.hi}</b> tur kazan ve elen.
+            Kazanırsan da ilk turda elenirsen de görev yanar.`; },
         where(q) { return Quests.nearestTourney(); },
         on(q, ev, d) {
             if(ev === 'tournament_end') {
-                if(!d.won && d.score >= q.data.lo && d.score <= q.data.hi) return 'done';
+                if(!d.won && d.wins >= q.data.lo && d.wins <= q.data.hi) return 'done';
                 return 'fail';
             }
         }

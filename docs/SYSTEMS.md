@@ -498,7 +498,8 @@ job.
 - Village recruits refill (village cap 5; towns 4–8 every 2 days)
 - Kings/viziers strengthen over time (king reaches lvl 20 / 110 troops in 90 days, vizier lvl
   10 / 50 troops)
-- 25% chance a random town opens a tournament, an open tournament has a 30% chance to close
+- Tournaments are topped up towards `Game.TOURNEY_OPEN` = **3** open at once (each free city
+  rolls 50% until the board is full), an open tournament has a 30% chance to close
 - `Game.lairTick()` — lairs earn and grow (band respawn itself is hourly, see below)
 - `Nobles.dailyTick()` — ages location markers, raises rival suitors' interest, marriage
   income, wedding-day check
@@ -1846,36 +1847,42 @@ lords.** The same rule as Warband applies exactly — no one swears fealty to a 
 A town has two non-battle fight offerings: the **tournament** (opens occasionally, has a
 prize, has betting) and the **arena** (always open, no prize, practice).
 
-**Tournament** — `TournamentMinigame.start({ bet })`, clicking 12 targets in 25 seconds. Target
-size depends on agility, on-screen duration depends on strength. Now **eliminated round by
-round**: the 12 targets split into `ROUNDS = 4` rounds (`perRound = 3`), a **random piece of
-gear** (`GEAR`) is drawn at the start of each round, and there's a +6-second breather between
-rounds.
+**Tournament** (#122) — a real bracket fought on the real `Battle` engine. Eight fighters
+(`Game.tourneyField`: lords of the city's own faction, the seven travelling `TOURNEY_REGULARS`
+who follow the circuit from town to town, your own companions, and you) are drawn into three
+rounds — Çeyrek Final, Yarı Final, Final. Every round **you** are in is an actual fight on the
+arena's rig (`Battle.startTourneyFight` → `soloFoe`, shared with `startArena`/`startDuel`):
+party stays out, wooden weapons, `dmgType = 'blunt'`, nobody dies. Rounds you are not in are
+rolled (`tourneyRoll`: `a.lv / (a.lv + b.lv)`), and the bracket keeps being rolled after you are
+knocked out so the city always has a champion to remember — `state.tourneyChampions[cityId]`,
+shown on the entry screen the next time you walk in.
 
-| Gear | Target size | On-screen time |
-|---|---|---|
-| 🗡️ Wooden Sword | ×1.00 | ×1.00 |
-| 🔱 Spear | ×0.85 | ×1.30 |
-| 🏹 Bow | ×0.70 | ×1.55 |
-| 🛡️ Mace and Shield | ×1.30 | ×0.75 |
+Pairings are seat order, not a table: your opponent is `seat ^ 1`, your match is `seat >> 1`.
+The board lives in `state.tourney` (not on `Game`) because each fight leaves the map screen and
+comes back, and a save taken between two rounds must not forget the paid-in bet. Each round costs
+2 hours. Stepping out of the city mid-bracket is allowed — the town's action list then offers
+**🏆 Cetvele Dön**, since the city is removed from `state.activeTournaments` the moment the
+bracket starts.
 
-**Betting** (`ODDS`, at most `Game.ARENA_BET_MAX` = 1000 denars): money is taken when entering
-the tournament, payout depends on **how many rounds you cleared** —
-`bet × ODDS[floor(score/perRound)]`.
+| Round won | Çeyrek Final | Yarı Final | Final |
+|---|---|---|---|
+| Prize (`TOURNEY_PRIZE`) | 50 | 150 | **500** + 20 renown |
 
-| Round eliminated in | 1 | 2 | 3 | 4 | 🏆 Champion |
-|---|---|---|---|---|---|
-| Odds | ×0 | ×0.3 | ×0.8 | ×1.6 | **×5** |
+**Betting** (at most `Game.ARENA_BET_MAX` = 1000 denars): money is taken on entry, the payout is
+`bet × odds[rounds won]`. The odds are read off the field rather than a fixed table
+(`Game.tourneyOdds`): champion odds are `3 × avgRivalLevel / playerLevel`, clamped to 1.5–12, and
+the two lower rungs are 12% and 34% of that. So a field of veterans pays, a field of boys does
+not — entering a tournament far above your level is the fastest early money in the game, exactly
+as in Warband, and it is also the likeliest way to lose 1000 denars.
 
-Measured (with a 1000-denar bet): eliminated round 1 **−1000**, round 2 −700, round 3 −200,
-eliminated in the final **+600**, becoming champion **+4000** (plus the tournament's own 500
-denars + 20 renown). So expected value is negative for a mediocre player, and it's the
-fastest early-game money source for a good one — same as in Warband.
+Winning also opens `state.pendingDedication` (you can dedicate the win to a lady) and counts
+towards `state.player.tourneyWins` (the ambition chain, #53). `Quests.emit('tournament_end',
+{ won, wins })` fires on every bracket that finishes — the `fixed_match` ("Şike") quest now asks
+you to win 1–2 rounds and then lose, since a bracket has no score to throw.
 
-Winning also opens `state.pendingDedication` (you can dedicate the win to a lady).
-With `opts = { mode:'chicken', goal:8, time:15 }` it runs as the chicken-quest variant — chicken
-mode has no rounds, gear, or betting. On completion, the `tournament_end` / `chickens_caught`
-event fires.
+`TournamentMinigame` (clicking targets, `ROUNDS`/`GEAR`/`ODDS`) is still in `battle.js` but its
+tournament branch is unreachable: `start()` defaults to `mode: 'chicken'` and the only caller left
+is the chicken-chasing quest (`goal: 8`, `time: 15`), which fires `chickens_caught`.
 
 **Arena** (`Game.openArena` → `Battle.startArena(idx)`) — a variant of the duel machinery: no
 party enters the arena, **no loot, renown, prisoners, or captivity**. The opponent is picked

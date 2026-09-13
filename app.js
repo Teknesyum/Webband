@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.06', date: '2026-09-13', name: 'Kule Nöbeti' };  // the version name is not translated
+const VERSION = { no: '1.07', date: '2026-09-13', name: 'Kum Meydanı' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -412,6 +412,8 @@ const state = {
     meta: {},                // save metadata: { v, surum, createdAt, playtime }
     timeScale: 1,            // time-flow multiplier (0.5/1/2 from the calendar badge in the top bar)
     activeTournaments: {},   // { cityId: true }
+    tourney: null,           // the bracket under way (#122): { locId, bet, round, rounds, champion, ... }
+    tourneyChampions: {},    // { cityId: { name, day } } — who the city last saw win
     mercPools: {},           // { locId: { day, list:[{name, level, count}] } }
     encounterCooldown: 0,
     player: {
@@ -3764,12 +3766,12 @@ const Game = {
             }
         });
 
-        // Tournament creation
-        if(Math.random() < 0.25) {
-            let cities = LOCATIONS.filter(l => l.type === 'city');
-            let c = cities[Math.floor(Math.random() * cities.length)];
-            state.activeTournaments[c.id] = true;
-        }
+        // Tournament creation. One 25% roll a day across thirteen cities left the map with less
+        // than one open tournament on average, so the player almost never walked into one: the
+        // board is topped up towards TOURNEY_OPEN instead, and each still closes on its own.
+        let free = LOCATIONS.filter(l => l.type === 'city' && !state.activeTournaments[l.id]);
+        while(Object.keys(state.activeTournaments).length < this.TOURNEY_OPEN && free.length && Math.random() < 0.5)
+            state.activeTournaments[free.splice(Math.floor(Math.random() * free.length), 1)[0].id] = true;
         // End some tournaments
         for(let cid in state.activeTournaments) {
             if(Math.random() < 0.3) delete state.activeTournaments[cid];
@@ -5202,6 +5204,11 @@ const Game = {
                 this.addBtn(ac, T('🤺 Arenada Dövüş'), () => this.openArena(loc));
                 if(state.activeTournaments[loc.id]) {
                     this.addBtn(ac, T('🏆 Turnuvaya Katıl'), () => this.joinTournament(loc));
+                } else if(state.tourney && state.tourney.started && !state.tourney.done
+                          && state.tourney.locId === loc.id) {
+                    // The bracket is removed from `activeTournaments` the moment it starts, so
+                    // a player who stepped out between rounds needs his own way back in (#122).
+                    this.addBtn(ac, T('🏆 Cetvele Dön'), () => this.joinTournament(loc));
                 }
                 this.addBtn(ac, T('👑 Lordlar Salonuna Git'), () => Nobles.openHall(loc));
                 if(state.feast && state.feast.locId === loc.id) {
@@ -7880,36 +7887,200 @@ const Game = {
             + T`\nArena para vermez — burada yalnız ustalık kazanılır.`);
     },
 
-    // --- TOURNAMENT ---
+    // --- TOURNAMENT (#122) ---
+    // Eight fighters, three rounds, and every round the player is in is a real `Battle` fight on
+    // the arena's rig — the click minigame stays behind, it is what chicken chasing runs on. The
+    // board lives in `state` rather than on `Game` because each fight leaves the map screen and
+    // comes back, and because a save taken between two rounds must not forget the paid-in bet.
+    TOURNEY_OPEN: 3,                                      // how many cities hold one at the same time
+    TOURNEY_PRIZE: [50, 150, 500],                        // for winning round 1 / round 2 / the final
+    TOURNEY_ROUNDS: ['Çeyrek Final', 'Yarı Final', 'Final'],
+    // Regulars of the circuit: they follow the tournaments from city to city, so unlike the
+    // local lords they can turn up anywhere.
+    TOURNEY_REGULARS: ['Tek Kollu Baturhan', 'Şişman Ansen', 'Kumlu Derviş', 'Sessiz Ymira',
+                       'Kalkancı Runa', 'Kırık Dişli Orhan', 'Değirmenci Vasil'],
+
+    // The field is drawn once, when the player enters. The city's own lords come first — a
+    // tournament in Praven should be full of Swadians — then the circuit regulars, then whoever
+    // rides with the player: a companion in the party signs up too.
+    tourneyField(loc) {
+        let lv = state.player.stats.level;
+        let names = LORDS.filter(l => l.faction === loc.faction && l.rank !== 'vizier').map(l => l.name)
+            .concat(this.TOURNEY_REGULARS)
+            .concat(state.player.party.filter(t => t.isCompanion).map(t => t.name));
+        names = names.sort(() => Math.random() - 0.5).slice(0, 7);
+        // A bracket where everyone is the player's equal has no shape: the spread runs from an
+        // easy first round up to a champion who is genuinely above you.
+        let spread = [-4, -2, -1, 0, 2, 3, 5];
+        let field = names.map((n, i) => ({ name: n, lv: Math.max(1, lv + spread[i]) }));
+        field.push({ name: state.player.name, lv, you: true });
+        return field.sort(() => Math.random() - 0.5);
+    },
+
+    // Who fights whom is the seat order itself: match `m` of a round is seats 2m and 2m+1 — so a
+    // fighter's opponent is always `seat ^ 1` — and winners keep that order in the next column.
+    // No pairing table to keep in sync with the drawing.
     joinTournament(loc) {
-        if(!state.activeTournaments[loc.id]) {
-            this.showModal(`<h3>${T`🏆 Turnuva Alanı</h3><p>Şu anda bu şehirde turnuva düzenlenmiyor.`}</p>`);
-            return;
-        }
-        let max = Math.min(this.ARENA_BET_MAX, state.player.money);
-        let TM = TournamentMinigame;
-        this.showModal(`<h3>${T`🏆 ${T(loc.name)} Turnuvası!</h3>
-        <p><b>${TM.ROUNDS} tur</b> — her turda kuradan <b>rastgele bir ekipman</b> çıkar; kiminde hedef küçülür, kiminde büyür.</p>
-        <p>Şampiyonluk ödülü: <b>500 Dinar</b> ve <b>+20 Nam</b>. Elenirsen turnuva sona erer.`}</p>
-        <div style="margin-top:1rem;padding:0.8rem;border:1px solid var(--panel-border);border-radius:8px">
-            <b>${T`🎲 Bahis`}</b> <span style="color:var(--text-muted);font-size:var(--fs-sm)">${T`— kendi kazanmana yatırırsın, oran tur ilerledikçe katlanır.`}</span>
+        let t = state.tourney;
+        if(t && t.started && !t.done && t.locId === loc.id) return this.tourneyBoard();
+        if(!state.activeTournaments[loc.id])
+            return this.showModal(`<h3>${T`🏆 Turnuva Alanı</h3><p>Şu anda bu şehirde turnuva düzenlenmiyor.`}</p>`);
+        let max = Math.min(this.ARENA_BET_MAX, Math.floor(state.player.money));
+        state.tourney = { locId: loc.id, bet: 0, round: 0, wins: 0, started: false, done: false,
+                          rounds: [this.tourneyField(loc), [], []], champion: null, fresh: [] };
+        let odds = this.tourneyOdds(), last = (state.tourneyChampions || {})[loc.id];
+        this.showModal(`<h3>${T`🏆 ${T(loc.name)} Turnuvası`}</h3>
+        <p>${T`Sekiz dövüşçü, üç tur, tahta silahlar. Her turu <b>kendin</b> dövüşürsün; canın turlar arasında yenilenmez.`}</p>
+        ${last ? `<p style="color:var(--text-muted);font-size:var(--fs-sm)">${T`Geçen turnuvayı <b>${T(last.name)}</b> kazanmıştı.`}</p>` : ''}
+        ${this.tourneyBracketHtml()}
+        <div style="margin-top:0.9rem;padding:0.8rem;border:1px solid var(--panel-border);border-radius:8px">
+            <b>${T`🎲 Bahis`}</b> <span style="color:var(--text-muted);font-size:var(--fs-sm)">${T`— kendine yatırırsın; oran cetveldeki rakiplerin gücünden çıkar.`}</span>
             <div style="display:flex;gap:0.5rem;margin:0.5rem 0;font-size:var(--fs-sm);color:var(--text-muted);flex-wrap:wrap">
-                ${TM.ODDS.map((o, i) => `<span>${i === TM.ROUNDS ? T('🏆 Şampiyon') : T`${i + 1}. turda elenme`}: <b style="color:${o >= 1 ? 'var(--success)' : 'var(--danger)'}">×${o}</b></span>`).join(' · ')}
+                ${odds.map((o, i) => `<span>${i === 3 ? T('🏆 Şampiyon') : i === 0 ? T('İlk turda elenme') : T`${i}. turu kazanma`}: <b style="color:${o >= 1 ? 'var(--success)' : 'var(--danger)'}">×${o}</b></span>`).join(' · ')}
             </div>
             <label>${T`Yatırılacak:`} <input type="number" id="tourney-bet" value="0" min="0" max="${max}" step="50"
                 style="width:110px;padding:0.3rem"></label>
             <span style="color:var(--text-muted);font-size:var(--fs-sm)">${T`(en fazla ${max} dinar)`}</span>
         </div>
-        <button class="btn primary" style="margin-top:1rem" onclick="Game.startTournament('${loc.id}')">${T`⚔️ Arenaya Çık!`}</button>`);
+        <button class="btn primary" style="margin-top:1rem" onclick="Game.startTournament()">${T`⚔️ Kuraya Gir`}</button>`, '640px');
     },
-    startTournament(locId) {
+    startTournament() {
+        let t = state.tourney;
+        if(!t || t.started) return;
         let el = document.getElementById('tourney-bet');
-        let bet = Math.max(0, Math.min(Math.min(this.ARENA_BET_MAX, state.player.money), Math.floor(+(el && el.value) || 0)));
-        this.closeModal();
-        delete state.activeTournaments[locId];
-        state.player.money -= bet;
+        t.bet = Math.max(0, Math.min(Math.min(this.ARENA_BET_MAX, Math.floor(state.player.money)),
+                                     Math.floor(+(el && el.value) || 0)));
+        t.started = true;
+        state.player.money -= t.bet;
+        delete state.activeTournaments[t.locId];
         this.updateTopBar();
-        TournamentMinigame.start({ bet });
+        this.tourneyBoard();
+    },
+
+    // Bookmakers read the field, not a table (#122): a bracket a head taller than you pays for
+    // the risk it is, and a field of boys is not worth betting on. Index = rounds won.
+    tourneyOdds() {
+        let t = state.tourney, me = Math.max(1, state.player.stats.level);
+        let rivals = t.rounds[0].filter(f => !f.you);
+        let avg = rivals.reduce((a, f) => a + f.lv, 0) / Math.max(1, rivals.length);
+        let champ = Math.max(1.5, Math.min(12, 3 * avg / me));
+        return [0, +(champ * 0.12).toFixed(2), +(champ * 0.34).toFixed(2), +champ.toFixed(2)];
+    },
+
+    // The board is the screen between rounds: where everyone stands, and the one button that
+    // matters. It is also where a finished tournament settles the bet — once, guarded by `paid`,
+    // because every way back into the city comes through here.
+    tourneyBoard() {
+        let t = state.tourney;
+        if(!t) return;
+        let msg = '', btn = '';
+        if(t.done) {
+            let pay = Math.floor(t.bet * this.tourneyOdds()[t.wins]);
+            if(!t.paid) {
+                t.paid = true;
+                state.player.money += pay;
+                if(t.champion.you) {
+                    state.player.tourneyWins = (state.player.tourneyWins || 0) + 1;   // ambition chain (#53/1.4)
+                    state.pendingDedication = true;   // a win can still be dedicated to a lady in the hall
+                }
+                (state.tourneyChampions || (state.tourneyChampions = {}))[t.locId] =
+                    { name: t.champion.name, day: state.time.day };
+                // The quests that watch the tournament now count rounds survived, not targets hit:
+                // the bracket has no score. `score` rides along for anything still reading the old name.
+                Quests.emit('tournament_end', { won: !!t.champion.you, wins: t.wins, score: t.wins });
+                this.updateTopBar();
+            }
+            let won = this.TOURNEY_PRIZE.slice(0, t.wins).reduce((a, b) => a + b, 0);
+            // Built outside the template on purpose: a `T` nested inside another `T` template is
+            // invisible to the key extractor, so its dictionary entry would never be generated.
+            let tail = t.wins ? T`Sen ${t.wins} tur dayandın — <b>+${won} dinar</b>.`
+                              : T('İlk turda elendin — kese boş döndü.');
+            msg = t.champion.you
+                ? `<p><b>${T`🏆 Şampiyon sensin.`}</b> ${T`Kalabalık adını bağırıyor. <b>+${won} dinar</b>, <b>+20 nam</b>.`}</p>`
+                : `<p>${T`Turnuvayı <b>${T(t.champion.name)}</b> kazandı. ${tail}`}</p>`;
+            if(t.bet) msg += `<p style="color:${pay >= t.bet ? 'var(--success)' : 'var(--danger)'}">${T`🎲 Bahis: ${t.bet} dinar yatırdın, ${pay} dinar aldın.`}</p>`;
+            btn = `<button class="btn primary" onclick="Game.tourneyClose()">${T`Meydandan Ayrıl`}</button>`;
+        } else {
+            let foe = t.rounds[t.round][t.rounds[t.round].findIndex(f => f.you) ^ 1];
+            msg = `<p>${T`Sıradaki: <b>${T(this.TOURNEY_ROUNDS[t.round])}</b> — karşında <b>${T(foe.name)}</b> (Sv. ${foe.lv}).`}
+                   <span style="color:var(--text-muted)">${T`Canın: ${Math.round(state.player.stats.hp)}/${Math.round(state.player.stats.maxHp)}`}</span></p>`;
+            btn = `<button class="btn primary" onclick="Game.tourneyFight()">${T`⚔️ Meydana Çık`}</button>`;
+        }
+        this.showModal(`<h3>${T`🏆 ${T((LOCATIONS.find(l => l.id === t.locId) || {}).name || 'Turnuva')} Turnuvası`}</h3>
+        ${this.tourneyBracketHtml()}${msg}${btn}`, '640px');
+    },
+    tourneyClose() { state.tourney = null; this.closeModal(); },
+
+    tourneyFight() {
+        let t = state.tourney, cur = t.rounds[t.round];
+        let i = cur.findIndex(f => f.you);
+        if(i < 0) return;
+        let foe = cur[i ^ 1];
+        foe.round = this.TOURNEY_ROUNDS[t.round];   // raw name; the battle log translates it
+        this.closeModal();
+        Battle.startTourneyFight(foe);
+    },
+    // Called by `Battle.endBattle` once the player's own match is decided.
+    tourneyRoundDone(won) {
+        let t = state.tourney;
+        if(!t) return;
+        this.advanceTime(2);
+        if(won) {
+            t.wins++;
+            state.player.money += this.TOURNEY_PRIZE[t.round];
+            if(t.round === 2) state.player.renown += 20;
+        }
+        this.tourneyResolve(won);
+        this.updateTopBar();
+        this.tourneyBoard();
+    },
+
+    // A match the player never sees is a weighted coin — level against level — which is all it
+    // needs to be. Once the player is out the rest of the bracket is played out on the spot:
+    // the point of those rounds is the name the city remembers afterwards.
+    tourneyRoll(a, b) { return Math.random() < a.lv / (a.lv + b.lv) ? a : b; },
+    tourneyResolve(won) {
+        let t = state.tourney;
+        while(t.round < 3) {
+            let cur = t.rounds[t.round], next = [], mine = cur.findIndex(f => f.you);
+            for(let m = 0; m * 2 < cur.length; m++) {
+                let a = cur[2 * m], b = cur[2 * m + 1];
+                let w = (mine >= 0 && (mine >> 1) === m) ? (won ? cur[mine] : cur[mine ^ 1])
+                                                        : this.tourneyRoll(a, b);
+                (w === a ? b : a).out = true;
+                next.push(w);
+            }
+            t.fresh = next.map((f, i) => (t.round + 1) + ':' + i);
+            t.round++;
+            if(t.round < 3) t.rounds[t.round] = next;
+            else { t.champion = next[0]; t.done = true; return; }
+            if(mine >= 0 && won) return;   // the player fights the next round himself
+            won = false;                   // he is out; everything left is rolled
+        }
+    },
+
+    // Four columns: the eight seats, the four, the two, the champion. Cells filled by the round
+    // that just resolved carry `.adv`, which is the slide-up animation — the winner visibly
+    // moves into the box above.
+    tourneyBracketHtml() {
+        let t = state.tourney, cols = [];
+        for(let r = 0; r < 4; r++) {
+            let n = r < 3 ? 8 >> r : 1, cells = [];
+            for(let i = 0; i < n; i++)
+                cells.push(this.tourneyCell(r < 3 ? (t.rounds[r] || [])[i] : t.champion, r, i));
+            // The header sits outside the centred stack, otherwise `space-around` pushes each
+            // column's title further down than the last and the row of titles reads as a staircase.
+            cols.push(`<div class="tbr-col"><div class="tbr-hd">${T(r < 3 ? this.TOURNEY_ROUNDS[r] : 'Şampiyon')}</div>
+                <div class="tbr-cells">${cells.join('')}</div></div>`);
+        }
+        return `<div class="tbr">${cols.join('')}</div>`;
+    },
+    tourneyCell(f, r, i) {
+        if(!f) return `<div class="tbr-c tbr-empty"></div>`;
+        let cls = (f.you ? ' me' : '') + (f.out ? ' out' : '')
+                + ((state.tourney.fresh || []).includes(r + ':' + i) ? ' adv' : '');
+        return `<div class="tbr-c${cls}" style="animation-delay:${(i * 0.1).toFixed(2)}s">
+            <span class="tbr-n">${f.you ? '⚔️ ' : ''}${T(f.name)}</span><span class="tbr-l">${f.lv}</span></div>`;
     },
 
     // Garrison grows with prosperity — the siege screen and the map tooltip both use the same number
