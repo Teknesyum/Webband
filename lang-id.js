@@ -2183,4 +2183,5 @@ I18N.dicts.id = {
   "Turkuaz Takım": "Tim Pirus",
   "{0} kişi": "{0} petarung",
   "🏆 Turnuva:": "🏆 Turnamen:",
+  "Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.": "Perlengkapan turnamen standar: pedang kayu, zirah berlapis, tanpa kuda.",
 };

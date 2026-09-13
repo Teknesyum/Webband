@@ -2183,4 +2183,5 @@ I18N.dicts.en = {
   "Turkuaz Takım": "Turquoise Team",
   "{0} kişi": "{0} fighters",
   "🏆 Turnuva:": "🏆 Tournament:",
+  "Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.": "Standard tournament kit: wooden sword, padded armour, no horses.",
 };

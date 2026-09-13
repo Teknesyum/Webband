@@ -8219,7 +8219,8 @@ const Game = {
                    <span style="color:var(--text-muted)">${T`Canın: ${Math.round(state.player.stats.hp)}/${Math.round(state.player.stats.maxHp)}`}</span><br>
                    <b style="color:${teams[0].color}">● ${T(teams[0].name)}</b> ${T`${size} kişi`}
                    <span style="color:var(--text-muted)"> — </span>
-                   <b style="color:${teams[1].color}">● ${T(teams[1].name)}</b> ${T`${size} kişi`}</p>`;
+                   <b style="color:${teams[1].color}">● ${T(teams[1].name)}</b> ${T`${size} kişi`}<br>
+                   <span style="color:var(--text-muted)">${T('Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.')}</span></p>`;
             btn = `<button class="btn primary" onclick="Game.tourneyFight()">${T`⚔️ Meydana Çık`}</button>`;
         }
         this.showModal(`<h3>${T`🏆 ${T((LOCATIONS.find(l => l.id === t.locId) || {}).name || 'Turnuva')} Turnuvası`}</h3>

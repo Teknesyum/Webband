@@ -678,6 +678,11 @@ test('tournament: a 4v4 round spawns two complete, colour-coded teams', () => {
     assert.strictEqual(red.length, 4, 'the opposing tournament team is not 4 fighters');
     assert.ok(blue.every(u => u.color === pair[0].color), 'player teammates do not share their team colour');
     assert.ok(red.every(u => u.color === pair[1].color), 'opponents do not share their team colour');
+    assert.ok(Battle.units.every(u => u.defense === 8 && u.dmgType === 'blunt' && !u.hasShield),
+        'personal weapons or armour leaked into the tournament issue');
+    assert.ok(Battle.units.every(u => !u.mounted && u.type === 'infantry'),
+        'a horse entered an otherwise foot-only tournament round');
+    assert.strictEqual(Battle.arrows, 0, 'the player carried a personal bow into the tournament');
     Battle.active = false;
 });
 

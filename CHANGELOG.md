@@ -7,7 +7,8 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 - **Turnuvalar renkli takım savaşları oldu.** Warband düzenine yaklaşan turnuvada çeyrek final
   4’e 4, yarı final 2’ye 2, final 1’e 1 oynanıyor; iki tarafın takım adı ve yüksek kontrastlı
-  rengi hem tur ekranında hem savaş alanındaki dövüşçülerde aynı görünüyor.
+  rengi hem tur ekranında hem savaş alanındaki dövüşçülerde aynı görünüyor. Kişisel ekipman içeri
+  girmiyor: herkeste aynı tahta kılıç ve dolgulu zırh var, at iki tarafa da yasak.
 - **Yazılan konuşmada ilk basış onaydır.** Lordun cümlesi yazılırken kayan bir seçeneğe dokunmak
   artık o seçeneği çalıştırmıyor: ilk basış metni tamamlıyor, ikinci basış bilinçli seçimi yapıyor.
   Konuşma alanı da uzun cümlelerde tuşları daha az oynatacak kadar büyütüldü.

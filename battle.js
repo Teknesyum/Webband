@@ -70,18 +70,33 @@ const Battle = {
         this.soloFoe(foe, match.enemy.color);
         let player = this.units.find(u => u.id === 'player');
         let captain = this.units.find(u => !u.isPlayerTeam);
-        if(player) player.color = match.player.color;
-        if(captain) captain.color = match.enemy.color;
+        // Tournament issue is supplied by the arena: personal armour, weapon, shield and horse
+        // never enter the ring. Levels still matter, but everybody gets the same padded armour
+        // and blunt wooden sword; mounts are forbidden for both teams.
+        const standardise = (u, color) => {
+            if(!u) return;
+            u.color = color; u.defense = 8; u.dmgType = 'blunt'; u.hasShield = false;
+            u.type = 'infantry'; u.mounted = false; u.radius = 7;
+        };
+        if(player) {
+            standardise(player, match.player.color);
+            player.attack = 10 + Game.attr('str');
+            player.speed = this.footSpeed();
+            this.arrows = 0;
+        }
+        standardise(captain, match.enemy.color);
         const addFighter = (f, team, color, idx) => {
             let lv = Math.max(1, f.lv || state.player.stats.level);
-            this.units.push({
+            let u = {
                 id: `tourney_${team ? 'ally' : 'enemy'}_${idx}`, name:f.name, isPlayerTeam:team,
                 hp:50 + lv * 6, maxHp:50 + lv * 6, attack:10 + lv,
-                defense:6 + Math.floor(lv / 3), speed:70, radius:7, type:'infantry', mounted:false,
-                dmgType:'blunt', color, atkCd:Math.random() * 0.6,
+                defense:8, speed:70, radius:7, type:'infantry', mounted:false,
+                dmgType:'blunt', hasShield:false, color, atkCd:Math.random() * 0.6,
                 x:team ? 110 + Math.random() * 90 : this.canvas.width - 200 + Math.random() * 90,
                 y:70 + Math.random() * Math.max(1, this.canvas.height - 140), level:lv
-            });
+            };
+            standardise(u, color);
+            this.units.push(u);
         };
         (match.allies || []).forEach((f, i) => addFighter(f, true, match.player.color, i));
         (match.enemies || []).forEach((f, i) => addFighter(f, false, match.enemy.color, i));
@@ -89,7 +104,8 @@ const Battle = {
             `<b>${T('🏆 Turnuva:')} ${T(foe.round)} · ${match.size}×${match.size}</b><br>
              <span style="color:${match.player.color}">● ${T(match.player.name)}</span>
              <span style="color:var(--text-muted)"> — </span>
-             <span style="color:${match.enemy.color}">● ${T(match.enemy.name)}</span>`;
+             <span style="color:${match.enemy.color}">● ${T(match.enemy.name)}</span><br>
+             <span style="color:var(--text-muted)">${T('Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.')}</span>`;
     },
 
     start(enemyName, enemyCount, bossLevel = null, faction = null, siegePlan = null, auto = false, enemyBand = null) {
