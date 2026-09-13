@@ -10065,18 +10065,19 @@ const Game = {
     },
 
     // Daily expense: wages + food. dailyUpdate and the top-bar tooltip use the same math.
-    // A troop eats half a unit a day, the player a full unit (we count the player's own stomach too).
+    // A troop eats 0.4 units a day, the player 0.75 (we count the player's own stomach too).
     // It used to be 1 per head: a 20-person army ate 21 units a day (~84 dinars),
     // meaning the food bill ran twice the wage bill. This is the single knob — consumption,
     // the "days left" badge, the hunger penalty, and the tooltip breakdown all read from upkeep().
-    FOOD_MAN: 0.5,
+    FOOD_MAN: 0.4,
+    FOOD_PLAYER: 0.75,
 
     upkeep() {
         // The player's own belly is fed too (#75). It used to be only the party was counted:
         // a player traveling alone ate no food at all, and the top bar read "∞ days".
         // This one line stays here because consumption, "days left", the hunger penalty,
         // and the tooltip breakdown all read from this single function.
-        let wage = 0, foodLow = 1, foodHigh = 0;
+        let wage = 0, foodLow = this.FOOD_PLAYER, foodHigh = 0;
         state.player.party.forEach(t => {
             wage += this.troopWage(t);                              // companion 20, lvl51 free
             if(t.isCompanion) { foodLow += this.FOOD_MAN; return; }

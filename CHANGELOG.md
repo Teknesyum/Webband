@@ -5,6 +5,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Erzak daha yavaş tükeniyor.** Asker başına günlük tüketim 0,5'ten 0,4'e, oyuncunun payı
+  1'den 0,75'e indirildi. Günlük tüketim, erzak günü göstergesi ve açlık hesabı aynı oranı kullanıyor.
+
 - **Lord orduları artık zıplamıyor.** Günlük güç hedefi ordu mevcudunu bir anda yeniden yazmıyor;
   eksik ya da fazla asker sayısı günde en çok üç kişiyle hedefe yaklaşıyor. Yeni doğan ve yeniden
   çıkan lordlar da aynı hedef büyüklükten başlıyor.
