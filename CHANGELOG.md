@@ -5,6 +5,8 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Turnuva hedefi zafer anında tamamlanıyor.** “Turnuva şampiyonu” hedefi artık ertesi günün
+  dünya güncellemesini beklemiyor; hem turnuva ağacında hem eski arena turnuvasında ödülü hemen veriyor.
 - **“Sisteki Nokta” görevi kaldırıldı.** Gizli koordinat arayıp sıcak/soğuk bildirimi bekleten
   görev artık hiçbir görev verenden çıkmıyor; tanımı ve kullanılmayan çevirileri de temizlendi.
 - **Yol kenarında geçen saatler gerçekten geçiyor.** Yaralıyla ilgilenirken, fırtınayı beklerken

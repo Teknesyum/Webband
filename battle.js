@@ -2257,6 +2257,7 @@ const TournamentMinigame = {
             state.player.money += 500; state.player.renown += 20;
             state.player.tourneyWins = (state.player.tourneyWins || 0) + 1;   // hedef zinciri sayar (#53/1.4)
             state.pendingDedication = true;
+            Game.ambitionTick();   // don't make the player wait for the next day to finish the goal
             alert(T('Turnuvayı kazandın! +500 Dinar, +20 Nam') + betTxt + T('\n\nArenada zaferini bir leydiye ithaf edebilirsin — salona git.'));
         } else {
             alert(T`${this.round}. turda elendin! Skor: ${this.score}/${this.goal}` + betTxt);

@@ -8167,6 +8167,7 @@ const Game = {
                 if(t.champion.you) {
                     state.player.tourneyWins = (state.player.tourneyWins || 0) + 1;   // ambition chain (#53/1.4)
                     state.pendingDedication = true;   // a win can still be dedicated to a lady in the hall
+                    this.ambitionTick();              // finish the selected champion goal immediately
                 }
                 (state.tourneyChampions || (state.tourneyChampions = {}))[t.locId] =
                     { name: t.champion.name, day: state.time.day };

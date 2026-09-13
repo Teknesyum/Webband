@@ -467,12 +467,16 @@ test('tournament: eight enter, one is crowned, and the ladder pays per round (#1
     gw.state.activeTournaments[city.id] = true;
     gw.Game.joinTournament(city);
     gw.Game.startTournament();
+    gw.state.player.ambition = { id: 'champion', day: gw.state.time.day };
+    gw.state.player.ambitionsDone = (gw.state.player.ambitionsDone || []).filter(id => id !== 'champion');
     const m0 = gw.state.player.money, r0 = gw.state.player.renown, w0 = gw.state.player.tourneyWins || 0;
     for(let i = 0; i < 3; i++) gw.Game.tourneyRoundDone(true);
     assert.ok(gw.state.tourney.champion.you, 'the player won every round and was still not crowned');
-    assert.strictEqual(gw.state.player.money - m0, 700, 'the prize ladder did not add up to 50+150+500');
-    assert.strictEqual(gw.state.player.renown - r0, 20, 'the championship paid no renown');
+    assert.strictEqual(gw.state.player.money - m0, 1200, 'the prize ladder and ambition rewards did not arrive');
+    assert.strictEqual(gw.state.player.renown - r0, 30, 'the championship and ambition paid the wrong renown');
     assert.strictEqual((gw.state.player.tourneyWins || 0) - w0, 1, 'the ambition counter did not tick');
+    assert.ok(!gw.state.player.ambition && gw.state.player.ambitionsDone.includes('champion'),
+        'winning the tournament did not immediately complete the selected ambition');
     gw.state.tourney = null;
 
     // The board is topped up, not rolled once: a player crossing the map should keep running
