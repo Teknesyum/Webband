@@ -603,6 +603,21 @@ test('encounter: the announced roster is the roster that takes the field (#116)'
     assert.strictEqual(mine, 3, 'the wounded were counted into the announcement again');
 });
 
+test('encounter: the announced band kind wins over a stale global encounter id', () => {
+    const gw = H.world({ seed: 15 });
+    const { Game, state, Battle } = gw;
+    state.player.party = [];
+    const wolf = Game.spawnBand('wolf');
+    state.player.currentEncounterNpcId = wolf.id; // stale state from a different encounter
+    Battle.endBattle = () => { Battle.active = false; };
+    Battle.start('Çapulcular', 6, null, '', null, false, 'bandit');
+    const foes = Battle.units.filter(u => !u.isPlayerTeam).concat(Battle.reserves.e);
+    assert.ok(foes.length === 6);
+    assert.ok(foes.every(u => !u.beast && !/Kurt/.test(u.name)),
+        'a bandit announcement produced wolves');
+    Battle.active = false;
+});
+
 test('speed: morale doesn\'t scale troop speed (the enemy has no morale)', () => {
     const speedAt = morale => {
         gw.state.player.morale = morale;

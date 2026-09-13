@@ -16,6 +16,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
   otomatik çözüm dengesi değişmedi.
 - **Tek kişilik karşılaşmalar ordu taklidi yapmıyor.** Arena, turnuva ve şeref düellosunda düşman
   komutanı konuşması ile isimli kırmızı komuta halkaları çıkmıyor. Tavuk avında da emir tuşları yok.
+- **Karşılaşmada söylenen düşman, sahaya çıkan düşman.** Eski bir karşılaşma kimliği bellekte
+  kaldığında "haydut çetesi" başlığının altından kurt sürüsü çıkabiliyordu; ilan edilen birlik türü
+  artık savaş motoruna doğrudan taşınıyor.
 - **Müzikler dış lisans yükü taşımıyor.** Harita ve savaş parçaları, oyunun Web Audio motorunun
   çalışma anında besteleyip sentezlediği özgün/prosedürel eserlerdir; haricî kayıt kullanılmaz.
 

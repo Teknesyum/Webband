@@ -70,7 +70,7 @@ const Battle = {
             `<b>${T`🏆 Turnuva:</b> ${T(foe.name)} · Sv. ${foe.lv} — ${T(foe.round)}`}`;
     },
 
-    start(enemyName, enemyCount, bossLevel = null, faction = null, siegePlan = null, auto = false) {
+    start(enemyName, enemyCount, bossLevel = null, faction = null, siegePlan = null, auto = false, enemyBand = null) {
         Input.keys = {}; // Clear keys
         this.canvas = document.getElementById('battle-canvas');
         this.ctx = Game.battleCtx();   // single gate to the shared canvas (#54)
@@ -227,7 +227,10 @@ const Battle = {
 
         // Enemies (Bands vs Faction Lords vs Boss)
         let npc = state.npcParties.find(n => n.id === state.player.currentEncounterNpcId);
-        let bandKey = (npc && npc.band) || (Object.keys(BAND_KINDS).find(k => BAND_KINDS[k].name === enemyName));
+        // The button that announced the encounter is authoritative. Falling back to the
+        // global encounter id could select a stale wolf party while the modal said bandits.
+        let bandKey = enemyBand || (npc && npc.band)
+                    || (Object.keys(BAND_KINDS).find(k => BAND_KINDS[k].name === enemyName));
         let band = BAND_KINDS[bandKey];
         let isBandit = !!band;
         for(let i=0; i<enemyCount; i++) {

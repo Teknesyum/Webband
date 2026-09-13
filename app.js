@@ -2616,7 +2616,7 @@ const Game = {
             alert(T`Kaçamadın, yolunu kestiler! (Kaçış şansı %${Math.round(chance*100)})`);
             // The announced count, not today's: `npc.size` may have moved since the modal (#116)
             Battle.start(npc ? npc.name : 'Kurt Sürüsü', state.encounterSize || (npc ? npc.size : 6),
-                         null, (npc && npc.faction) || '');
+                         null, (npc && npc.faction) || '', null, false, (npc && npc.band) || null);
         }
     },
     // "Send your troops": let the engine itself resolve the battle without opening the arena (#30)
@@ -2624,7 +2624,7 @@ const Game = {
         let npc = state.npcParties.find(n => n.id === npcId);
         if(!npc) return this.closeModal();
         this.closeModal();
-        Battle.start(npc.name, state.encounterSize || npc.size, null, npc.faction || '', null, true);
+        Battle.start(npc.name, state.encounterSize || npc.size, null, npc.faction || '', null, true, npc.band || null);
     },
 
     isHostile(npc) {
@@ -2890,7 +2890,7 @@ const Game = {
                 : T`${this.npcName(npc)} seninle savaşmaya değmeyeceğini düşünüyor.`}</p>
             <div style="display:flex;gap:1rem;margin-top:1rem;">
             <button class="btn primary" onclick="Game.closeModal(); state.encounterCooldown = 5;">${T`Uzaklaş`}</button>
-            <button class="btn" style="border-color:#cc0000;color:#cc0000" onclick="Game.closeModal(); Battle.start('${npc.name.replace(/'/g,"\\'")}', ${npc.size}, null, '${npc.faction || ''}')">${T`⚔️ Yine De Savaş!`}</button>
+            <button class="btn" style="border-color:#cc0000;color:#cc0000" onclick="Game.closeModal(); Battle.start('${npc.name.replace(/'/g,"\\'")}', ${npc.size}, null, '${npc.faction || ''}', null, false, '${npc.band || ''}')">${T`⚔️ Yine De Savaş!`}</button>
             </div>`;
         } else {
             // No fleeing during a raid ambush — you got caught red-handed. In an ambush,
@@ -2911,7 +2911,7 @@ const Game = {
                 ? `${T`Sarıldın: kaçmak yarı şansla mümkün, kaçış şansın`} <b>%${flee}</b>.`
                 : `${T`Kaçabilirsin ama hız farkı belirler: kaçış şansın`} <b>%${flee}</b>.`}</p>
             <div style="display:flex;gap:0.6rem;margin-top:1rem;flex-wrap:wrap;justify-content:center">
-            <button class="btn primary" onclick="Game.closeModal(); Battle.start('${npc.name.replace(/'/g,"\\'")}', ${npc.size}, null, '${npc.faction || ''}')">${T`⚔️ Savaş!`}</button>
+            <button class="btn primary" onclick="Game.closeModal(); Battle.start('${npc.name.replace(/'/g,"\\'")}', ${npc.size}, null, '${npc.faction || ''}', null, false, '${npc.band || ''}')">${T`⚔️ Savaş!`}</button>
             ${canAuto ? `<button class="btn" style="border-color:#8fd6ff;color:#8fd6ff" onclick="Game.autoBattle('${npc.id}')" title="Sen inmezsin, adamların halleder — kayıp daha yüksektir">${T`🎖️ Askerlerini Gönder`}</button>` : ''}
             ${canFlee ? `<button class="btn" style="border-color:#cc8800;color:#cc8800" onclick="Game.fleeEncounter('${npc.id}')">${T`🏃 Kaçmayı Dene (%${flee})`}</button>` : ''}
             ${bk.beast ? '' :
