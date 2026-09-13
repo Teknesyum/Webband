@@ -169,6 +169,15 @@ test('foodStock: every added ration joins consumption, quality and variety', () 
     assert.strictEqual(Game.foodStock().total, 0);
 });
 
+test('foodStock: expensive preserved food supplies multiple daily portions', () => {
+    const p = reset();
+    p.inventory = [{ id:'bread', qty:10 }, { id:'honey', qty:10 }];
+    const fs = Game.foodStock();
+    assert.strictEqual(fs.total, 20, 'physical packs should remain visible as packs');
+    assert.strictEqual(fs.nutrition, 40, 'honey should provide three portions per pack');
+    assert.ok(fs.days >= 20, 'expensive preserved food did not last substantially longer');
+});
+
 test('equipment: seven slots stack defense and shield no longer replaces armour', () => {
     const p = reset();
     p.stats.eff.vit = 10;

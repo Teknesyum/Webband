@@ -275,7 +275,7 @@ const ITEMS = {
     // Cheap food spoils fast, pricier food keeps — so stockpiling is a real choice.
     wheat:  { id:'wheat',  name:'Tahıl',         type:'food',  quality:'low', basePrice:4,  icon:'🌾', spoil:60 },
     bread:  { id:'bread',  name:'Ekmek',         type:'food',  quality:'low', basePrice:6,  icon:'🍞', spoil:20 },
-    meat:   { id:'meat',   name:'Kurutulmuş Et', type:'food',  quality:'high',basePrice:20, icon:'🥩', spoil:30 },
+    meat:   { id:'meat',   name:'Kurutulmuş Et', type:'food',  quality:'high',basePrice:20, icon:'🥩', spoil:30, foodValue:2 },
     cheese: { id:'cheese', name:'Peynir',        type:'food',  quality:'high',basePrice:16,  icon:'🧀', spoil:40 },
     fish:   { id:'fish',   name:'Tütsülenmiş Balık', type:'food', quality:'high', basePrice:14, icon:'🐟', spoil:24 },
     fruit:  { id:'fruit',  name:'Kuru Meyve',    type:'food',  quality:'low', basePrice:9,  icon:'🍎', spoil:45 },
@@ -3917,16 +3917,21 @@ const Game = {
             this.spoilFood();
 
             // Food consumption
-            let lowQualityFoods = ['wheat', 'bread'];
-            let highQualityFoods = ['meat', 'cheese'];
+            let lowQualityFoods = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'low').map(i => i.id);
+            let highQualityFoods = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'high').map(i => i.id);
         
             let consumeFood = (typeArr, amount) => {
                 let req = amount;
                 for(let i=0; i<state.player.inventory.length && req>0; i++) {
                     let it = state.player.inventory[i];
                     if(typeArr.includes(it.id)) {
-                        let take = Math.min(it.qty, req);
-                        it.qty -= take; req -= take;
+                        let value = this.foodValue(it.id);
+                        let available = Math.max(0, it.qty * value - (it.foodUsed || 0));
+                        let take = Math.min(available, req);
+                        it.foodUsed = (it.foodUsed || 0) + take;
+                        req -= take;
+                        let spent = Math.floor((it.foodUsed + 1e-9) / value);
+                        if(spent) { it.qty -= spent; it.foodUsed -= spent * value; }
                         if(it.qty <= 0) { state.player.inventory.splice(i,1); i--; }
                     }
                 }
@@ -10097,10 +10102,18 @@ const Game = {
     },
 
     // How many units will be lost to spoilage today (shown in the tooltip).
+    // Expensive preserved food contains several daily portions. `foodUsed` keeps a partly
+    // eaten pack until all of its portions have actually been consumed.
+    foodValue(id) {
+        return (ITEMS[id] || {}).foodValue || ({ cheese:2, fish:2, butter:2, honey:3 }[id] || 1);
+    },
+    foodNutrition(it) {
+        return Math.max(0, it.qty * this.foodValue(it.id) - (it.foodUsed || 0));
+    },
     spoilRate() {
         return state.player.inventory.reduce((a, it) => {
             let sp = (ITEMS[it.id] || {}).spoil;
-            return a + (sp ? it.qty / sp : 0);
+            return a + (sp ? this.foodNutrition(it) / sp : 0);
         }, 0);
     },
 
@@ -10112,15 +10125,17 @@ const Game = {
         let lowIds = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'low').map(i => i.id);
         let highIds = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'high').map(i => i.id);
         let low = sum(lowIds), high = sum(highIds);
+        let nutrition = inv.filter(i => (ITEMS[i.id] || {}).type === 'food')
+            .reduce((a, i) => a + this.foodNutrition(i), 0);
         let up = this.upkeep();
         let need = Math.ceil(up.foodLow);
         // Spoilage eats into the stock too; "how many days it lasts" would be too optimistic without it.
         let drain = need + this.spoilRate();
         return {
-            low, high, total: low + high,
+            low, high, total: low + high, nutrition,
             need, needHigh: Math.ceil(up.foodHigh), spoil: this.spoilRate(),
             // Correct even with mixed stock: high quality covers both its own share and the general one
-            days: drain > 0 ? Math.floor((low + high) / drain) : Infinity,
+            days: drain > 0 ? Math.floor(nutrition / drain) : Infinity,
             kinds: [...lowIds, ...highIds].filter(id => inv.some(i => i.id === id && i.qty > 0)).length
         };
     },
