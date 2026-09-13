@@ -135,7 +135,10 @@ const Battle = {
         this.corpses = [];
         this.knockedOut = false;
         this.autoLoss = null;
+        // The siege wall is baked into `ground`. Clear that canvas between every battle:
+        // otherwise a normal battle at the same resolution reuses the previous siege field.
         this.grass = null;
+        this.ground = null;
         this.currentCommand = 'charge';
         // Commands aren't ready at the start of battle: each one becomes available
         // as an "opportunity" at its own random moment. The horn call comes from inside the battle, not a menu.

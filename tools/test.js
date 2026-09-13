@@ -434,6 +434,20 @@ test('bandits do not scale with the calendar (#99)', () => {
     gw.state.time.day = 1;
 });
 
+test('battle terrain: a siege wall cannot persist into the next field battle', () => {
+    const plan = { name:'Test siege', defBonus:0.2, gaps:1 };
+    gw.Battle.start('Garnizon', 8, null, '', plan);
+    gw.Battle.buildGround();
+    const siegeGround = gw.Battle.ground;
+    assert.ok(gw.Battle.siege && siegeGround, 'siege field was not built');
+    gw.Battle.start('Çapulcular', 8);
+    assert.strictEqual(gw.Battle.siege, null, 'normal battle retained siege state');
+    assert.strictEqual(gw.Battle.ground, null, 'normal battle reused the siege terrain cache');
+    gw.Battle.buildGround();
+    assert.notStrictEqual(gw.Battle.ground, siegeGround, 'new field terrain was not regenerated');
+    gw.Battle.active = false;
+});
+
 test('no party, no orders (#114)', () => {
     // A duel and an arena bout both empty the party before the fight, so the command strip was
     // drawn and "opportunities" announced for orders nobody could obey. The gate is the party
