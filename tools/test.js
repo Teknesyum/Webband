@@ -1235,6 +1235,12 @@ test('map encounter: a friendly lord cannot force a conversation by bumping into
     const lord = state.npcParties.find(n => n.lordId);
     state.relations[lord.lordId] = 0;
     assert.ok(!Game.npcCanInitiateEncounter(lord), 'a friendly lord can still open unsolicited map dialogue');
+    state.player.targetLocation = { id:lord.id, isNpc:true };
+    assert.ok(Game.npcCanInitiateEncounter(lord), 'meeting a lord deliberately targeted by the player opens no dialogue');
+    state.player.targetLocation = null;
+    lord.playerTargetId = 'player';
+    assert.ok(Game.npcCanInitiateEncounter(lord), 'a lord deliberately targeting the player opens no dialogue');
+    lord.playerTargetId = null;
     state.relations[lord.lordId] = -50;
     assert.ok(Game.npcCanInitiateEncounter(lord), 'a hostile lord can no longer intercept the player');
     state.relations[lord.lordId] = 0;

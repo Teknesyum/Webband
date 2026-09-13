@@ -5,8 +5,8 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
-- **Dost lordlar çarpışınca zorla konuşmuyor.** Haritada üstüne yürüyen dost veya nötr lord artık
-  sohbet penceresi açmıyor; konuşma yalnız oyuncu lordu bilerek hedeflerse başlıyor. Düşman lordların
+- **Harita buluşmaları niyeti biliyor.** Dost veya nötr lordla tesadüfi çarpışma sohbet açmıyor;
+  oyuncu lordu ya da lord oyuncuyu kimliğiyle hedeflediyse buluşmada diyalog açılıyor. Düşman lordların
   yolu kesmesi ve haydut saldırıları aynen sürüyor.
 - **Lord orduları biraz zayıfladı.** Kral, vezir ve normal lord kuvvetleri başlangıçta, günlük
   yenilenmede ve mağlubiyet sonrası dönüşte %10 daha az askerle geliyor; eski kayıtlardaki normal

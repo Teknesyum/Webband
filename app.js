@@ -2561,8 +2561,13 @@ const Game = {
 
     npcCanInitiateEncounter(npc) {
         let hostile = this.isHostile(npc);
-        if(npc.lordId && !hostile) return false;
+        if(npc.lordId && !hostile) return this.partiesTargetEachOther(npc);
         return !!(hostile || npc.trade);
+    },
+
+    partiesTargetEachOther(npc) {
+        let mine = state.player.targetLocation;
+        return !!((mine && mine.isNpc && mine.id === npc.id) || npc.playerTargetId === 'player');
     },
 
     // Ambush in the forest: a band/pack hidden among the trees jumps you as you approach.
@@ -2755,13 +2760,17 @@ const Game = {
             // the very fight the quest promises, and Hasat Nöbeti became a chase (#94).
             if(npc.questWave) {
                 npc.targetX = state.player.x; npc.targetY = state.player.y;
+                npc.playerTargetId = 'player';
             } else if(notices && (might > ps ? hostile : true)) {
                 if(might > ps) {
                     npc.targetX = state.player.x; npc.targetY = state.player.y;
+                    npc.playerTargetId = 'player';
                 } else {
                     npc.targetX = npc.x - dxP * 2; npc.targetY = npc.y - dyP * 2;
+                    npc.playerTargetId = null;
                 }
             } else {
+                npc.playerTargetId = null;
                 let dtx = npc.targetX - npc.x, dty = npc.targetY - npc.y;
                 if(Math.sqrt(dtx*dtx + dty*dty) < 15) {
                     if(npc.trade) return this.traderArrive(npc);   // the convoy arrived at its stop
