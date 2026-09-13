@@ -2184,4 +2184,12 @@ I18N.dicts.en = {
   "{0} kişi": "{0} fighters",
   "🏆 Turnuva:": "🏆 Tournament:",
   "Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.": "Standard tournament kit: wooden sword, padded armour, no horses.",
+  "💖 Çok sevdi": "💖 Loved it",
+  "😊 Hoşuna gitti": "😊 Liked it",
+  "😐 Kibarca karşıladı": "😐 Received it politely",
+  "💔 Hoşlanmadı": "💔 Disliked it",
+  "İlişki: {0} → {1} ({2}{3})": "Relation: {0} → {1} ({2}{3})",
+  "İlgi: {0} → {1} ({2}{3})": "Affection: {0} → {1} ({2}{3})",
+  "Devam": "Continue",
+  "Sen: {0}": "You: {0}",
 };

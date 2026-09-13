@@ -830,6 +830,13 @@ const Nobles = {
     },
 
     // ---------- Gift ----------
+    reaction(gain) {
+        if(gain >= 5) return '💖 Çok sevdi';
+        if(gain >= 2) return '😊 Hoşuna gitti';
+        if(gain > 0) return '😐 Kibarca karşıladı';
+        return '💔 Hoşlanmadı';
+    },
+
     giftMenu(id) {
         let n = this.lord(id);
         let inv = state.player.inventory.filter(i => i.type !== 'special');
@@ -864,14 +871,20 @@ const Nobles = {
             gain = 1; line = T`"...Sağ ol." Hediyeyi yandaki masaya bıraktı, bir daha bakmadı.`;
         }
 
+        let before = this.rel(id);
         item.qty--;
         if(item.qty <= 0) state.player.inventory.splice(idx, 1);
         state.giftDay = state.giftDay || {};
         state.giftDay[id] = state.time.day;
         this.addRel(id, gain);
-
-        alert(T`${T(n.name)}: ${line}\n\n+${gain} ilişki`);
-        this.talk(id);
+        let after = this.rel(id), reaction = T(this.reaction(gain));
+        Game.showModal(`<h3>${T`🎁 ${T(n.name)}'a Hediye`}</h3>
+            <p style="font-style:italic;line-height:1.6">${line}</p>
+            <div style="padding:0.8rem;border-left:4px solid ${gain >= 2 ? 'var(--success)' : '#d7a84b'};background:rgba(0,0,0,0.25)">
+                <b style="font-size:1.1rem">${reaction}</b><br>
+                ${T`İlişki: ${before} → ${after} (${gain > 0 ? '+' : ''}${gain})`}
+            </div>
+            <button class="btn primary" style="margin-top:1rem" onclick="Nobles.talk('${id}')">${T`Devam`}</button>`);
     },
 
     // ---------- "Ask someone's whereabouts" ----------
@@ -1078,10 +1091,18 @@ const Nobles = {
         } else {
             gain = 1;  reply = T`Kibarca başını salladı. Söylediğin bir kulağından girip diğerinden çıktı.`;
         }
+        let before = this.aff(ladyId);
         state.complimentDay[ladyId] = state.time.day;
         this.addAff(ladyId, gain);
-        alert(`Sen: ${c.line}\n\n${reply}\n\n${gain > 0 ? '+' : ''}${gain} ilgi`);
-        this.courtMenu(ladyId);
+        let after = this.aff(ladyId), reaction = T(this.reaction(gain));
+        Game.showModal(`<h3>${T`🌹 ${T(L.name)}'a İltifat`}</h3>
+            <p style="font-style:italic;line-height:1.6">${T`Sen: ${T(c.line)}`}</p>
+            <p style="line-height:1.6">${reply}</p>
+            <div style="padding:0.8rem;border-left:4px solid ${gain >= 2 ? 'var(--success)' : gain < 0 ? 'var(--danger)' : '#d7a84b'};background:rgba(0,0,0,0.25)">
+                <b style="font-size:1.1rem">${reaction}</b><br>
+                ${T`İlgi: ${before} → ${after} (${gain > 0 ? '+' : ''}${gain})`}
+            </div>
+            <button class="btn primary" style="margin-top:1rem" onclick="Nobles.courtMenu('${ladyId}')">${T`Devam`}</button>`);
     },
 
     poemMenu(ladyId) {

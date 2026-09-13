@@ -5,6 +5,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Hediye ve iltifatın tepkisi artık kaybolmuyor.** Sonuç modalı salon menüsü tarafından aynı
+  karede ezilmiyor; “çok sevdi / hoşuna gitti / kibarca karşıladı / hoşlanmadı” tepkisi ile
+  ilişki veya ilginin önceki ve yeni değeri, oyuncu Devam'a basana kadar ekranda kalıyor.
 - **Turnuvalar renkli takım savaşları oldu.** Warband düzenine yaklaşan turnuvada çeyrek final
   4’e 4, yarı final 2’ye 2, final 1’e 1 oynanıyor; iki tarafın takım adı ve yüksek kontrastlı
   rengi hem tur ekranında hem savaş alanındaki dövüşçülerde aynı görünüyor. Kişisel ekipman içeri

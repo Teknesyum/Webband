@@ -334,15 +334,30 @@ test('battle: the real-time damage pace lengthens played fights', () => {
 });
 
 test('courtship: a lady only accepts one compliment every three days', () => {
-    const id = g.LADIES[0].id;
+    const id = 'isolla';
     state.time.day = 20; state.affection[id] = 50; state.complimentDay = {};
-    g.Nobles.compliment(id, 'beauty');
+    const liked = 'glory';   // Isolla is ambitious: glory is her explicit liked subject
+    g.Nobles.compliment(id, liked);
     const once = state.affection[id];
-    g.Nobles.compliment(id, 'beauty');
+    const result = g._sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(result.includes('Çok sevdi') && result.includes('50 → 55'),
+        'the compliment result did not show whether it landed or the affection change');
+    g.Nobles.compliment(id, liked);
     assert.strictEqual(state.affection[id], once, 'a second compliment landed on the same day');
     state.time.day += 3;
-    g.Nobles.compliment(id, 'beauty');
+    g.Nobles.compliment(id, liked);
     assert.notStrictEqual(state.affection[id], once, 'the compliment did not reopen after three days');
+});
+
+test('relations: a gift result stays visible with the reaction and before/after value', () => {
+    const id = g.LORDS.find(l => l.personality === 'martial').id;
+    state.time.day = 30; state.giftDay = {}; state.relations[id] = 10;
+    state.player.inventory = [{ id:'sword', name:'Kılıç', type:'weapon', icon:'⚔️', qty:1 }];
+    g.Nobles.giveGift(id, 0);
+    const result = g._sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(result.includes('Çok sevdi') && result.includes('10 → 18'),
+        'the gift result was overwritten before its reaction could be read');
+    assert.ok(result.includes('Nobles.talk'), 'the result has no explicit continue button');
 });
 
 // --- Battle speed balance ---

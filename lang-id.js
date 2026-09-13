@@ -2184,4 +2184,12 @@ I18N.dicts.id = {
   "{0} kişi": "{0} petarung",
   "🏆 Turnuva:": "🏆 Turnamen:",
   "Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.": "Perlengkapan turnamen standar: pedang kayu, zirah berlapis, tanpa kuda.",
+  "💖 Çok sevdi": "💖 Sangat menyukainya",
+  "😊 Hoşuna gitti": "😊 Menyukainya",
+  "😐 Kibarca karşıladı": "😐 Menerimanya dengan sopan",
+  "💔 Hoşlanmadı": "💔 Tidak menyukainya",
+  "İlişki: {0} → {1} ({2}{3})": "Hubungan: {0} → {1} ({2}{3})",
+  "İlgi: {0} → {1} ({2}{3})": "Ketertarikan: {0} → {1} ({2}{3})",
+  "Devam": "Lanjut",
+  "Sen: {0}": "Kamu: {0}",
 };
