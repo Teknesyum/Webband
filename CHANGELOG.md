@@ -5,6 +5,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Dost şehir ve kalelerde beklenebiliyor.** Savaşta olmadığın şehir/kale menüsünde artık
+  `⏳ Burada Bekle` var; aynı kamp süre seçenekleriyle haritaya dönüp zamanı geçiriyor.
+
 - **Kamptan hareket emri verilemiyor.** Bekleme sürerken haritaya tıklama, hedef sürükleme ve doğrudan
   rota atama yok sayılıyor; kamp yalnız süre dolunca ya da karşılaşma kesince bitiyor.
 

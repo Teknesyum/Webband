@@ -2211,4 +2211,5 @@ I18N.dicts.id = {
   "Pazar Defteri": "Buku Pasar",
   "Tuz Yolu": "Jalur Garam",
   "Savaş Sandığı": "Peti Perang",
+  "⏳ Burada Bekle": "⏳ Tunggu di Sini",
 };

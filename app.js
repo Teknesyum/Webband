@@ -2666,6 +2666,10 @@ const Game = {
             + `<button class="btn" onclick="Game.startWait(${this.hoursUntilDawn()})">${T`Sabahı bekle`}</button>
                <button class="btn" onclick="Game.closeModal()">${T`Vazgeç`}</button></div>`, 420);
     },
+    canWaitAtSettlement(loc) {
+        return !!loc && (loc.type === 'city' || loc.type === 'castle')
+            && !this.atWar(this.playerFaction(), loc.faction);
+    },
     hoursUntilDawn() { let h = state.time.hour; return h < 6 ? Math.ceil(6 - h) : Math.ceil(30 - h); },
     startWait(hours) {
         this.closeModal();
@@ -5486,6 +5490,9 @@ const Game = {
                         () => this.tributeVillage(loc));
                 }
             }
+        }
+        if(this.canWaitAtSettlement(loc)) {
+            this.addBtn(ac, T('⏳ Burada Bekle'), () => this.askWait());
         }
         if(!isEnemy && !state.player.vassalOf && (loc.type==='city'||loc.type==='castle')) {
             this.addBtn(ac, T('⚔️ Kuşat! (Kendi Krallığını Kur)'), () => this.besiegeLocation(loc, true));

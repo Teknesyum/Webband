@@ -1048,6 +1048,18 @@ test('wait: map orders cannot cancel a running camp', () => {
     assert.strictEqual(state.player.targetLocation, null, 'a map order escaped the camp lock');
 });
 
+test('wait: friendly cities and castles offer a place to pass time, enemy settlements do not', () => {
+    const g = H.world({ seed: 39 });
+    const { Game, LOCATIONS } = g;
+    const city = LOCATIONS.find(l => l.type === 'city');
+    const castle = LOCATIONS.find(l => l.type === 'castle');
+    const village = LOCATIONS.find(l => l.type === 'village');
+    assert.ok(Game.canWaitAtSettlement(city) && Game.canWaitAtSettlement(castle));
+    assert.ok(!Game.canWaitAtSettlement(village), 'villages incorrectly offer settlement waiting');
+    Game.declareWar(Game.playerFaction(), city.faction);
+    assert.ok(!Game.canWaitAtSettlement(city), 'an enemy city incorrectly offers settlement waiting');
+});
+
 test('ambition: honourably releasing the last feuding lord completes blood money immediately', () => {
     const g = H.world({ seed: 34 });
     const { Game, state, LORDS } = g;

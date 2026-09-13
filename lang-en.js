@@ -2211,4 +2211,5 @@ I18N.dicts.en = {
   "Pazar Defteri": "Market Ledger",
   "Tuz Yolu": "The Salt Road",
   "Savaş Sandığı": "War Chest",
+  "⏳ Burada Bekle": "⏳ Wait Here",
 };
