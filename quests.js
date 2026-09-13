@@ -699,7 +699,7 @@ const Quests = {
                     <div style="font-size:var(--fs-sm);color:var(--text-muted)">${T`${this.giverName(giver)} · süre ${def.days} gün${
                         giver.isGuild ? '' : ` · ${Nobles.traitOb(giverId).icon} ${T(Nobles.traitOb(giverId).name)}`}`}</div>
                 </div></div>
-            ${giver.isGuild ? '' : `<p id="lord-line" style="margin-top:1rem;font-style:italic;color:var(--primary);min-height:1.5em"></p>`}
+            ${giver.isGuild ? '' : `<p id="lord-line" style="margin-top:1rem;font-style:italic;color:var(--primary);line-height:1.5;min-height:4.5em"></p>`}
             <p style="margin-top:1rem;line-height:1.6;font-style:italic">${def.offer(q, giver)}</p>
             ${this.taskHtml(q)}
             <div style="background:rgba(0,0,0,0.3);padding:0.8rem;border-radius:8px;margin-top:0.6rem;font-size:var(--fs-md)">

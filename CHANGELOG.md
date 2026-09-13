@@ -5,6 +5,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Yazılan konuşmada ilk basış onaydır.** Lordun cümlesi yazılırken kayan bir seçeneğe dokunmak
+  artık o seçeneği çalıştırmıyor: ilk basış metni tamamlıyor, ikinci basış bilinçli seçimi yapıyor.
+  Konuşma alanı da uzun cümlelerde tuşları daha az oynatacak kadar büyütüldü.
 - **Yol olayı dokunmayı çalmıyor.** Haritaya basılıyken açılan rastgele olay, aynı parmağın
   bırakılmasını bir seçenek tıklaması saymıyor; kısa dokunma kilidinden sonra seçim normal çalışıyor.
 - **Turnuva hedefi zafer anında tamamlanıyor.** “Turnuva şampiyonu” hedefi artık ertesi günün

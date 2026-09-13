@@ -309,6 +309,22 @@ test('modal: an encounter window can\'t be dismissed by the user, only by its ow
     state.player.currentEncounterNpcId = null;
 });
 
+test('modal: a choice pressed while dialogue is typing only finishes the text', () => {
+    let prevented = 0, stopped = 0, completed = 0;
+    const el = { textContent: '' };
+    Game._type = { el, text: 'Bitmiş konuşma', timer: null, then: () => completed++ };
+    const guarded = Game.finishTypedChoice({
+        target: { closest: selector => selector === '#modal-body button' ? {} : null },
+        preventDefault: () => prevented++,
+        stopImmediatePropagation: () => stopped++
+    });
+    assert.ok(guarded, 'a moving dialogue allowed its choice to run');
+    assert.strictEqual(prevented, 1, 'the choice click was not cancelled');
+    assert.strictEqual(stopped, 1, 'the choice click reached its inline action');
+    assert.strictEqual(el.textContent, 'Bitmiş konuşma', 'the first press did not finish the sentence');
+    assert.strictEqual(completed, 1, 'the typewriter completion callback did not run');
+});
+
 test('battle: the real-time damage pace lengthens played fights', () => {
     const src = { id:'a', x:0, y:0, dmgType:'cut', isPlayerTeam:true };
     const tgt = { id:'b', x:1, y:0, hp:100, defense:0, isPlayerTeam:false, hitFlash:0 };

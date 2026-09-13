@@ -6079,15 +6079,27 @@ const Game = {
             el.textContent = text.slice(0, i);
             if(i >= text.length) Game.skipType();
         }, 1000 / (cps / step)) };
-        // The click that opened the modal may still be propagating — the listener is set on the next tick
+        // The click that opened the modal may still be propagating — the listener is set on the next tick.
+        // Capture phase matters: while text is moving the first press on a choice only finishes
+        // the sentence. Its inline action never runs; the player's second press is confirmation.
         setTimeout(() => {
             if(!Game._type) return;
-            document.addEventListener('click', Game._typeSkip = () => Game.skipType());
+            document.addEventListener('click', Game._typeSkip = e => Game.finishTypedChoice(e), true);
         }, 0);
+    },
+    finishTypedChoice(e) {
+        if(!this._type) return false;
+        let choice = e && e.target && e.target.closest && e.target.closest('#modal-body button');
+        if(choice) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+        this.skipType();
+        return !!choice;
     },
     skipType() {
         let t = this._type;
-        if(this._typeSkip) { document.removeEventListener('click', this._typeSkip); this._typeSkip = null; }
+        if(this._typeSkip) { document.removeEventListener('click', this._typeSkip, true); this._typeSkip = null; }
         if(!t) return;
         clearInterval(t.timer);
         this._type = null;

@@ -424,7 +424,7 @@ const Nobles = {
                     <span style="opacity:0.7">${T`(nam + ilişki + kapıya getirdiğin ordu)`}</span>
                     ${Game.infamyTier() ? `<br><span style="color:var(--danger)">${T`${Game.infamyLabel()} diye biliniyorsun — köy yakan adamın sözü bu salonda ${Game.infamyTier() > 1 ? T('hiç') : 'zor'} geçer.`}</span>` : ''}
                 </div>
-                <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:3em"></p>
+                <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:4.5em"></p>
                 ${banter}
             </div>
         </div>
@@ -730,7 +730,7 @@ const Nobles = {
                 ${this.portraitCss(n, 110)}
                 <div style="flex:1">
                     <h3 style="margin:0;color:${FACTIONS[n.faction].color}">${T(n.name)}</h3>
-                    <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:3.2em"></p>
+                    <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:4.5em"></p>
                     ${note ? `<div style="font-size:var(--fs-sm);color:var(--text-muted)">${note}</div>` : ''}
                 </div></div>
             <button class="btn" style="margin-top:1rem" onclick="Nobles.talk('${id}')">${T`Geri`}</button>`, '620px');
@@ -822,7 +822,7 @@ const Nobles = {
                 <div style="flex:1">
                     <h3 style="margin:0;color:${FACTIONS[n.faction].color}">${T(n.name)}</h3>
                     <p style="font-style:italic;color:var(--text-muted)">${T`Sen: "Senin soyağacın bir tereyağı fıçısına sığar ${T(n.name)}."`}</p>
-                    <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:3em"></p>
+                    <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:4.5em"></p>
                     <div style="font-size:var(--fs-sm);color:var(--text-muted)">${T`−15 ilişki, +2 nam. Rakip krallıkların lordları bunu duyunca keyiflendi (+5).`}</div>
                 </div></div>
             <button class="btn" style="margin-top:1rem" onclick="Game.closeModal()">${T`Ayrıl`}</button>`, '620px');
