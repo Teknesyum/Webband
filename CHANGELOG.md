@@ -5,6 +5,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Günler biraz daha yavaş geçiyor.** Normal dünya zamanı saniye başına 1 yerine 0,75 oyun saati
+  ilerliyor. Kamp ve NPC hareketi de aynı temel oranı kullandığı için zaman ile harita tutarlı kalıyor.
+
 - **Lordlar kıyıda takılmıyor.** Harita dışına düşen devriye/kaçış hedefleri hareketten önce
   kıyı çizgisinin içine çekiliyor; erişilemeyen hedefe yürüyüp kenarda sonsuza dek kalmıyorlar.
 

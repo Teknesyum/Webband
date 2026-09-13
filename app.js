@@ -2496,7 +2496,7 @@ const Game = {
 
         if (timeFlows) {
             // Time flows at ×WAIT_SCALE while camped (#53/1.1)
-            this.advanceTime(dt * this.timeScale() * (state.player.wait ? this.WAIT_SCALE : 1));
+            this.advanceTime(dt * this.TIME_FLOW * this.timeScale() * (state.player.wait ? this.WAIT_SCALE : 1));
             this.waitTick();
             // Camping accelerates the clock, so world parties must cover the matching
             // amount of ground as well. Otherwise an eight-hour wait advances wages and
@@ -2642,7 +2642,7 @@ const Game = {
     // any encounter (triggerEncounter) cuts the wait short. Resting, volunteer refresh,
     // waiting for a tournament/feast, waiting for a caravan — all of it is a customer of this.
     WAIT_SCALE: 4,
-    npcWorldDelta(dt) { return dt * (state.player.wait ? this.WAIT_SCALE : 1); },
+    npcWorldDelta(dt) { return dt * this.TIME_FLOW * this.timeScale() * (state.player.wait ? this.WAIT_SCALE : 1); },
     // Waiting has a cost: wages, food, spoilage already tick hourly
     WAIT_CHOICES: [[1, '1 saat'], [8, '8 saat'], [24, '1 gün'], [72, '3 gün']],   // raw; translated at display
     askWait() {
@@ -3171,7 +3171,9 @@ const Game = {
 
     dist(a, b) { return Math.sqrt(Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2)); },
 
-    // A day used to pass in ~12s; the default was halved, the player can change it from the badge
+    // One real second advances 0.75 game-hours at normal speed. The badge can still speed up
+    // or slow down this baseline, but travel no longer burns through whole days in a few seconds.
+    TIME_FLOW: 0.75,
     timeScale() { return state.timeScale || 1; },
     cycleTimeScale() {
         let steps = [0.5, 1, 2];

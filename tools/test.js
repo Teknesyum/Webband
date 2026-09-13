@@ -1017,9 +1017,9 @@ test('wait: world parties receive the same fourfold camping acceleration as the 
     const g = H.world({ seed: 33 });
     const { Game, state } = g;
     state.player.wait = null;
-    assert.strictEqual(Game.npcWorldDelta(0.5), 0.5);
+    assert.strictEqual(Game.npcWorldDelta(0.5), 0.5 * Game.TIME_FLOW);
     state.player.wait = { until: 99 };
-    assert.strictEqual(Game.npcWorldDelta(0.5), 0.5 * Game.WAIT_SCALE);
+    assert.strictEqual(Game.npcWorldDelta(0.5), 0.5 * Game.TIME_FLOW * Game.WAIT_SCALE);
 });
 
 test('ambition: honourably releasing the last feuding lord completes blood money immediately', () => {
