@@ -4816,9 +4816,6 @@ const Game = {
             ctx.fillStyle = fc.color; ctx.fill();
             ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2 * ik; ctx.stroke();
 
-            if(loc.type === 'city' && state.activeTournaments[loc.id]) {
-                this.emoji(ctx, '🏆', loc.x - big*0.55, loc.y - 15, 36*ik);
-            }
             if(questMarks[loc.id]) this.emoji(ctx, '📜', loc.x - big*0.55, loc.y - 15 - 34*ik, 36*ik);
 
             this.mapLabel(ctx, T(loc.name), loc.x, loc.y - big*0.82 - 14, '#f2e4bb', fc.color);
@@ -8004,14 +8001,12 @@ const Game = {
                 yüzde <b>${Math.round(best.gap * 100)}</b> kâr ediyor. Bunu sana ben söylemedim."` };
         }},
         { tier: 3, run(here, L) {
-            let cid = Object.keys(state.activeTournaments)[0];
             let feast = state.feast && LOCATIONS.find(l => l.id === state.feast.locId);
-            let town = feast || LOCATIONS.find(l => l.id === cid);
-            if(!town) return null;
-            let at = L(town);
-            return { html: feast
-                ? T`"<b>${T(at.name)}</b>'da şölen var, soylular oraya akıyor. Namın varsa kapıdan çevirmezler."`
-                : T`"<b>${T(at.name)}</b>'da turnuva kuruluyor. Kılıcına güveniyorsan kese doldurursun."`,
+            if(!feast) return Object.keys(state.activeTournaments).length
+                ? { html: T`"Turnuva mevsimi gelmiş. Birkaç şehirde meydan kurulmuş diyorlar ama nerede olduğunu bilen yok."` }
+                : null;
+            let at = L(feast);
+            return { html: T`"<b>${T(at.name)}</b>'da şölen var, soylular oraya akıyor. Namın varsa kapıdan çevirmezler."`,
                      mark: { x: at.x, y: at.y, radius: 150, name: T(at.name) } };
         }},
         { tier: 3, run(here, L) {

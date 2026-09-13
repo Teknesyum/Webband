@@ -167,9 +167,8 @@ const QUESTS = {
                 Bahisçiler tam oraya oynadı. İlk turda düşersen şüphelenirler, kazanırsan iflas ederim.<br><br>
                 Kesen dolacak, adın biraz kirlenecek. Karar senin."`}`;
         },
-        desc(q) { return T`🏆 işaretli bir şehrin turnuvasına gir, <b>${q.data.lo}-${q.data.hi}</b> tur kazan ve elen.
+        desc(q) { return T`Bir şehirde denk geldiğin turnuvaya gir, <b>${q.data.lo}-${q.data.hi}</b> tur kazan ve elen.
             Kazanırsan da ilk turda elenirsen de görev yanar.`; },
-        where(q) { return Quests.nearestTourney(); },
         on(q, ev, d) {
             if(ev === 'tournament_end') {
                 if(!d.won && d.wins >= q.data.lo && d.wins <= q.data.hi) return 'done';
@@ -369,9 +368,8 @@ const QUESTS = {
                 Turnuva nerede kuruluysa oraya git ve <b>kazan</b>. Hangi şehir olduğu umurumda değil.
                 Elenirsen bir sonrakine girersin — ama süre işliyor."`}`;
         },
-        desc(q) { return T`Haritada 🏆 işaretli bir şehre gir ve turnuvayı kazan
+        desc(q) { return T`Bir şehirde denk geldiğin turnuvaya gir ve turnuvayı kazan
             (elenirsen bir sonraki turnuvada yeniden denersin)`; },
-        where(q) { return Quests.nearestTourney(); },
         on(q, ev, d) { if(ev === 'tournament_end' && d.won) return 'done'; }
     },
 

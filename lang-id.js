@@ -2196,4 +2196,7 @@ I18N.dicts.id = {
   "Ona zaten bir zafer ithaf etmiştin. İkincisi aynı etkiyi yapmadı.": "Kamu sudah pernah mempersembahkan kemenangan kepadanya. Yang kedua tidak memberi efek yang sama.",
   "🏆 Zafer İthafı": "🏆 Persembahan Kemenangan",
   "Arenanın ortasında durdun ve zaferini {0}'ya ithaf ettin.<br>Bütün salon ona döndü. Yüzü kızardı ama gözünü kaçırmadı.": "Kamu berdiri di tengah arena dan mempersembahkan kemenanganmu kepada {0}.<br>Seluruh aula menoleh kepadanya. Wajahnya memerah, tetapi ia tidak mengalihkan pandangan.",
+  "Bir şehirde denk geldiğin turnuvaya gir, <b>{0}-{1}</b> tur kazan ve elen. Kazanırsan da ilk turda elenirsen de görev yanar.": "Ikuti turnamen yang kebetulan kamu temukan di sebuah kota, menangkan <b>{0}-{1}</b> ronde, lalu kalah. Menang atau kalah di ronde pertama akan menggagalkan misi.",
+  "Bir şehirde denk geldiğin turnuvaya gir ve turnuvayı kazan (elenirsen bir sonraki turnuvada yeniden denersin)": "Ikuti turnamen yang kebetulan kamu temukan di sebuah kota dan menangkan (jika tersingkir, coba lagi di turnamen berikutnya).",
+  "\"Turnuva mevsimi gelmiş. Birkaç şehirde meydan kurulmuş diyorlar ama nerede olduğunu bilen yok.\"": "\"Musim turnamen telah tiba. Katanya arena didirikan di beberapa kota, tetapi tak seorang pun tahu di mana.\"",
 };

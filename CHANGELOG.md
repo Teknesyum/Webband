@@ -5,6 +5,10 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Turnuva yerleri artık gizli.** Açık turnuvalar dünya haritasında kupa işaretiyle gösterilmiyor,
+  han söylentileri şehirlerini ele vermiyor ve turnuva görevleri haritaya hedef noktası koymuyor.
+  Turnuva ancak düzenlendiği şehre girildiğinde fark ediliyor.
+
 - **Harita buluşmaları niyeti biliyor.** Dost veya nötr lordla tesadüfi çarpışma sohbet açmıyor;
   oyuncu lordu ya da lord oyuncuyu kimliğiyle hedeflediyse buluşmada diyalog açılıyor. Düşman lordların
   yolu kesmesi ve haydut saldırıları aynen sürüyor.

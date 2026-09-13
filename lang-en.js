@@ -2196,4 +2196,7 @@ I18N.dicts.en = {
   "Ona zaten bir zafer ithaf etmiştin. İkincisi aynı etkiyi yapmadı.": "You had already dedicated a victory to them. The second did not have the same effect.",
   "🏆 Zafer İthafı": "🏆 Victory Dedication",
   "Arenanın ortasında durdun ve zaferini {0}'ya ithaf ettin.<br>Bütün salon ona döndü. Yüzü kızardı ama gözünü kaçırmadı.": "You stood in the middle of the arena and dedicated your victory to {0}.<br>The whole hall turned toward them. They blushed but did not look away.",
+  "Bir şehirde denk geldiğin turnuvaya gir, <b>{0}-{1}</b> tur kazan ve elen. Kazanırsan da ilk turda elenirsen de görev yanar.": "Enter a tournament you happen upon in a town, win <b>{0}-{1}</b> rounds, then lose. Winning it or losing in the first round fails the quest.",
+  "Bir şehirde denk geldiğin turnuvaya gir ve turnuvayı kazan (elenirsen bir sonraki turnuvada yeniden denersin)": "Enter a tournament you happen upon in a town and win it (if eliminated, try again at the next tournament).",
+  "\"Turnuva mevsimi gelmiş. Birkaç şehirde meydan kurulmuş diyorlar ama nerede olduğunu bilen yok.\"": "\"Tournament season has arrived. They say arenas have been raised in several towns, but nobody knows where.\"",
 };
