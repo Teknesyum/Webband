@@ -998,7 +998,7 @@ function roadSuite() {
         assert.ok(ids.size >= 20, `pool fell to ${ids.size} events`);
     });
 
-test('road: every choice runs and produces a displayable result', () => {
+    test('road: every choice runs and produces a displayable result', () => {
         // A generous world where every condition passes: money and party are
         // refreshed before every choice, otherwise the first few choices would
         // drain the purse and leave the rest untested.
