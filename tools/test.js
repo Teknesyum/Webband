@@ -1464,6 +1464,20 @@ test('marriage: a married player cannot replace their spouse with a second weddi
     assert.strictEqual(state.player.party.filter(t => t.isSpouse).length, 1, 'more than one spouse joined the party');
 });
 
+test('peace: a treaty lifts the player siege against the new partner', () => {
+    const g = H.world({ seed: 41 });
+    const { Game, state, FACTIONS, LOCATIONS } = g;
+    const target = LOCATIONS.find(l => l.type !== 'village');
+    const mine = Object.keys(FACTIONS).find(f => f !== target.faction);
+    state.player.vassalOf = mine;
+    state.player.siege = { locId:target.id, plan:'ladder', daysLeft:2, weaken:0 };
+    state.player.status = 'besieging';
+    Game.declareWar(mine, target.faction);
+    Game.makePeace(mine, target.faction);
+    assert.strictEqual(state.player.siege, null, 'peace left a siege camp active');
+    assert.strictEqual(state.player.status, 'idle', 'peace left the player in besieging status');
+});
+
 test('bandit lair: erodes the region, pays out when cleared, and is a band source', () => {
     const g = H.world({ seed: 6 });
     const lairs = g.Game.lairs();

@@ -8453,6 +8453,9 @@ const Game = {
         let mine = this.playerFaction() === a || this.playerFaction() === b;
         if(mine) {
             let other = this.playerFaction() === a ? b : a;
+            let siege = state.player.siege;
+            let besieged = siege && LOCATIONS.find(l => l.id === siege.locId);
+            if(besieged && besieged.faction === other) this.liftSiege(true);
             state.npcParties.filter(n => n.faction === other && n.playerTargetId === 'player').forEach(n => {
                 n.playerTargetId = null;
                 let lord = n.lordId && Nobles.lord(n.lordId);
