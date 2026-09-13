@@ -3,11 +3,10 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
-- **“Sisteki Nokta” görevi kaldırıldı.** Gizli koordinat arayıp sıcak/soğuk bildirimi bekleten
-  görev artık hiçbir görev verenden çıkmıyor; tanımı ve kullanılmayan çevirileri de temizlendi.
-
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **“Sisteki Nokta” görevi kaldırıldı.** Gizli koordinat arayıp sıcak/soğuk bildirimi bekleten
+  görev artık hiçbir görev verenden çıkmıyor; tanımı ve kullanılmayan çevirileri de temizlendi.
 - **Yol kenarında geçen saatler gerçekten geçiyor.** Yaralıyla ilgilenirken, fırtınayı beklerken
   ya da iz sürerken peşindeki düşmanlar da yürür; yetişirlerse sonuç penceresinden sonra önünü keserler.
 - **Diyalog zemini artık kapatma düğmesi değil.** Özellikle hareket hâlindeyken açılan yol olayları,
