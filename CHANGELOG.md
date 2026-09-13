@@ -5,6 +5,11 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **On iki yeni görev eklendi.** Mühürlü ferman taşıma, üç duraklı sınır teftişi, tahıl vergisi,
+  şölen fıçıları, esir kafilesi, üç çete avı, kıdemli muhafız yetiştirme, düşman kapılarını keşif,
+  diplomatik nabız yoklama, üç şehirlik pazar defteri, tuz yolu ve savaş sandığı görevleri lordların
+  mizacına ve lonca ustalarına göre teklif havuzuna katıldı.
+
 - **Turnuva yerleri artık gizli.** Açık turnuvalar dünya haritasında kupa işaretiyle gösterilmiyor,
   han söylentileri şehirlerini ele vermiyor ve turnuva görevleri haritaya hedef noktası koymuyor.
   Turnuva ancak düzenlendiği şehre girildiğinde fark ediliyor.

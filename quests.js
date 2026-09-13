@@ -531,6 +531,180 @@ QUESTS.clear_lair = {
     }
 };
 
+// --- EXTRA CONTRACTS (#129) ---
+// These use events already emitted by the real game. They add variety without creating
+// quest-only buttons or invisible counters that the rest of the world cannot satisfy.
+QUESTS.royal_courier = {
+    title: 'Mühürlü Ferman', givers: [], minRelation: 0, days: 12,
+    reward: { money: 750, renown: 5, rel: 9 },
+    setup(q, giver) {
+        let pool = LOCATIONS.filter(l => l.type === 'city' && l.id !== giver.homeLocId);
+        let to = pool[Math.floor(Math.random() * pool.length)];
+        q.data = { locId: to.id, locName: to.name };
+    },
+    offer(q) { return `Bu mühürlü fermanı <b>${T(q.data.locName)}</b> kapısındaki kumandana götür. Mührü kırma, oyalanma.`; },
+    desc(q) { return `<b>${T(q.data.locName)}</b> şehrine gir ve mühürlü fermanı teslim et.`; },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) { if(ev === 'entered_location' && d.locId === q.data.locId) return 'done'; }
+};
+
+QUESTS.border_inspection = {
+    title: 'Sınır Teftişi', givers: ['martial', 'cunning'], minRelation: 5, days: 18,
+    reward: { money: 1050, renown: 9, rel: 11 },
+    setup(q, giver) {
+        let pool = LOCATIONS.filter(l => l.faction === giver.faction && l.id !== giver.homeLocId);
+        q.data = { stops: pool.sort(() => Math.random() - 0.5).slice(0, 3).map(l => l.id), visited: [] };
+    },
+    offer(q) { return `Sınırdaki üç yerleşimi dolaş. Garnizonları say, yolların açık olup olmadığını bana bildir.`; },
+    desc(q) { return `İşaretli yerleşimleri ziyaret et — <b>${q.data.visited.length}/${q.data.stops.length}</b> teftiş tamamlandı.`; },
+    where(q) { return q.data.stops.find(id => !q.data.visited.includes(id)); },
+    on(q, ev, d) {
+        if(ev === 'entered_location' && q.data.stops.includes(d.locId) && !q.data.visited.includes(d.locId)) q.data.visited.push(d.locId);
+        if(q.data.visited.length >= q.data.stops.length) return 'done';
+    }
+};
+
+QUESTS.grain_levy = {
+    title: 'Tahıl Vergisi', givers: ['martial', 'quarrelsome'], minRelation: 0, days: 14,
+    reward: { money: 950, renown: 6, rel: 10 },
+    setup(q, giver) { q.data = { locId: giver.homeLocId, need: 18, got: 0 }; },
+    offer(q) { return `Ordu ambarı boş. Pazarlardan <b>${q.data.need} çuval buğday</b> topla ve kapıma getir.`; },
+    desc(q) { return `Buğday satın al — <b>${q.data.got}/${q.data.need}</b>; yeterince topladığında görevi veren lordun salonuna dön.`; },
+    where(q) { return q.data.got >= q.data.need ? q.data.locId : null; },
+    on(q, ev, d) {
+        if(ev === 'bought_item' && d.itemId === 'wheat') q.data.got += d.qty;
+        if(ev === 'entered_location' && d.locId === q.data.locId && q.data.got >= q.data.need) return 'done';
+    }
+};
+
+QUESTS.ale_for_feast = {
+    title: 'Şölen Fıçıları', givers: ['debauched', 'goodnatured'], minRelation: 0, days: 12,
+    reward: { money: 850, renown: 4, rel: 12 },
+    setup(q, giver) { q.data = { locId: giver.homeLocId, need: 12 }; },
+    offer(q) { return `Mahzende tek damla kalmadı. <b>${q.data.need} fıçı bira</b> bulup salonuma getir.`; },
+    desc(q) {
+        let n = (state.player.inventory.find(i => i.id === 'ale') || {}).qty || 0;
+        return `Çantanda <b>${n}/${q.data.need}</b> bira olsun ve görevi veren lordun salonuna dön.`;
+    },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) {
+        if(ev !== 'entered_location' || d.locId !== q.data.locId) return;
+        let i = state.player.inventory.find(x => x.id === 'ale' && x.qty >= q.data.need);
+        if(!i) return; i.qty -= q.data.need; return 'done';
+    }
+};
+
+QUESTS.ransom_column = {
+    title: 'Esir Kafilesi', givers: ['cunning', 'quarrelsome'], minRelation: 10, days: 18,
+    reward: { money: 1300, renown: 8, rel: 13 },
+    setup(q, giver) { q.data = { locId: giver.homeLocId, need: 5 }; },
+    offer(q) { return `Pazarlık için canlı adamlara ihtiyacım var. Soylu olmayan <b>${q.data.need} esir</b> getir.`; },
+    desc(q) { return `Soylu olmayan esirleri lordun salonuna getir — <b>${Quests.prisonerCount()}/${q.data.need}</b>.`; },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) {
+        if(ev !== 'entered_location' || d.locId !== q.data.locId || Quests.prisonerCount() < q.data.need) return;
+        Quests.takePrisoners(q.data.need); return 'done';
+    }
+};
+
+QUESTS.bandit_bounty = {
+    title: 'Üç Çete', givers: ['martial', 'goodnatured', 'guild'], minRelation: -100, days: 20,
+    reward: { money: 1450, renown: 12, rel: 12 },
+    setup(q) { q.data = { got: 0, need: 3 }; },
+    offer(q) { return `Yolları tutan <b>${q.data.need} ayrı haydut çetesini</b> dağıt. Hangi bayrağı taşıdıkları önemli değil.`; },
+    desc(q) { return `Haritada haydut veya çapulcu gruplarını yen — <b>${q.data.got}/${q.data.need}</b>.`; },
+    on(q, ev, d) {
+        if(ev === 'battle_won' && !d.lordId && !d.questWave) q.data.got++;
+        if(q.data.got >= q.data.need) return 'done';
+    }
+};
+
+QUESTS.veteran_guard = {
+    title: 'Kıdemli Muhafızlar', givers: ['martial'], minRelation: 15, days: 25,
+    reward: { money: 1500, renown: 14, rel: 14 },
+    setup(q, giver) { q.data = { locId: giver.homeLocId, need: 8, level: 15 }; },
+    offer(q) { return `Acemiler değil, savaş görmüş adamlar istiyorum. En az ${q.data.level}. seviyede <b>${q.data.need} askerle</b> gel.`; },
+    desc(q) {
+        let n = state.player.party.filter(t => t.level >= q.data.level).length;
+        return `En az ${q.data.level}. seviyede asker yetiştir — <b>${n}/${q.data.need}</b>; sonra lordun salonuna dön.`;
+    },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) {
+        if(ev === 'entered_location' && d.locId === q.data.locId && state.player.party.filter(t => t.level >= q.data.level).length >= q.data.need) return 'done';
+    }
+};
+
+QUESTS.enemy_scout = {
+    title: 'Düşman Kapıları', givers: ['cunning', 'martial'], minRelation: 10, days: 18,
+    reward: { money: 1100, renown: 10, rel: 12 },
+    setup(q, giver) {
+        let pool = LOCATIONS.filter(l => l.type === 'city' && l.faction !== giver.faction);
+        q.data = { stops: pool.sort(() => Math.random() - 0.5).slice(0, 2).map(l => l.id), visited: [] };
+    },
+    offer(q) { return `İki yabancı şehrin kapısına kadar git. Nöbet düzenlerini gör ve sağ dön.`; },
+    desc(q) { return `İşaretli yabancı şehirleri ziyaret et — <b>${q.data.visited.length}/${q.data.stops.length}</b>.`; },
+    where(q) { return q.data.stops.find(id => !q.data.visited.includes(id)); },
+    on(q, ev, d) {
+        if(ev === 'entered_location' && q.data.stops.includes(d.locId) && !q.data.visited.includes(d.locId)) q.data.visited.push(d.locId);
+        if(q.data.visited.length >= q.data.stops.length) return 'done';
+    }
+};
+
+QUESTS.diplomatic_round = {
+    title: 'Nabız Yoklama', givers: ['cunning', 'goodnatured'], minRelation: 15, days: 20,
+    reward: { money: 1000, renown: 8, rel: 15 },
+    setup(q, giver) {
+        let pool = LORDS.filter(l => l.id !== giver.id && l.faction !== giver.faction);
+        q.data = { lords: pool.sort(() => Math.random() - 0.5).slice(0, 2).map(l => l.id), talked: [] };
+    },
+    offer(q) { return `İki yabancı lordla konuş. Savaşa mı barışa mı yakın olduklarını öğren; söz verme.`; },
+    desc(q) { return `Belirlenen yabancı lordlarla konuş — <b>${q.data.talked.length}/${q.data.lords.length}</b>.`; },
+    where(q) { let id = q.data.lords.find(x => !q.data.talked.includes(x)); return id ? Quests.lordSeat(id) : null; },
+    on(q, ev, d) {
+        if(ev === 'talked_to' && q.data.lords.includes(d.lordId) && !q.data.talked.includes(d.lordId)) q.data.talked.push(d.lordId);
+        if(q.data.talked.length >= q.data.lords.length) return 'done';
+    }
+};
+
+QUESTS.market_sampler = {
+    title: 'Pazar Defteri', givers: ['guild'], minRelation: -100, days: 16,
+    reward: { money: 1000, renown: 6, rel: 0 },
+    setup(q, giver) { q.data = { home: giver.homeLocId, cities: [], need: 3 }; },
+    offer(q) { return `Üç farklı şehir pazarında alışveriş yap. Fiyatları deftere geçirip bana dön.`; },
+    desc(q) { return `Farklı şehirlerde birer mal satın al — <b>${q.data.cities.length}/${q.data.need}</b>; sonra loncaya dön.`; },
+    where(q) { return q.data.cities.length >= q.data.need ? q.data.home : null; },
+    on(q, ev, d) {
+        if(ev === 'bought_item' && d.locId && !q.data.cities.includes(d.locId)) q.data.cities.push(d.locId);
+        if(ev === 'entered_location' && d.locId === q.data.home && q.data.cities.length >= q.data.need) return 'done';
+    }
+};
+
+QUESTS.salt_run = {
+    title: 'Tuz Yolu', givers: ['guild'], minRelation: -100, days: 14,
+    reward: { money: 1150, renown: 5, rel: 0 },
+    setup(q, giver) { q.data = { home: giver.homeLocId, need: 14, got: 0 }; },
+    offer(q) { return `Kışlık etler bozulmadan <b>${q.data.need} yük tuz</b> satın alıp loncaya getir.`; },
+    desc(q) { return `Pazarlardan tuz satın al — <b>${q.data.got}/${q.data.need}</b>; sonra loncaya dön.`; },
+    where(q) { return q.data.got >= q.data.need ? q.data.home : null; },
+    on(q, ev, d) {
+        if(ev === 'bought_item' && d.itemId === 'salt') q.data.got += d.qty;
+        if(ev === 'entered_location' && d.locId === q.data.home && q.data.got >= q.data.need) return 'done';
+    }
+};
+
+QUESTS.war_chest = {
+    title: 'Savaş Sandığı', givers: ['martial', 'cunning'], minRelation: 20, days: 20,
+    reward: { money: 400, renown: 15, rel: 20 },
+    setup(q, giver) { q.data = { locId: giver.homeLocId, need: 1800 }; },
+    offer(q) { return `Sefer sandığı boş. <b>${q.data.need} dinar</b> topla ve salonuma getir; krallık katkını unutmaz.`; },
+    desc(q) { return `En az <b>${q.data.need} dinarla</b> görevi veren lordun salonuna dön (para teslimde alınır).`; },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) {
+        if(ev !== 'entered_location' || d.locId !== q.data.locId || state.player.money < q.data.need) return;
+        state.player.money -= q.data.need; return 'done';
+    }
+};
+
 const Quests = {
 
     active() { return state.player.quests; },

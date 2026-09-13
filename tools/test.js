@@ -960,7 +960,19 @@ function questSuite() {
         guild_supply: q => { give(q.data.item, q.data.need); enter(q.data.locId); },
         // Drives the real path (Game.clearLair emits the event); on day 1 the lair's
         // purse is still empty, so the quest reward is the only money paid.
-        clear_lair: q => Game.clearLair(q.data.lairId)
+        clear_lair: q => Game.clearLair(q.data.lairId),
+        royal_courier: q => enter(q.data.locId),
+        border_inspection: q => q.data.stops.forEach(enter),
+        grain_levy: q => { Quests.emit('bought_item', { itemId:'wheat', qty:q.data.need, locId:q.data.locId }); enter(q.data.locId); },
+        ale_for_feast: q => { give('ale', q.data.need); enter(q.data.locId); },
+        ransom_column: q => { for(let i=0;i<q.data.need;i++) state.player.prisoners.push({ id:'r'+i, level:5 }); enter(q.data.locId); },
+        bandit_bounty: q => { for(let i=0;i<q.data.need;i++) Quests.emit('battle_won', { npcId:'band'+i }); },
+        veteran_guard: q => { state.player.party = Array.from({length:q.data.need}, (_,i) => ({id:'vg'+i,level:q.data.level})); enter(q.data.locId); },
+        enemy_scout: q => q.data.stops.forEach(enter),
+        diplomatic_round: q => q.data.lords.forEach(lordId => Quests.emit('talked_to', { lordId })),
+        market_sampler: q => { LOCATIONS.filter(l=>l.type==='city').slice(0,q.data.need).forEach(l => Quests.emit('bought_item',{itemId:'wheat',qty:1,locId:l.id})); enter(q.data.home); },
+        salt_run: q => { Quests.emit('bought_item',{itemId:'salt',qty:q.data.need,locId:q.data.home}); enter(q.data.home); },
+        war_chest: q => { state.player.money = q.data.need; enter(q.data.locId); }
     };
     assert.ok(!QUESTS.fog_dot, 'retired hidden-location quest is still in the offer pool');
 
