@@ -1729,7 +1729,7 @@ I18N.dicts.en = {
   "Babasının ziyafetlerinden sıkılır; masanın altında krallığın borç defterini okur.": "Her father's feasts bore her; under the table she reads the kingdom's ledger of debts.",
   "Leydi Adelia": "Lady Adelia",
   "Kalenin en yüksek burcunda oturup güneşin batışını izler. Babası bunu \"vakit kaybı\" sayar.": "She sits on the highest tower of the castle and watches the sun set. Her father calls it \"a waste of time\".",
-  "Leydi Avmoy": "Lady Avmoy",
+  "Leydi Avrilia": "Lady Avrilia",
   "Şafak duasını hiç kaçırmaz. Ganimet sandığına elini bile sürmediği söylenir.": "She never misses the dawn prayer. They say she has never so much as touched the plunder chest.",
   "Leydi Safiya": "Lady Safiya",
   "Amcasının atlarını gizlice alıp geceleri ovada koşturur. Üç kez yakalandı, üçünde de kaçtı.": "She takes her uncle's horses in secret and races them across the plain at night. Caught three times, escaped three times.",

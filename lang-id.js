@@ -1729,7 +1729,7 @@ I18N.dicts.id = {
   "Babasının ziyafetlerinden sıkılır; masanın altında krallığın borç defterini okur.": "Jamuan ayahnya membuatnya bosan; di bawah meja ia membaca buku utang kerajaan.",
   "Leydi Adelia": "Nyonya Adelia",
   "Kalenin en yüksek burcunda oturup güneşin batışını izler. Babası bunu \"vakit kaybı\" sayar.": "Ia duduk di menara tertinggi kastil dan menonton matahari terbenam. Ayahnya menyebutnya \"buang-buang waktu\".",
-  "Leydi Avmoy": "Nyonya Avmoy",
+  "Leydi Avrilia": "Nyonya Avrilia",
   "Şafak duasını hiç kaçırmaz. Ganimet sandığına elini bile sürmediği söylenir.": "Ia tak pernah melewatkan doa fajar. Katanya ia bahkan tak pernah menyentuh peti rampasan.",
   "Leydi Safiya": "Nyonya Safiya",
   "Amcasının atlarını gizlice alıp geceleri ovada koşturur. Üç kez yakalandı, üçünde de kaçtı.": "Ia diam-diam mengambil kuda pamannya dan memacunya di dataran saat malam. Tertangkap tiga kali, lolos tiga kali pula.",
