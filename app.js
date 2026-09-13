@@ -4981,16 +4981,22 @@ const Game = {
             ctx.strokeStyle = 'rgba(255,204,0,0.9)';
             ctx.lineWidth = 4; ctx.stroke();
 
-            // If we have a horse, we appear mounted on the map (like in Warband)
-            this.drawPartyIcon(ctx, state.player.x, state.player.y + 28, {
-                mounted: !!state.player.equipment.horse,
-                size: state.player.party.length + 1,
-                color: this.bannerColor(),
-                scale: 1.35 * this.partyIconScale(state.player.party.length + 1) * this.iconScale(),
-                bob: state.player.status === 'moving' ? -Math.abs(Math.sin(performance.now()/150)) * 6 : 0
-            });
+            if(state.player.wait) {
+                // The party is stationary while time accelerates: the map should say camp,
+                // not show a rider apparently standing in the middle of nowhere.
+                this.emoji(ctx, '⛺', state.player.x, state.player.y + 28, 54 * this.iconScale());
+            } else {
+                // If we have a horse, we appear mounted on the map (like in Warband)
+                this.drawPartyIcon(ctx, state.player.x, state.player.y + 28, {
+                    mounted: !!state.player.equipment.horse,
+                    size: state.player.party.length + 1,
+                    color: this.bannerColor(),
+                    scale: 1.35 * this.partyIconScale(state.player.party.length + 1) * this.iconScale(),
+                    bob: state.player.status === 'moving' ? -Math.abs(Math.sin(performance.now()/150)) * 6 : 0
+                });
+            }
 
-            this.mapLabel(ctx, `${state.player.name} (${state.player.party.length + 1})`,
+            this.mapLabel(ctx, `${state.player.wait ? '⛺ ' : ''}${state.player.name} (${state.player.party.length + 1})`,
                           state.player.x, state.player.y - 72, '#ffcc00', '#ffcc00');
         }
 

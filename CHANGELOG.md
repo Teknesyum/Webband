@@ -5,6 +5,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Beklerken kamptasın.** Haritada zaman geçirirken oyuncu birliği atlı/ayaklı birlik yerine
+  çadır sembolüyle gösteriliyor; isim etiketinde de kamp işareti var.
+
 - **Erken oyunda haydut baskısı yumuşadı.** İlk iki gün yeni haydut takviyesi çıkmıyor; çeteler
   ilk gün en fazla 8 kişiyle başlıyor ve 16. güne kadar normal büyüklüklerine açılıyor. İnler de
   oyuncunun güvenli doğuş yarıçapındaysa yeni çete çıkaramıyor; dibinde yeni grup belirmiyor.
