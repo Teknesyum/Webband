@@ -279,7 +279,9 @@ const QUESTS = {
             let v = LOCATIONS.find(l => l.id === q.data.locId);
             if(Game.dist(state.player, v) > 500) return;
             if(Math.random() < 0.5) {
-                let n = Game.createNPC(T('Hasat Çapulcuları'), 'bandit', 8 + Math.floor(Math.random() * 12), '#8b0000');
+                // Two waves already make this an endurance job. Keep each one below a
+                // normal roaming warband so an early company can realistically defend it.
+                let n = Game.createNPC(T('Hasat Çapulcuları'), 'bandit', 5 + Math.floor(Math.random() * 8), '#8b0000');
                 n.x = v.x + (Math.random() - 0.5) * 300;
                 n.y = v.y + (Math.random() - 0.5) * 300;
                 n.targetX = state.player.x; n.targetY = state.player.y;

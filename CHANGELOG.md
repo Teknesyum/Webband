@@ -5,6 +5,12 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Hasat nöbeti daha adil.** Görevin iki çapulcu dalgası artık 8–19 yerine 5–12 kişiden oluşuyor.
+- **Kampta dünya da hızlanıyor.** Beklerken saat dört kat akıyorsa lordlar, kervanlar ve haydutlar da
+  haritada dört kat yol alıyor; geçen dünya zamanı ile parti hareketi artık birbirini tutuyor.
+- **Esiri onurla salma hedefi anında işliyor.** Kan davasındaki son lordu fidyesiz bıraktığında
+  “Kan bedeli” hedefi geçmiş husumeti kaydedip aynı anda tamamlanıyor.
+
 - **On iki yeni görev eklendi.** Mühürlü ferman taşıma, üç duraklı sınır teftişi, tahıl vergisi,
   şölen fıçıları, esir kafilesi, üç çete avı, kıdemli muhafız yetiştirme, düşman kapılarını keşif,
   diplomatik nabız yoklama, üç şehirlik pazar defteri, tuz yolu ve savaş sandığı görevleri lordların

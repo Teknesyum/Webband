@@ -2479,7 +2479,10 @@ const Game = {
             // Time flows at ×WAIT_SCALE while camped (#53/1.1)
             this.advanceTime(dt * this.timeScale() * (state.player.wait ? this.WAIT_SCALE : 1));
             this.waitTick();
-            this.updateNPCs(dt);
+            // Camping accelerates the clock, so world parties must cover the matching
+            // amount of ground as well. Otherwise an eight-hour wait advances wages and
+            // daylight by eight hours while every lord and band only walks for two.
+            this.updateNPCs(this.npcWorldDelta(dt));
             if(state.encounterCooldown > 0) state.encounterCooldown -= dt;
         }
 
@@ -2610,6 +2613,7 @@ const Game = {
     // any encounter (triggerEncounter) cuts the wait short. Resting, volunteer refresh,
     // waiting for a tournament/feast, waiting for a caravan — all of it is a customer of this.
     WAIT_SCALE: 4,
+    npcWorldDelta(dt) { return dt * (state.player.wait ? this.WAIT_SCALE : 1); },
     // Waiting has a cost: wages, food, spoilage already tick hourly
     WAIT_CHOICES: [[1, '1 saat'], [8, '8 saat'], [24, '1 gün'], [72, '3 gün']],   // raw; translated at display
     askWait() {
@@ -10213,8 +10217,13 @@ const Game = {
         Nobles.addRel(pr.lordId, 25);
         LORDS.filter(l => l.faction === pr.faction && l.id !== pr.lordId).forEach(l => Nobles.addRel(l.id, 6));
         state.player.renown += 3;
+        // Record that there really was a feud before removing it. The ambition's daily
+        // fallback cannot infer this afterwards, so releasing the last grudging lord used
+        // to leave "Kan bedeli" permanently unfinished.
+        if(this.hasGrudge(pr.lordId)) state.player.hadGrudge = true;
         this.addHonor('release'); delete state.grudges[pr.lordId];   // an honorable act wipes the debt (#53)
         this.respawnLordParty(pr);
+        this.ambitionTick();
         this.updateTopBar();
         this.renderPartyScreen();
         alert(T`${T(pr.name)}'i fidyesiz salıverdin. Bu şerefli davranış dilden dile dolaşacak. (+3 nam)`);

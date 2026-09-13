@@ -1013,6 +1013,30 @@ function questSuite() {
 }
 questSuite();
 
+test('wait: world parties receive the same fourfold camping acceleration as the clock', () => {
+    const g = H.world({ seed: 33 });
+    const { Game, state } = g;
+    state.player.wait = null;
+    assert.strictEqual(Game.npcWorldDelta(0.5), 0.5);
+    state.player.wait = { until: 99 };
+    assert.strictEqual(Game.npcWorldDelta(0.5), 0.5 * Game.WAIT_SCALE);
+});
+
+test('ambition: honourably releasing the last feuding lord completes blood money immediately', () => {
+    const g = H.world({ seed: 34 });
+    const { Game, state, LORDS } = g;
+    const lord = LORDS[0];
+    state.player.ambition = { id:'feud', day:state.time.day };
+    state.player.ambitionsDone = [];
+    state.player.hadGrudge = false;
+    state.grudges[lord.id] = state.time.day;
+    state.player.prisoners = [{ id:'held_lord', name:lord.name, noble:true, lordId:lord.id,
+                                faction:lord.faction, ransom:1000 }];
+    Game.releaseLord('held_lord');
+    assert.ok(!state.player.ambition && state.player.ambitionsDone.includes('feud'),
+        'releasing the feud prisoner did not complete the selected goal');
+});
+
 // --- Ambush: only what you can see can ambush you ---
 // The fixed 240-unit ambush range was wider than the starting character's
 // sight in a forest (125): a band ambushing you would, by definition, never
