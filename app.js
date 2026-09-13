@@ -1491,6 +1491,23 @@ const Game = {
     bandCount() { return state.npcParties.filter(n => n.type === 'bandit' && n.size > 0).length; },
     LORD_FORCE_MULT: 0.90,
     lordForce(n) { return Math.max(1, Math.round(n * this.LORD_FORCE_MULT)); },
+    lordLevel(rank, day = state.time.day) {
+        return rank === 'king' ? Math.min(20, 1 + Math.floor(day / 4.5))
+             : rank === 'vizier' ? Math.min(10, 1 + Math.floor(day / 9)) : 1;
+    },
+    lordForceTarget(rank, level) {
+        return this.lordForce(rank === 'king' ? 50 + level * 3
+                            : rank === 'vizier' ? 30 + level * 2 : 35);
+    },
+    // Replacements take time. Directly assigning the daily target made an army that had
+    // just lost a fight jump from 25 to 87 men overnight (or a fresh king drop by forty).
+    LORD_REINFORCE_PER_DAY: 3,
+    adjustLordForce(npc, target) {
+        let gap = target - npc.size;
+        if(!gap) return;
+        let step = Math.min(Math.abs(gap), this.LORD_REINFORCE_PER_DAY);
+        npc.size += Math.sign(gap) * step;
+    },
     bandTarget() {
         // The target used to be derived from sight range, which runs the curve backwards
         // (#126): sight is at its smallest on day one, so the formula pinned itself to the
@@ -1519,9 +1536,11 @@ const Game = {
         for(let i = 0; i < this.bandTarget(); i++) this.spawnFromLair();
         // Every noble has their own party roaming the map
         LORDS.forEach(l => {
-            let size = this.lordForce(l.rank === 'king' ? 100 : l.rank === 'vizier' ? 50 : 35);
+            let level = this.lordLevel(l.rank);
+            let size = this.lordForceTarget(l.rank, level);
             let npc = this.createNPC(l.name, l.rank, size, FACTIONS[l.faction].color, l.faction, 1);
             npc.lordId = l.id;
+            npc.level = level;
             let home = LOCATIONS.find(x => x.id === l.homeLocId);
             if(home) { npc.x = home.x; npc.y = home.y; npc.targetX = home.x; npc.targetY = home.y; }
             state.npcParties.push(npc);
@@ -3947,15 +3966,9 @@ const Game = {
         // NPCs grow stronger over time (first 3 months)
         let day = state.time.day;
         state.npcParties.forEach(npc => {
-            if(npc.type === 'king') {
-                npc.level = Math.min(20, 1 + Math.floor(day / 4.5)); // max 20 over 90 days
-                npc.size = this.lordForce(50 + npc.level * 3);
-            } else if(npc.type === 'vizier') {
-                npc.level = Math.min(10, 1 + Math.floor(day / 9)); // max 10 over 90 days
-                npc.size = this.lordForce(30 + npc.level * 2);
-            } else if(npc.lordId) {
-                // Regular lords do not regrow daily, but old saves may still carry the former 35 cap.
-                npc.size = Math.min(npc.size, this.lordForce(35));
+            if(npc.type === 'king' || npc.type === 'vizier' || npc.lordId) {
+                npc.level = this.lordLevel(npc.type, day);
+                this.adjustLordForce(npc, this.lordForceTarget(npc.type, npc.level));
             }
         });
 
@@ -10187,9 +10200,11 @@ const Game = {
     respawnLordParty(pr) {
         let lord = Nobles.lord(pr.lordId);
         if(!lord || state.npcParties.some(n => n.lordId === lord.id)) return;
-        let size = this.lordForce(lord.rank === 'king' ? 60 : lord.rank === 'vizier' ? 30 : 20);
+        let level = this.lordLevel(lord.rank);
+        let size = this.lordForceTarget(lord.rank, level);
         let npc = this.createNPC(lord.name, lord.rank, size, FACTIONS[lord.faction].color, lord.faction, 1);
         npc.lordId = lord.id;
+        npc.level = level;
         let home = LOCATIONS.find(x => x.id === lord.homeLocId);
         if(home) { npc.x = home.x; npc.y = home.y; npc.targetX = home.x; npc.targetY = home.y; }
         state.npcParties.push(npc);

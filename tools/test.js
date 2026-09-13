@@ -1254,15 +1254,31 @@ test('lord balance: every spawn and daily force target is reduced by ten percent
     const king = state.npcParties.find(n => n.type === 'king');
     const regular = state.npcParties.find(n => n.lordId && n.faction === king.faction
         && n.type !== 'king' && n.type !== 'vizier');
-    assert.strictEqual(king.size, 90, 'a new king still spawned at the old strength');
+    assert.strictEqual(king.size, Game.lordForceTarget('king', king.level), 'a new king did not spawn at its daily target');
     assert.strictEqual(regular.size, 32, 'a new lord still spawned at the old strength');
     regular.size = 35; // old-save cap
     state.npcParties = [king, regular];
     Game.LAIR_COUNT = 0;
     state.sites = state.sites.filter(s => s.kind !== 'lair');
     Game.dailyUpdate();
-    assert.ok(regular.size <= 32, 'an old-save lord was not brought down to the new cap');
-    assert.strictEqual(king.size, Game.lordForce(50 + king.level * 3), 'daily king strength bypassed the multiplier');
+    assert.strictEqual(regular.size, 32, 'a regular lord did not drift toward the intended cap');
+    assert.strictEqual(king.size, Game.lordForceTarget('king', king.level), 'daily king strength bypassed the multiplier');
+});
+
+test('lord forces: daily recovery changes a wounded army gradually, never in random-sized jumps', () => {
+    const g = H.world({ seed: 35 });
+    const { Game, state } = g;
+    const lord = state.npcParties.find(n => n.lordId && n.type !== 'king' && n.type !== 'vizier');
+    lord.size = 12;
+    state.npcParties = [lord];
+    Game.LAIR_COUNT = 0; state.sites = state.sites.filter(s => s.kind !== 'lair');
+    let before = lord.size;
+    for(let i = 0; i < 5; i++) {
+        Game.dailyUpdate();
+        assert.ok(lord.size - before >= 0 && lord.size - before <= Game.LORD_REINFORCE_PER_DAY,
+            `lord force jumped from ${before} to ${lord.size}`);
+        before = lord.size;
+    }
 });
 
 test('map encounter: a friendly lord cannot force a conversation by bumping into the player', () => {

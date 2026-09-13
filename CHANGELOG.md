@@ -5,6 +5,10 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Lord orduları artık zıplamıyor.** Günlük güç hedefi ordu mevcudunu bir anda yeniden yazmıyor;
+  eksik ya da fazla asker sayısı günde en çok üç kişiyle hedefe yaklaşıyor. Yeni doğan ve yeniden
+  çıkan lordlar da aynı hedef büyüklükten başlıyor.
+
 - **Hasat nöbeti daha adil.** Görevin iki çapulcu dalgası artık 8–19 yerine 5–12 kişiden oluşuyor.
 - **Kampta dünya da hızlanıyor.** Beklerken saat dört kat akıyorsa lordlar, kervanlar ve haydutlar da
   haritada dört kat yol alıyor; geçen dünya zamanı ile parti hareketi artık birbirini tutuyor.
