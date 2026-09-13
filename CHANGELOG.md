@@ -5,6 +5,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Lordlar kıyıda takılmıyor.** Harita dışına düşen devriye/kaçış hedefleri hareketten önce
+  kıyı çizgisinin içine çekiliyor; erişilemeyen hedefe yürüyüp kenarda sonsuza dek kalmıyorlar.
+
 - **Erzak daha yavaş tükeniyor.** Asker başına günlük tüketim 0,5'ten 0,4'e, oyuncunun payı
   1'den 0,75'e indirildi. Günlük tüketim, erzak günü göstergesi ve açlık hesabı aynı oranı kullanıyor.
 

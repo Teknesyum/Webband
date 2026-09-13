@@ -1281,6 +1281,19 @@ test('lord forces: daily recovery changes a wounded army gradually, never in ran
     }
 });
 
+test('map movement: an off-coast lord destination is pulled back inside instead of sticking at the edge', () => {
+    const g = H.world({ seed: 36 });
+    const { Game, state } = g;
+    const lord = state.npcParties.find(n => n.lordId);
+    lord.x = 4500; lord.y = 4500;
+    lord.targetX = 20000; lord.targetY = -10000;
+    state.npcParties = [lord];
+    Game.updateNPCs(0.01);
+    const dx = lord.targetX - 4500, dy = lord.targetY - 4500;
+    assert.ok(Math.hypot(dx, dy) <= Game.getMapRadius(lord.targetX, lord.targetY) - 49,
+        'lord kept an unreachable target beyond the coast');
+});
+
 test('map encounter: a friendly lord cannot force a conversation by bumping into the player', () => {
     const gm = H.world({ seed: 26 });
     const { Game, Nobles, state } = gm;

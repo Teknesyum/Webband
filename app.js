@@ -2581,6 +2581,16 @@ const Game = {
         }
     },
 
+    // Positions are clamped after movement, but a destination can be outside the
+    // coastline too (a lord's wide patrol arc, or a fleeing party). Leaving that
+    // destination untouched pins the party to the edge forever: it can never reach
+    // an unreachable point and therefore never rolls a new route.
+    clampTargetToMap(npc) {
+        let point = { x:npc.targetX, y:npc.targetY };
+        this.clampToMap(point);
+        npc.targetX = point.x; npc.targetY = point.y;
+    },
+
     npcCanInitiateEncounter(npc) {
         let hostile = this.isHostile(npc);
         if(npc.lordId && !hostile) return this.partiesTargetEachOther(npc);
@@ -2895,6 +2905,7 @@ const Game = {
                 npc.charging = true;
             }
 
+            this.clampTargetToMap(npc);
             let dx = npc.targetX - npc.x, dy = npc.targetY - npc.y;
             let d = Math.sqrt(dx*dx+dy*dy);
             if(d > 3) {
