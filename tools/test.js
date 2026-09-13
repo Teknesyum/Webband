@@ -684,6 +684,22 @@ test('encounter: the announced roster is the roster that takes the field (#116)'
     assert.strictEqual(mine, 3, 'the wounded were counted into the announcement again');
 });
 
+test('band spawning: early bands stay small and a nearby lair cannot produce a party in the player\'s lap', () => {
+    const g = H.world({ seed: 37 });
+    const { Game, state } = g;
+    state.time.day = 1;
+    const early = Game.spawnBand('bandit');
+    assert.ok(early.size <= 8, `day-one band spawned with ${early.size} troops`);
+    const closeLair = { id:'near_lair', band:'bandit', x:state.player.x, y:state.player.y };
+    const fromNearLair = Game.spawnBand('bandit', closeLair);
+    assert.ok(Game.dist(fromNearLair, state.player) >= Game.SPAWN_SAFE,
+        'a band spawned inside the player safety radius');
+    state.npcParties = state.npcParties.filter(n => n.type !== 'bandit');
+    const before = Game.bandCount();
+    Game.bandRefillTick(6);
+    assert.strictEqual(Game.bandCount(), before, 'the refill grace period spawned a day-one band');
+});
+
 test('tournament: a 4v4 round spawns two complete, colour-coded teams', () => {
     const gt = H.world({ seed: 122 });
     const { Battle, Game } = gt;

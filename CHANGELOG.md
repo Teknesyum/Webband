@@ -5,6 +5,10 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Erken oyunda haydut baskısı yumuşadı.** İlk iki gün yeni haydut takviyesi çıkmıyor; çeteler
+  ilk gün en fazla 8 kişiyle başlıyor ve 16. güne kadar normal büyüklüklerine açılıyor. İnler de
+  oyuncunun güvenli doğuş yarıçapındaysa yeni çete çıkaramıyor; dibinde yeni grup belirmiyor.
+
 - **Günler biraz daha yavaş geçiyor.** Normal dünya zamanı saniye başına 1 yerine 0,75 oyun saati
   ilerliyor. Kamp ve NPC hareketi de aynı temel oranı kullandığı için zaman ile harita tutarlı kalıyor.
 

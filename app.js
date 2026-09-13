@@ -1047,7 +1047,7 @@ const Game = {
     },
     // A band comes out of its lair. No band spawns in a lair-free region — that's the payoff of clearing it.
     spawnFromLair() {
-        let l = this.lairs();
+        let l = this.lairs().filter(x => this.dist(x, state.player) >= this.SPAWN_SAFE);
         if(!l.length) return null;
         let lair = l[Math.floor(Math.random() * l.length)];
         return this.spawnBand(lair.band, lair);
@@ -1264,7 +1264,11 @@ const Game = {
     // battle (BAND_KINDS.battle -> unit generation inside Battle.start)
     spawnBand(kind, lair) {
         let k = BAND_KINDS[kind];
-        let size = k.min + Math.floor(Math.random() * (k.max - k.min + 1));
+        // The first days are for building a party, not being met by a full grown band.
+        // The cap rises slowly and reaches each band's normal maximum by day 16.
+        let earlyMax = Math.min(k.max, 8 + Math.floor(state.time.day / 2));
+        let low = Math.min(k.min, earlyMax);
+        let size = low + Math.floor(Math.random() * (earlyMax - low + 1));
         let npc = this.createNPC(k.name, 'bandit', size, k.color, null, 1);
         npc.band = kind;
         // A band comes out of its lair: place it around the lair, and if that's too
@@ -1488,6 +1492,7 @@ const Game = {
     // hunting for a *specific* band was hopeless. So the population is held at a target rather
     // than left to drift; what that target should be is `bandTarget()`.
     BAND_REFILL_HOURS: 6,    // below target, one new band sets out this often
+    BAND_REFILL_GRACE_DAYS: 2,
     bandCount() { return state.npcParties.filter(n => n.type === 'bandit' && n.size > 0).length; },
     LORD_FORCE_MULT: 0.90,
     lordForce(n) { return Math.max(1, Math.round(n * this.LORD_FORCE_MULT)); },
@@ -1524,6 +1529,7 @@ const Game = {
     // came to look deserted after the opening fight. Stateless on purpose — the absolute hour
     // decides, so nothing new has to enter the save.
     bandRefillTick(absHour) {
+        if(state.time.day < this.BAND_REFILL_GRACE_DAYS) return;
         if(absHour % this.BAND_REFILL_HOURS !== 0) return;
         if(this.bandCount() >= this.bandTarget()) return;
         this.spawnFromLair();   // no lair, no band (#68)
