@@ -2543,11 +2543,11 @@ const Game = {
 
         if(timeFlows) this.checkAmbush(dt);
 
-        // NPC -> player collision
+        // NPC -> player collision. Friendly nobles may cross the player's path, but a conversation
+        // only starts when the player deliberately targets them; hostile parties still intercept.
         if(timeFlows && state.encounterCooldown <= 0) {
             for(let npc of state.npcParties) {
-                // Bumping into a friendly noble is an encounter too — not a battle, a chat
-                if(!npc.lordId && !npc.trade && !this.isHostile(npc)) continue;
+                if(!this.npcCanInitiateEncounter(npc)) continue;
                 let d = this.dist(npc, state.player);
                 if(d < 24) {
                     state.player.status = 'idle';
@@ -2557,6 +2557,12 @@ const Game = {
                 }
             }
         }
+    },
+
+    npcCanInitiateEncounter(npc) {
+        let hostile = this.isHostile(npc);
+        if(npc.lordId && !hostile) return false;
+        return !!(hostile || npc.trade);
     },
 
     // Ambush in the forest: a band/pack hidden among the trees jumps you as you approach.

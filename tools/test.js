@@ -1229,6 +1229,18 @@ test('lord balance: every spawn and daily force target is reduced by ten percent
     assert.strictEqual(king.size, Game.lordForce(50 + king.level * 3), 'daily king strength bypassed the multiplier');
 });
 
+test('map encounter: a friendly lord cannot force a conversation by bumping into the player', () => {
+    const gm = H.world({ seed: 26 });
+    const { Game, Nobles, state } = gm;
+    const lord = state.npcParties.find(n => n.lordId);
+    state.relations[lord.lordId] = 0;
+    assert.ok(!Game.npcCanInitiateEncounter(lord), 'a friendly lord can still open unsolicited map dialogue');
+    state.relations[lord.lordId] = -50;
+    assert.ok(Game.npcCanInitiateEncounter(lord), 'a hostile lord can no longer intercept the player');
+    state.relations[lord.lordId] = 0;
+    assert.ok(Nobles.lord(lord.lordId), 'the lord is no longer available for player-initiated talk');
+});
+
 // --- Bandit lairs (#68) ---
 // Three claims in one run: a lair erodes the region around it, pays out its
 // purse and is removed from the map when cleared, and no lairless world spawns new bands.
