@@ -478,6 +478,15 @@ test('tournament: eight enter, one is crowned, and the ladder pays per round (#1
     assert.strictEqual(t.wins, 0, 'a first-round loss counted as a win');
     assert.ok(gw.state.tourneyChampions[city.id], 'the city did not remember the winner');
 
+    const teamSizes = [4, 2, 1];
+    teamSizes.forEach((size, round) => {
+        const teams = gw.Game.TOURNEY_TEAMS[round];
+        assert.strictEqual(teams.length, 2, `round ${round} has no two-team colour pairing`);
+        assert.notStrictEqual(teams[0].color, teams[1].color, `round ${round} teams share a colour`);
+        assert.strictEqual(new Set(teams.map(x => x.color)).size, 2, `round ${round} colours are not distinguishable`);
+        assert.strictEqual([4, 2, 1][round], size);
+    });
+
     // Win all three and the prizes arrive as you climb, not only at the end.
     gw.state.tourney = null;
     gw.state.activeTournaments[city.id] = true;
@@ -648,6 +657,28 @@ test('encounter: the announced roster is the roster that takes the field (#116)'
     assert.strictEqual(onField(false), foes, `announced ${foes} enemies, ${onField(false)} took the field`);
     assert.strictEqual(onField(true), mine, `announced ${mine} of your own, ${onField(true)} took the field`);
     assert.strictEqual(mine, 3, 'the wounded were counted into the announcement again');
+});
+
+test('tournament: a 4v4 round spawns two complete, colour-coded teams', () => {
+    const gt = H.world({ seed: 122 });
+    const { Battle, Game } = gt;
+    const pair = Game.TOURNEY_TEAMS[0];
+    const fighter = (name, lv) => ({ name, lv });
+    const foe = fighter('Rakip Kaptan', 5);
+    foe.round = Game.TOURNEY_ROUNDS[0];
+    foe.teamFight = {
+        size:4, player:pair[0], enemy:pair[1],
+        allies:[fighter('M1', 3), fighter('M2', 4), fighter('M3', 5)],
+        enemies:[fighter('K1', 3), fighter('K2', 4), fighter('K3', 5)]
+    };
+    Battle.startTourneyFight(foe);
+    const blue = Battle.units.filter(u => u.isPlayerTeam);
+    const red = Battle.units.filter(u => !u.isPlayerTeam);
+    assert.strictEqual(blue.length, 4, 'the player tournament team is not 4 fighters');
+    assert.strictEqual(red.length, 4, 'the opposing tournament team is not 4 fighters');
+    assert.ok(blue.every(u => u.color === pair[0].color), 'player teammates do not share their team colour');
+    assert.ok(red.every(u => u.color === pair[1].color), 'opponents do not share their team colour');
+    Battle.active = false;
 });
 
 test('encounter: the announced band kind wins over a stale global encounter id', () => {

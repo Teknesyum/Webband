@@ -2175,4 +2175,12 @@ I18N.dicts.en = {
   "Çelik Baldırlık": "Steel Greaves",
   "🛡️ {0}, {1} çetesini dağıttı.": "🛡️ {0} scattered the {1} band.",
   "☠️ {0}, {1} ordusunu bozguna uğrattı.": "☠️ {0} routed {1}'s army.",
+  "Mavi Takım": "Blue Team",
+  "Kırmızı Takım": "Red Team",
+  "Yeşil Takım": "Green Team",
+  "Mor Takım": "Purple Team",
+  "Altın Takım": "Gold Team",
+  "Turkuaz Takım": "Turquoise Team",
+  "{0} kişi": "{0} fighters",
+  "🏆 Turnuva:": "🏆 Tournament:",
 };

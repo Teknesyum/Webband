@@ -2175,4 +2175,12 @@ I18N.dicts.id = {
   "Çelik Baldırlık": "Pelindung Kaki Baja",
   "🛡️ {0}, {1} çetesini dağıttı.": "🛡️ {0} membubarkan gerombolan {1}.",
   "☠️ {0}, {1} ordusunu bozguna uğrattı.": "☠️ {0} mengalahkan pasukan {1}.",
+  "Mavi Takım": "Tim Biru",
+  "Kırmızı Takım": "Tim Merah",
+  "Yeşil Takım": "Tim Hijau",
+  "Mor Takım": "Tim Ungu",
+  "Altın Takım": "Tim Emas",
+  "Turkuaz Takım": "Tim Pirus",
+  "{0} kişi": "{0} petarung",
+  "🏆 Turnuva:": "🏆 Turnamen:",
 };

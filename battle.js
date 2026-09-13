@@ -65,9 +65,31 @@ const Battle = {
     // the result goes — `Game.tourneyRoundDone` puts it back on the board instead of the map.
     startTourneyFight(foe) {
         this.isTourney = foe;
-        this.soloFoe(foe, '#d9a441');
+        let match = foe.teamFight || { size:1, player:{ name:'Mavi Takım', color:'#2497ff' },
+                                      enemy:{ name:'Kırmızı Takım', color:'#ff3b4f' }, allies:[], enemies:[] };
+        this.soloFoe(foe, match.enemy.color);
+        let player = this.units.find(u => u.id === 'player');
+        let captain = this.units.find(u => !u.isPlayerTeam);
+        if(player) player.color = match.player.color;
+        if(captain) captain.color = match.enemy.color;
+        const addFighter = (f, team, color, idx) => {
+            let lv = Math.max(1, f.lv || state.player.stats.level);
+            this.units.push({
+                id: `tourney_${team ? 'ally' : 'enemy'}_${idx}`, name:f.name, isPlayerTeam:team,
+                hp:50 + lv * 6, maxHp:50 + lv * 6, attack:10 + lv,
+                defense:6 + Math.floor(lv / 3), speed:70, radius:7, type:'infantry', mounted:false,
+                dmgType:'blunt', color, atkCd:Math.random() * 0.6,
+                x:team ? 110 + Math.random() * 90 : this.canvas.width - 200 + Math.random() * 90,
+                y:70 + Math.random() * Math.max(1, this.canvas.height - 140), level:lv
+            });
+        };
+        (match.allies || []).forEach((f, i) => addFighter(f, true, match.player.color, i));
+        (match.enemies || []).forEach((f, i) => addFighter(f, false, match.enemy.color, i));
         document.getElementById('battle-log-left').innerHTML =
-            `<b>${T`🏆 Turnuva:</b> ${T(foe.name)} · Sv. ${foe.lv} — ${T(foe.round)}`}`;
+            `<b>${T('🏆 Turnuva:')} ${T(foe.round)} · ${match.size}×${match.size}</b><br>
+             <span style="color:${match.player.color}">● ${T(match.player.name)}</span>
+             <span style="color:var(--text-muted)"> — </span>
+             <span style="color:${match.enemy.color}">● ${T(match.enemy.name)}</span>`;
     },
 
     start(enemyName, enemyCount, bossLevel = null, faction = null, siegePlan = null, auto = false, enemyBand = null) {

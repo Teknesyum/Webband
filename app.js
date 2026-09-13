@@ -8101,6 +8101,11 @@ const Game = {
     TOURNEY_OPEN: 3,                                      // how many cities hold one at the same time
     TOURNEY_PRIZE: [50, 150, 500],                        // for winning round 1 / round 2 / the final
     TOURNEY_ROUNDS: ['Çeyrek Final', 'Yarı Final', 'Final'],
+    TOURNEY_TEAMS: [
+        [{ name:'Mavi Takım', color:'#2497ff' }, { name:'Kırmızı Takım', color:'#ff3b4f' }],
+        [{ name:'Yeşil Takım', color:'#35d06f' }, { name:'Mor Takım', color:'#b45cff' }],
+        [{ name:'Altın Takım', color:'#ffd43b' }, { name:'Turkuaz Takım', color:'#19d3c5' }]
+    ],
     // Regulars of the circuit: they follow the tournaments from city to city, so unlike the
     // local lords they can turn up anywhere.
     TOURNEY_REGULARS: ['Tek Kollu Baturhan', 'Şişman Ansen', 'Kumlu Derviş', 'Sessiz Ymira',
@@ -8209,8 +8214,12 @@ const Game = {
             btn = `<button class="btn primary" onclick="Game.tourneyClose()">${T`Meydandan Ayrıl`}</button>`;
         } else {
             let foe = t.rounds[t.round][t.rounds[t.round].findIndex(f => f.you) ^ 1];
+            let teams = this.TOURNEY_TEAMS[t.round], size = [4, 2, 1][t.round];
             msg = `<p>${T`Sıradaki: <b>${T(this.TOURNEY_ROUNDS[t.round])}</b> — karşında <b>${T(foe.name)}</b> (Sv. ${foe.lv}).`}
-                   <span style="color:var(--text-muted)">${T`Canın: ${Math.round(state.player.stats.hp)}/${Math.round(state.player.stats.maxHp)}`}</span></p>`;
+                   <span style="color:var(--text-muted)">${T`Canın: ${Math.round(state.player.stats.hp)}/${Math.round(state.player.stats.maxHp)}`}</span><br>
+                   <b style="color:${teams[0].color}">● ${T(teams[0].name)}</b> ${T`${size} kişi`}
+                   <span style="color:var(--text-muted)"> — </span>
+                   <b style="color:${teams[1].color}">● ${T(teams[1].name)}</b> ${T`${size} kişi`}</p>`;
             btn = `<button class="btn primary" onclick="Game.tourneyFight()">${T`⚔️ Meydana Çık`}</button>`;
         }
         this.showModal(`<h3>${T`🏆 ${T((LOCATIONS.find(l => l.id === t.locId) || {}).name || 'Turnuva')} Turnuvası`}</h3>
@@ -8224,6 +8233,13 @@ const Game = {
         if(i < 0) return;
         let foe = cur[i ^ 1];
         foe.round = this.TOURNEY_ROUNDS[t.round];   // raw name; the battle log translates it
+        let size = [4, 2, 1][t.round], pool = t.rounds[0].filter(f => !f.you && f !== foe)
+            .slice().sort(() => Math.random() - 0.5);
+        foe.teamFight = {
+            size,
+            player: this.TOURNEY_TEAMS[t.round][0], enemy: this.TOURNEY_TEAMS[t.round][1],
+            allies: pool.slice(0, size - 1), enemies: pool.slice(size - 1, (size - 1) * 2)
+        };
         this.closeModal();
         Battle.startTourneyFight(foe);
     },
