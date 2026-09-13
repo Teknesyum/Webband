@@ -88,7 +88,7 @@ const LORDS = [
 const LADIES = [
     { id:'isolla',  name:'Leydi Isolla',  faction:'swadia',  guardianId:'harlaus',  homeLocId:'praven',    trait:'ambitious', lore:'Babasının ziyafetlerinden sıkılır; masanın altında krallığın borç defterini okur.' },
     { id:'adelia',  name:'Leydi Adelia',  faction:'swadia',  guardianId:'despin',   homeLocId:'dhirim',    trait:'romantic',  lore:'Kalenin en yüksek burcunda oturup güneşin batışını izler. Babası bunu "vakit kaybı" sayar.' },
-    { id:'nelda',   name:'Leydi Nelda',   faction:'swadia',  guardianId:'reylan',   homeLocId:'castle_s2', trait:'pious',     lore:'Şafak duasını hiç kaçırmaz. Ganimet sandığına elini bile sürmediği söylenir.' },
+    { id:'nelda',   name:'Leydi Avmoy',   faction:'swadia',  guardianId:'reylan',   homeLocId:'castle_s2', trait:'pious',     lore:'Şafak duasını hiç kaçırmaz. Ganimet sandığına elini bile sürmediği söylenir.' },
     { id:'safiya',  name:'Leydi Safiya',  faction:'swadia',  guardianId:'klargus',  homeLocId:'suno',      trait:'wild',      lore:'Amcasının atlarını gizlice alıp geceleri ovada koşturur. Üç kez yakalandı, üçünde de kaçtı.' },
     { id:'sonadel', name:'Leydi Sonadel', faction:'rhodok',  guardianId:'graveth',  homeLocId:'jelkala',   trait:'pious',     lore:'Dağ manastırında büyüdü. Babasının darbeyle başa geçmesini hâlâ affetmiş değil.' },
     { id:'vera',    name:'Leydi Vera',    faction:'rhodok',  guardianId:'bunduk',   homeLocId:'jelkala',   trait:'ambitious', lore:'Babasının tatar yayı iddialarına bahis açar ve genelde kazanır.' },
