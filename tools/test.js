@@ -328,6 +328,25 @@ test('bandits do not scale with the calendar (#99)', () => {
     gw.state.time.day = 1;
 });
 
+test('no party, no orders (#114)', () => {
+    // A duel and an arena bout both empty the party before the fight, so the command strip was
+    // drawn and "opportunities" announced for orders nobody could obey. The gate is the party
+    // itself rather than an isDuel flag, which also covers a player caught alone on the road.
+    // The slots are read by the opening log, so they have to be set before it is written.
+    gw.state.player.party = [];
+    gw.Battle.start('Şampiyon', 1);
+    assert.strictEqual(gw.Battle.cmdSlots.length, 0, 'orders offered to an empty party');
+    assert.ok(!/\[1\]/.test(gw._sandbox.document.getElementById('battle-log-left').innerHTML),
+        'the opening log still lists command keys in a one-on-one');
+    gw.Battle.active = false;
+
+    gw.state.player.party = [{ id: 'c1', name: 'Svadya Milisi', level: 1 }];
+    gw.Battle.start('Çapulcular', 4);
+    assert.strictEqual(gw.Battle.cmdSlots.length, 3, 'a party that can be commanded gets no orders');
+    gw.Battle.active = false;
+    gw.state.player.party = [];
+});
+
 test('speed: morale doesn\'t scale troop speed (the enemy has no morale)', () => {
     const speedAt = morale => {
         gw.state.player.morale = morale;
@@ -727,17 +746,22 @@ function roadSuite() {
 }
 roadSuite();
 
-// Population target is derived from sight and *held*: it used to start with
-// 13 bands and spawn one a day, i.e. a region a lord had cleared would stay
-// empty for weeks (the map looked deserted).
-test('band population stays at target over 60 days', () => {
+// The population is *held* at a target: it used to start with 13 bands and spawn one a day,
+// i.e. a region a lord had cleared would stay empty for weeks (the map looked deserted).
+// Since #126 the target rises with the calendar instead of falling with the player's sight,
+// so the run checks both that the curve climbs and that the hourly refill keeps up with it.
+test('band population tracks a target that rises over 60 days', () => {
     const g = H.world({ seed: 4 });
-    const target = g.Game.bandTarget();
-    assert.strictEqual(g.Game.bandCount(), target, 'the world doesn\'t start at the target population');
-    let low = target;
-    H.run(g, 60, () => { low = Math.min(low, g.Game.bandCount()); });
-    assert.ok(low >= target - g.Game.BAND_REFILL * 2,
-        `band population fell to ${low}, target ${target} (refill can't keep up)`);
+    const start = g.Game.bandTarget();
+    assert.strictEqual(g.Game.bandCount(), start, 'the world doesn\'t start at the target population');
+    let worst = 0;
+    H.run(g, 60, () => { worst = Math.max(worst, g.Game.bandTarget() - g.Game.bandCount()); });
+    const end = g.Game.bandTarget();
+    assert.ok(end > start + 5,
+        `pressure doesn't build: target went ${start} -> ${end} over 60 days`);
+    // One band every 6 hours is 4 a day against a target that climbs by a third of one,
+    // so the gap should never open more than a few bands wide.
+    assert.ok(worst <= 4, `refill can't keep up: population fell ${worst} short of target`);
 });
 
 // --- Bandit lairs (#68) ---
@@ -813,8 +837,15 @@ test('rumour: every generator produces a story, and a lie only moves the place',
             `rumour generator ${i} returned something undisplayable`);
         if(out && out.mark) assert.ok(isFinite(out.mark.x) && isFinite(out.mark.y), `generator ${i} marked a nowhere`);
     });
-    assert.ok(Game.RUMORS.every(r => r.run(town, truth)),
-        'a generator found nothing to say in a 40-day-old world');
+    // "Has something to say" is checked over every town, not the one the lie test uses. A
+    // generator returning null is a designed outcome -- `listenRumor` has a line for the night
+    // nobody is talking -- and the trade-margin one legitimately goes quiet in a town whose
+    // five nearest neighbours all trade the same goods. Pinned to a single town this assertion
+    // was really testing a coincidence: it passed on seed 3 with a margin of 0.169 against a
+    // threshold of 0.15, and any change that nudged the world at all tipped it over.
+    const cities = LOCATIONS.filter(l => l.type === 'city');
+    Game.RUMORS.forEach((r, i) => assert.ok(cities.some(c => r.run(c, truth)),
+        `generator ${i} found nothing to say in any town of a 40-day-old world`));
 
     // The lie: same generator, same world, a different place named
     const far = LOCATIONS[LOCATIONS.length - 1];

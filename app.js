@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.04', date: '2026-09-13', name: 'Hayalet Parmak' };  // the version name is not translated
+const VERSION = { no: '1.05', date: '2026-09-13', name: 'Kızıl Ad' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -1405,17 +1405,31 @@ const Game = {
         state.npcParties = state.npcParties.filter(n => n.size > 0 || n.lordId);
     },
 
-    // The continent is 9000 units, your view is ~500: you see ~1% of the map at
-    // any moment. With 13 bands roaming, a player was seeing 0.3 bands a day —
-    // once every three days, and hunting for a *specific* band was hopeless. The
-    // population target is derived from visibility, not held fixed: `bandTarget()` gives the count that yields ~1 encounter a day based on the area swept.
-    BAND_REFILL: 3,          // at most this many new bands set out per day
+    // The continent is 9000 units, your view is ~500: you see ~1% of the map at any moment.
+    // With 13 bands roaming, a player was seeing 0.3 bands a day — once every three days, and
+    // hunting for a *specific* band was hopeless. So the population is held at a target rather
+    // than left to drift; what that target should be is `bandTarget()`.
+    BAND_REFILL_HOURS: 6,    // below target, one new band sets out this often
     bandCount() { return state.npcParties.filter(n => n.type === 'bandit' && n.size > 0).length; },
     bandTarget() {
-        // Area swept per day ≈ 2·sight · daily travel; its ratio to the continent is
-        // the daily encounter probability per band. Target: ~1 encounter a day.
-        let swept = 2 * this.getVisibility() * 2600;
-        return Math.round(Math.max(14, Math.min(30, 9000 * 9000 / swept)));
+        // The target used to be derived from sight range, which runs the curve backwards
+        // (#126): sight is at its smallest on day one, so the formula pinned itself to the
+        // ceiling of 30 exactly when the player was weakest, then thinned to 14 as Spotting
+        // and Intelligence grew. The complaint — "swarming at the start, empty two minutes
+        // later" — was the formula working as written.
+        // Pressure now follows the player instead: the world starts quiet and fills in as the
+        // calendar turns and their name spreads. Renown, not level, because renown is what a
+        // band would have heard about.
+        return Math.round(Math.max(10, Math.min(34, 10 + state.time.day / 3 + (state.player.renown || 0) / 60)));
+    },
+    // Refill is hourly, not daily (#126). A day is a long time on a map the player crosses in
+    // minutes: clearing a region emptied it until the next daily tick, which is how the map
+    // came to look deserted after the opening fight. Stateless on purpose — the absolute hour
+    // decides, so nothing new has to enter the save.
+    bandRefillTick(absHour) {
+        if(absHour % this.BAND_REFILL_HOURS !== 0) return;
+        if(this.bandCount() >= this.bandTarget()) return;
+        this.spawnFromLair();   // no lair, no band (#68)
     },
     spawnNPCs() {
         this.ensureTraders();
@@ -1455,7 +1469,11 @@ const Game = {
         let x, y;
         for(let i = 0; i < 40; i++) {
             let a = Math.random() * Math.PI * 2;
-            let r = Math.random() * 3800; // Random within the map
+            // sqrt, not a flat roll (#97): picking the radius uniformly packs points towards
+            // the middle, because the ring at radius r holds area proportional to r. The
+            // continent was measurably denser at its centre and thin at the coasts, and since
+            // every respawn came through here the bias was re-created daily rather than settling.
+            let r = Math.sqrt(Math.random()) * 3800; // Random within the map, evenly by area
             x = 4500 + Math.cos(a)*r; y = 4500 + Math.sin(a)*r;
             if(this.dist({ x, y }, state.player) >= this.SPAWN_SAFE) break;
         }
@@ -2606,7 +2624,7 @@ const Game = {
                         npc.targetX = home.x + Math.cos(a)*r;
                         npc.targetY = home.y + Math.sin(a)*r;
                     } else {
-                        let r = Math.random() * 3800;
+                        let r = Math.sqrt(Math.random()) * 3800;   // evenly by area, not by radius (#97)
                         npc.targetX = 4500 + Math.cos(a)*r;
                         npc.targetY = 4500 + Math.sin(a)*r;
                     }
@@ -2918,7 +2936,10 @@ const Game = {
         // Wage debt ticks hour by hour: a growing pressure instead of a one-time fixed
         // penalty. We count whole-hour boundaries since dt arrives fractional.
         let passed = Math.floor(state.time.day * 24 + state.time.hour) - Math.floor(before);
-        for(let i = 0; i < passed; i++) { this.wageDebtTick(); this.regenTick(); this.scoutTick(); }
+        for(let i = 0; i < passed; i++) {
+            this.wageDebtTick(); this.regenTick(); this.scoutTick();
+            this.bandRefillTick(Math.floor(before) + 1 + i);   // hourly band refill (#126)
+        }
         while(state.time.hour >= 24) {
             state.time.day++;
 
@@ -3682,12 +3703,9 @@ const Game = {
         Feast.dailyTick();
         Quests.dailyTick();
 
-        // Bandit respawn: not one at a time, but up to a target. When only one band spawned
-        // per day, a cleared region stayed empty for weeks.
+        // Band respawn moved to the hourly tick (`bandRefillTick`, #126) — a daily batch left
+        // a cleared region empty for the rest of the day, which on this map is a long ride.
         this.lairTick();
-        for(let i = 0, eksik = this.bandTarget() - this.bandCount(); i < Math.min(this.BAND_REFILL, eksik); i++) {
-            this.spawnFromLair();   // no lair, no band (#68)
-        }
         this.ensureTraders();   // new caravans set out to replace robbed ones
         this.dailyEvent();      // daily event pool (#35) — last, after the day's accounting closes
     },
@@ -3939,6 +3957,7 @@ const Game = {
     },
 
     showScreen(screenId) {
+        this.resetMapInteractionState();   // the map starts every screen from a clean input state (#96)
         document.querySelectorAll('.menu-btn').forEach(b => b.classList.toggle('active', b.dataset.view === screenId));
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         let view = document.getElementById(screenId + '-view');
@@ -4575,7 +4594,21 @@ const Game = {
             if(npc.type === 'lord' || npc.type === 'king' || npc.type === 'vizier') {
                 shortName = shortName.replace(T(' Ordusu'), '').replace(T(' Birliği'), '');
             }
-            this.mapLabel(ctx, `${shortName} (${npc.size})`, npc.x, npc.y + 50, '#ffffff', nCol);
+            // The label used to be white for everyone, so a lord of a kingdom we are at war
+            // with read exactly like an allied one — the marker ring carries the faction's
+            // colour, which answers "whose is it", never "will it attack me" (#108). The
+            // answer comes from `atWar`, not from `isHostile`: hostility there depends on
+            // distance and relative strength, which would make the label flicker as you close in.
+            // Colour is not the only cue — a foe's name is prefixed with a blade for the
+            // colour-blind, since red against parchment is exactly the pair that fails.
+            let pf = this.playerFaction();
+            // `npc.type === 'bandit'` covers every roaming band -- bandit, wolf, forest and
+            // mountain all come out of `spawnBand` with that type; `npc.band` does not, because
+            // caravans and villagers carry a `BAND_KINDS` entry of their own.
+            let foe = npc.type === 'bandit' || this.atWar(pf, npc.faction);
+            let friend = !foe && !!npc.faction && (npc.faction === pf || this.allied(pf, npc.faction));
+            let txtCol = foe ? '#ff6b5a' : friend ? '#7fd4ff' : '#d8d2c4';
+            this.mapLabel(ctx, `${foe ? '⚔ ' : ''}${shortName} (${npc.size})`, npc.x, npc.y + 50, txtCol, nCol);
         });
 
         // Player
@@ -4957,6 +4990,25 @@ const Game = {
         this.mapCanvas.style.cursor = 'grabbing';
     },
 
+    // Every screen change goes through one gate (#96). The map's input state lives on `Game`,
+    // not in `state`, so a battle, an event modal or a settlement visit can strand it: a
+    // half-finished marker drag, a pinch that never got its second `pointerup`, a
+    // `suppressClick` armed for a click that never came. Each stranded flag breaks the map in
+    // its own way — the party stops taking orders, a pan turns into a marker drag, the first
+    // tap after a battle is eaten. `60e559d` cleared the ghost touch on the next primary
+    // pointerdown, which fixes it only once the player manages to touch the map again; this
+    // clears the whole family on the way in, before the first frame is drawn.
+    resetMapInteractionState() {
+        this._ptr.clear();
+        this._pinch = 0;
+        this.dragTarget = null;
+        this.suppressClick = false;
+        if(this.mapCanvas) this.mapCanvas.style.cursor = '';
+        // A pinch interrupted by a battle leaves the camera easing towards a zoom the player
+        // never finished asking for: it would keep gliding after the return.
+        this.camera.targetZoom = this.camera.zoom;
+    },
+
     endTargetDrag(e) {
         if(!this.dragTarget) return;
         let moved = this.dragTarget.moved;
@@ -5106,10 +5158,16 @@ const Game = {
         this._sceneLoc = loc;
         this._sceneBtns = btns;
         this.sceneHot = [];
+        // Device-pixel backing store (#101). Assigning width/height also wipes the canvas, so it
+        // happens before the draw, and drawScene re-applies the scale transform on every call.
+        let dpr = this.sceneDpr();
+        if(cv.width !== this.SCENE_W * dpr) { cv.width = this.SCENE_W * dpr; cv.height = this.SCENE_H * dpr; }
         this.drawScene(cv.getContext('2d'), loc, btns, -1);
         cv.onmousemove = e => {
             let r = cv.getBoundingClientRect();
-            let x = (e.clientX - r.left) * cv.width / r.width, y = (e.clientY - r.top) * cv.height / r.height;
+            // Hot rects are recorded in 900x280 drawing units, so the pointer is converted into
+            // those — not into the (now larger) backing-store pixels.
+            let x = (e.clientX - r.left) * this.SCENE_W / r.width, y = (e.clientY - r.top) * this.SCENE_H / r.height;
             let i = this.sceneHot.findIndex(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
             if(i === this._sceneHover) return;                 // only redraw on a change
             this._sceneHover = i;
@@ -5123,8 +5181,19 @@ const Game = {
         };
     },
 
+    // The scene canvas is the one canvas in the game whose bitmap is stretched: it is authored
+    // at a fixed 900x280 and CSS blows it up to the panel width, so on a 2x screen every edge
+    // was drawn at a quarter of the resolution it is displayed at — the "144p" complaint (#101).
+    // The backing store is sized in device pixels and the context scaled back, so every drawing
+    // routine below keeps working in 900x280 units and none of them had to change.
+    // Deliberately NOT applied to the map and battle canvases: those redraw every frame, and
+    // the bottleneck there is the compositor, not the drawing — 4x the pixels would cost frames.
+    sceneDpr() { return Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1); },
+
     drawScene(ctx, loc, btns, hover) {
         let W = this.SCENE_W, H = this.SCENE_H, R = i => this.sceneRnd(loc, i);
+        let dpr = this.sceneDpr();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);   // draw in 900x280 units, store in device pixels
         let hour = state.time.hour, night = hour < 6 || hour >= 20, dusk = (hour >= 18 && hour < 20) || (hour >= 6 && hour < 8);
         let col = (FACTIONS[loc.faction] || {}).color || '#ffcc00';
         let ground = H * 0.66;
@@ -6721,7 +6790,13 @@ const Game = {
             // Everything below needs a live graph; above this line the roll is pure data,
             // which is what lets the no-repeat rule be tested without an AudioContext.
             if(this.bus) {
-                this.bus.gain.value = b.gain;
+                // Each band carries its own level, so a piece change is also a level change:
+                // assigning it stepped the volume mid-stream. Glided instead (#95) — the same
+                // bus plays on, so there is no gap to hide the step behind.
+                let t = this.ac.currentTime;
+                this.bus.gain.cancelScheduledValues(t);
+                this.bus.gain.setValueAtTime(this.bus.gain.value, t);
+                this.bus.gain.linearRampToValueAtTime(b.gain, t + 1.2);
                 // A drone only suits a band whose harmony sits still. Under a guitar working
                 // through a VI or a VII it is mud, so most of the map bands do without.
                 if(b.drone) this.setDrone(this.hz(this.piece.tonic, this.piece.mode, 0) / 2, battle);
@@ -6912,15 +6987,32 @@ const Game = {
             // against one guitar. Levelled with one gain per band (set in newPiece) rather
             // than by re-tuning eight numbers, so each arrangement stays as written.
             this.bus.connect(this.out); this.bus.connect(this.cv);
-            this.volume();
+            this.volume(this.FADE_IN);   // fade in rather than cut in (#95)
             this.newPiece(mode === 'battle');
             this._at = ac.currentTime + 0.2;
             this.tick();
         },
 
+        // How long the music takes to reach full level when it starts or changes screen (#95).
+        FADE_IN: 1.8,
+
         // 1.2 puts the music a little below the transaction SFX (0.12 peak): measured peak
         // lands near 0.16 at the default volume, which is background, not foreground.
-        volume() { if(this.out) this.out.gain.value = 1.2 * Game.opt('volume'); },
+        //
+        // With `fade`, the level is ramped from silence instead of assigned (#95). The music
+        // used to arrive at full volume inside a single frame — on the opening screen, and
+        // again on every crossing between map and battle. Nothing was clipping; it was the
+        // step itself, an instrument starting mid-note with no attack. The volume slider
+        // still writes straight through, because a slider that ramped would feel broken.
+        volume(fade) {
+            if(!this.out) return;
+            let g = 1.2 * Game.opt('volume');
+            if(!fade || !this.ac) { this.out.gain.value = g; return; }
+            let t = this.ac.currentTime;
+            this.out.gain.cancelScheduledValues(t);
+            this.out.gain.setValueAtTime(0, t);
+            this.out.gain.linearRampToValueAtTime(g, t + fade);
+        },
 
         // Music follows the screen. Called from showScreen (which knows the screen) and from
         // applySettings (which knows the settings), so neither has to know about the other.

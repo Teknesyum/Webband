@@ -83,7 +83,23 @@ const Battle = {
         this.autoLoss = null;
         this.grass = null;
         this.currentCommand = 'charge';
-        this.cmdSlots = []; this.battleTime = 0;
+        // Commands aren't ready at the start of battle: each one becomes available
+        // as an "opportunity" at its own random moment. The horn call comes from inside the battle, not a menu.
+        // An order needs someone to obey it (#114). The duel and the arena empty the party
+        // before the fight, so "⚑ Fırsat: Hücum Edin" was being shouted across a one-on-one
+        // with nobody standing behind the player. The party is the single gate rather than an
+        // `isDuel` check, because a player caught alone on the road has no one to command either.
+        this.cmdSlots = state.player.party.length === 0 ? [] : [
+            // The name stays raw; it's translated via `T` at every display site (otherwise it would pass through translation twice)
+            { key: '2', cmd: 'charge', name: 'Hücum Edin',      at: 1.0 + Math.random() * 1.5 },
+            { key: '1', cmd: 'follow', name: 'Beni Takip Edin', at: 2.5 + Math.random() * 2.5 },
+            { key: '3', cmd: 'hold',   name: 'Mevzi Koruyun',   at: 4.0 + Math.random() * 3.5 }
+        ];
+        // The touch command pad is static markup, so it has to be hidden by hand when there is
+        // nothing to command — otherwise three dead buttons sit under the player's thumb.
+        let tc = document.getElementById('tcmds');
+        if(tc) tc.style.display = this.cmdSlots.length ? '' : 'none';
+        this.battleTime = 0;
         // Ambush (Game.checkAmbush): a band you failed to notice catches you out in the open
         this.ambushed = !!state.ambush; state.ambush = false;
         // Siege (#25): wall + breach terrain, a positional bonus for the defender. The plan comes from Game.SIEGE_PLANS.
@@ -308,7 +324,7 @@ const Battle = {
             + (this.ambushed ? T('Pusuya Düştün! Etrafın sarıldı.') : T('Savaş Başladı!'))
             // Command key hints are only written for keyboard: on touch the same three commands
             // sit as buttons at the bottom of the screen instead (#86).
-            + '</b><br>' + ipucu + (Game.isTouch() ? '' : '<br>' + T('[1] Takip · [2] Hücum · [3] Bekle')) + '</div>';
+            + '</b><br>' + ipucu + (Game.isTouch() || !this.cmdSlots.length ? '' : '<br>' + T('[1] Takip · [2] Hücum · [3] Bekle')) + '</div>';
         if(this.siege) document.getElementById('battle-log-left').innerHTML =
             `<div class="log-msg" style="padding:6px 10px;color:#fff;"><b>${T`🏰 Kuşatma — ${T(this.siege.name)}`}</b><br>`
             + T`Sur geçilmez; gedikten gireceksin. Savunanın mevzi avantajı +%${Math.round(this.siege.defBonus*100)}.`
@@ -355,16 +371,6 @@ const Battle = {
         window.addEventListener('mouseup', this.upHandler);
         this.menuHandler = (e) => e.preventDefault();
         this.canvas.addEventListener('contextmenu', this.menuHandler);
-
-        // Commands aren't ready at the start of battle: each one becomes available
-        // as an "opportunity" at its own random moment. The horn call comes from inside the battle, not a menu.
-        this.cmdSlots = [
-            // The name stays raw; it's translated via `T` at every display site (otherwise it would pass through translation twice)
-            { key: '2', cmd: 'charge', name: 'Hücum Edin',      at: 1.0 + Math.random() * 1.5 },
-            { key: '1', cmd: 'follow', name: 'Beni Takip Edin', at: 2.5 + Math.random() * 2.5 },
-            { key: '3', cmd: 'hold',   name: 'Mevzi Koruyun',   at: 4.0 + Math.random() * 3.5 }
-        ];
-        this.battleTime = 0;
 
         this.commandListener = (e) => {
             let slot = this.cmdSlots.find(c => c.key === e.key);
@@ -1480,23 +1486,27 @@ const Battle = {
         // buttons already show which command is open. On a 390px screen
         // the two lists didn't fit side by side, "⚑ Attack" and "[2] Attack" ran into each other.
         let hudW = touch ? Math.min(150, W - 24) : Math.min(360, W - 24);
-        ctx.fillStyle = 'rgba(12,14,10,0.72)';
-        ctx.fillRect(12, B - 40, hudW, 28);
-        ctx.strokeStyle = 'rgba(200,170,90,0.45)'; ctx.lineWidth = 1;
-        ctx.strokeRect(12, B - 40, hudW, 28);
-        ctx.fillStyle = '#e9d9a8'; ctx.font = 'bold 12px Inter, sans-serif';
-        ctx.fillText(`⚑ ${cmdName}`, 22, B - 26);
-        if(!touch) {
-            // Commands not yet open are dim: the player sees what's coming and when
-            ctx.font = '11px Inter, sans-serif';
-            let lbl = { '1': T('Takip'), '2': T('Hücum'), '3': T('Bekle') };
-            let x = 22 + hudW*0.42;
-            (this.cmdSlots || []).forEach(c => {
-                ctx.fillStyle = c.open ? 'rgba(233,217,168,0.75)' : 'rgba(233,217,168,0.22)';
-                let t = `[${c.key}] ${lbl[c.key]} `;
-                ctx.fillText(t, x, B - 26);
-                x += ctx.measureText(t).width + 4;
-            });
+        // No troops, no command strip (#114): in a duel or an arena bout the whole box was
+        // drawn for orders that could never be given.
+        if(this.cmdSlots && this.cmdSlots.length) {
+            ctx.fillStyle = 'rgba(12,14,10,0.72)';
+            ctx.fillRect(12, B - 40, hudW, 28);
+            ctx.strokeStyle = 'rgba(200,170,90,0.45)'; ctx.lineWidth = 1;
+            ctx.strokeRect(12, B - 40, hudW, 28);
+            ctx.fillStyle = '#e9d9a8'; ctx.font = 'bold 12px Inter, sans-serif';
+            ctx.fillText(`⚑ ${cmdName}`, 22, B - 26);
+            if(!touch) {
+                // Commands not yet open are dim: the player sees what's coming and when
+                ctx.font = '11px Inter, sans-serif';
+                let lbl = { '1': T('Takip'), '2': T('Hücum'), '3': T('Bekle') };
+                let x = 22 + hudW*0.42;
+                this.cmdSlots.forEach(c => {
+                    ctx.fillStyle = c.open ? 'rgba(233,217,168,0.75)' : 'rgba(233,217,168,0.22)';
+                    let t = `[${c.key}] ${lbl[c.key]} `;
+                    ctx.fillText(t, x, B - 26);
+                    x += ctx.measureText(t).width + 4;
+                });
+            }
         }
 
         // Player status line: mount, arrows, block

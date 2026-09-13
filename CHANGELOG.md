@@ -3,6 +3,37 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.05 — Kızıl Ad (2026-09-13)
+
+- **Düşman artık haritada kırmızı yazıyor.** Bir lordun adı hangi krallıktan olursa olsun
+  aynı beyazla yazılıyordu; savaşta olduğun bir krallığın ordusu ile müttefikinin ordusu
+  yazıdan ayırt edilemiyordu. Artık düşman adı kırmızı ve başında ⚔ işareti, dostun adı mavi,
+  tarafsızın rengi eskisi gibi. Renk körlüğü için işaret de var — kırmızıyı parşömen üstünde
+  seçemeyen gözler kılıcı görür.
+- **Kasaba resmi bulanık değil artık.** Köy, kale ve şehir manzarası sabit bir boyutta
+  çiziliyor, ekran onu büyütüyordu: yüksek çözünürlüklü telefonlarda her kenar dört kat
+  bulanık çıkıyordu. Artık ekranın gerçek piksel sayısında çiziliyor. Harita ve savaş
+  ekranına bilerek dokunulmadı — onlar her karede yeniden çizildiği için kare düşürürdü.
+- **Haydutlar artık başta az, sonra çok.** Sayıları görüş menziline bağlıydı ve görüş en dar
+  hâldeyken, yani ilk gün, en tepedeydi: oyunun başında haritayı dolduruyor, sen güçlendikçe
+  seyreliyorlardı. Artık tam tersi — dünya sakin başlıyor, takvim ilerledikçe ve namın
+  yayıldıkça doluyor. Temizlediğin bölge de ertesi güne kadar boş kalmıyor; altı saatte bir
+  yeni bir çete yola çıkıyor.
+- **Müzik sessizlikten açılıyor.** Hem ilk açılışta hem de harita–savaş geçişlerinde ses tek
+  karede tam seviyeye sıçrıyordu; bir çalgının notanın ortasından başlaması gibiydi. Artık
+  1,8 saniyede yükseliyor, parça değişiminde de seviye kayarak geçiyor. Ses kaydırağı eskisi
+  gibi anında yazıyor.
+- **Düelloda ve arenada boş emirler kalktı.** Yanında kimse yokken bile "⚑ Fırsat: Hücum
+  Edin" yazısı düşüyor, dokunmatik emir tuşları ekranın altında duruyordu. Artık grubun boşsa
+  emir şeridi hiç çizilmiyor.
+- **Harita her ekran değişiminde temiz başlıyor.** Savaş, olay penceresi ya da kasaba ziyareti
+  yarım kalmış bir dokunuşu ortada bırakabiliyordu: işaret sürükleme takılı kalıyor, yakınlaştırma
+  kendi kendine kayıyor ya da dönüşteki ilk dokunuş yutuluyordu. Artık her ekran girişinde
+  harita girdi durumu sıfırlanıyor.
+- **Kıtanın ortası artık kalabalık değil.** Haydutlar ve gezgin gruplar haritaya dağıtılırken
+  merkeze doğru yığılıyor, kıyılar seyrek kalıyordu. Dağılım düzeltildi; her respawn buradan
+  geçtiği için sapma her gün yeniden üretiliyordu.
+
 ## 1.04 — Hayalet Parmak (2026-09-13)
 
 - **Harita bazen emir almayı bırakıyordu; düzeldi.** Telefon oyunu arka plana attığında

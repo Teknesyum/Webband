@@ -462,7 +462,7 @@ job.
 - Kings/viziers strengthen over time (king reaches lvl 20 / 110 troops in 90 days, vizier lvl
   10 / 50 troops)
 - 25% chance a random town opens a tournament, an open tournament has a 30% chance to close
-- Band population fills toward its target (at most `BAND_REFILL`=3 a day — see below)
+- `Game.lairTick()` — lairs earn and grow (band respawn itself is hourly, see below)
 - `Nobles.dailyTick()` — ages location markers, raises rival suitors' interest, marriage
   income, wedding-day check
 - `Feast.dailyTick()` — closes a feast whose time is up, starts a scheduled/spontaneous feast
@@ -855,6 +855,15 @@ above the list, and **the scene is generated from the buttons**: `Game.renderSce
 (`SCENE_KIND`: 👑🛡️🏆 → tower, 🍺🧓⛓️ → house, 🏭 → workshop, 🛒🍷 → stall, 🪖⚔️ → tent,
 🤺 → arena ring, 🔥 → fire, 🐔 → coop, 🚪 → gate; an unrecognized icon falls back to a house)
 and draws that building.
+
+**Device pixels (#101).** The scene canvas is the one canvas in the game whose bitmap is
+stretched: it is authored at a fixed 900×280 and CSS blows it up to the panel width, so on a
+2× screen every edge was drawn at a quarter of the resolution it was displayed at. The backing
+store is now sized `900×280 × min(2, devicePixelRatio)` and `drawScene` applies a matching
+`setTransform`, so every drawing routine still works in 900×280 units and none of them
+changed; the hover hit-test converts the pointer into those same units, not into backing-store
+pixels. Deliberately **not** applied to the map and battle canvases — those redraw every
+frame, and the bottleneck there is the compositor, so four times the pixels would cost frames.
 
 **Since `addBtn` is the single gate, a new settlement button becomes a building on its own** —
 no separate "hotspot table" is kept. Clicking works the same way: `cv.onclick` calls the
@@ -1338,18 +1347,27 @@ moves away from the player, and that the battle genuinely ends.
 There's more than just marauders; every kind roams the map under its own name/color
 (`npc.band`) and spawns its own unit mix in battle. A band of 6+ gets a **leader**.
 
-**Population is derived from sight** (`Game.bandTarget`), not stored by hand. The continent is
-9000×9000 units, starting sight is ~500: the player sees about **1%** of the map at any
-moment. Area swept per day ≈ `2 × sight × daily distance` (~2600 units); its ratio to the
-continent is the daily encounter probability per band — the target is set so that gives ~1
-encounter a day, clamped to 14–30 (**30** at starting sight). A world **starts** at target
-population and `dailyUpdate` fills toward the target every day, at most `BAND_REFILL`=3 bands
-a day. It used to start with 13 bands and spawn one a day: a cleared region stayed empty for
-weeks.
+**Population follows the player, not their eyesight** (`Game.bandTarget`, #126). The target
+used to be derived from sight range, which runs the curve backwards: sight is at its smallest
+on day one, so the formula pinned itself to its own ceiling of 30 exactly when the player was
+weakest, then thinned to 14 as Spotting and Intelligence grew. The reported symptom —
+"swarming at the start, empty two minutes later" — was the formula working as written.
 
-Measured (seeds 1–5, 30 uninterrupted days of travel, distinct band count): with the old 13
-bands, **18–23** (0.69/day); with the new target, **39–51** (**1.49**/day). `tools/test.js`
-asserts population stays at target over 60 days.
+The target is now `10 + day/3 + renown/60`, clamped to **10–34**: the world starts quiet and
+fills in as the calendar turns and the player's name spreads. Renown rather than level,
+because renown is what a band of robbers would actually have heard about. A world **starts**
+at target population.
+
+Refill is **hourly**, not daily (`Game.bandRefillTick`, `BAND_REFILL_HOURS`=6 — one band every
+six hours while below target). A day is a long time on a map the player crosses in minutes: a
+daily batch left a region they had just cleared empty for the rest of the day, which is how
+the map came to look deserted right after the opening fight. The tick is **stateless** — the
+absolute hour decides — so nothing new enters the save.
+
+Measured (seeds 1–5, playerless so renown stays 0): day 0 **10** bands (target 10), day 10
+**13–14** (14), day 30 **20** (20), day 60 **30** (30) — four spawns a day against a target
+that climbs by a third of one, so the gap never opens more than a band or two wide.
+`tools/test.js` asserts both that the target climbs over 60 days and that the refill keeps up.
 
 **A band comes from a lair (#68)**. The map has `LAIR_COUNT`=5 **bandit lairs**, and every
 spawned band is bound to one (`npc.lairId`, spawning within 200–500 units of the lair); no new
@@ -1477,8 +1495,11 @@ move with it — you're tracking a trail, not an address.
     rock — it isn't cover.)*
   - Tactical orders **don't sit ready from the start of battle**: each one spawns as an
     "opportunity" at its own random moment (`Battle.cmdSlots`; charge 1–2.5s, pursue 2.5–5s,
-    hold 4–7.5s). Pressing a closed order gives a warning, shouting the same order again is
-    ignored. Closed orders draw faded in the HUD, an order opening up shows in the log and as
+    hold 4–7.5s). **No party, no orders** (#114): `cmdSlots` is empty when
+    `state.player.party` is, so a duel, an arena bout or a lone player caught on the road
+    draws no command strip and hides the touch command pad — the party is the gate rather than
+    an `isDuel` flag, which covers all three cases at once. Pressing a closed order gives a
+    warning, shouting the same order again is ignored. Closed orders draw faded in the HUD, an order opening up shows in the log and as
     floating text over the player. The windows were narrowed by measurement: a 21-vs-25 battle
     lasts 6.9s, and the first attempt's window (8–22s) never opened the third order at all.
   - Archer AI: 250-unit range, 50% chance of leading the shot based on the target's speed.
@@ -2257,9 +2278,13 @@ The map's **own** two-finger zoom still works: the three canvases already carry
 browser doesn't claim the page's.
 
 #### A bandit gang doesn't spawn in the player's lap (`SPAWN_SAFE`)
-The player starts at 4500,4500, while `createNPC` picked its radius with `Math.random() *
-3800`, i.e. starting from **0**: a bandit gang could appear right on top of them on the
-first frame and they'd be caught and taken captive before ever seeing the map. `Game.
+The player starts at 4500,4500, while `createNPC` picked its radius starting from **0**: a
+bandit gang could appear right on top of them on the first frame and they'd be caught and
+taken captive before ever seeing the map. (The radius is now `√random × 3800` rather than a
+flat roll — #97: picking it uniformly packs points towards the middle, because the ring at
+radius *r* holds area proportional to *r*, so the continent came out measurably denser at its
+centre and thin at the coasts. Every respawn goes through here, so the bias was re-created
+daily rather than settling out. The NPC wander target uses the same √.) `Game.
 SPAWN_SAFE` = **1500**; `createNPC` tries up to 40 times to find a point outside that radius
 (accepting the last candidate if it can't — a flawed birth instead of a lockup). **One gate
 here**: `spawnNPCs`, `spawnBand`, `spawnTrader`, and the daily refresh all go through
@@ -3056,6 +3081,14 @@ violins and the choir no room, and "epic" is the sustained parts, not the transi
 `DynamicsCompressorNode` sits on the output as a limiter: the parts are independent, so a bass
 note, a flute entry and a reverb tail can land on the same sample.
 
+**Fading in (#95).** The music used to arrive at full level inside a single frame — on the
+opening screen, and again on every crossing between map and battle. Nothing was clipping; it
+was the step itself, an instrument starting mid-note with no attack. `Music.volume(fade)` now
+ramps from silence over `FADE_IN`=**1.8 s** when the mode changes, and a piece change glides
+the bus to the new band's gain over 1.2 s instead of assigning it (the same bus plays on, so
+there is no gap to hide a step behind). The volume slider still writes straight through — a
+slider that ramped would feel broken.
+
 **Cost.** `section()` is the only part whose cost scales with how many notes are sounding, so
 it drops from four voices to one under `Game.lite()` — the same knob the renderer uses.
 
@@ -3116,7 +3149,12 @@ expensive thing once, then stamp the picture every frame.**
   (notches, a jittering clash cursor, Cinzel status text).
 - `Game.mapLabel()` — a rounded plate + a faction-colored underline. Text size scales with
   `1/camera.zoom` (the same on-screen size at any zoom), overlapping labels are pushed up.
-  Settlement labels sit above the icon, NPC labels below.
+  Settlement labels sit above the icon, NPC labels below. **An NPC label is coloured by
+  hostility** (#108): red + a ⚔ prefix for a foe, blue for a friend, parchment for a neutral —
+  the marker ring already carries the faction colour, which answers "whose is it" but never
+  "will it attack me". The answer comes from `atWar`, not `isHostile`, because hostility there
+  depends on distance and relative strength and the label would flicker as the player closed
+  in; the ⚔ is there because red-on-parchment is exactly the pair colour-blind players lose.
 - `Game.drawPartyIcon()` / `drawRider()` / `drawFootman()` — the map's party silhouettes; not
   emoji, a canvas path. See the "World map" section for detail.
 - `renderMap()`: a cached sea gradient + animated wave lines, the continent's shore (a sand
