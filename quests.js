@@ -47,47 +47,7 @@ const QUESTS = {
         }
     },
 
-    // 2 — Search for a spot in the fog
-    fog_dot: {
-        title: 'Sisteki Nokta',
-        givers: [],
-        minRelation: 0,
-        days: 15,
-        reward: { money: 700, renown: 10, rel: 10 },
-        setup(q, giver) {
-            let home = LOCATIONS.find(l => l.id === giver.homeLocId) || { id: '', name: '?', x: 4500, y: 4500 };
-            let a = Math.random() * Math.PI * 2, r = 900 + Math.random() * 900;
-            // homeId is not the search spot *itself*, it's the center of the search ring: the
-            // map pin sends the player to the right region without giving away the chest's spot.
-            q.data = { x: home.x + Math.cos(a) * r, y: home.y + Math.sin(a) * r,
-                       homeId: home.id, homeName: home.name, hint: 'soğuk' };   // raw key; translated at display
-        },
-        offer(q) {
-            return `${T`"Haritada bir yer var. Nerede olduğunu sana söylemeyeceğim — söylersem başkası da öğrenir.<br><br>
-                Şu kadarını bilmelisin: benim kalemden bir günlük yol içinde. Gez, ara.
-                Yaklaştıkça adamlarım sana haber uçuracak."`}`;
-        },
-        // This is the one quest whose location is never written down — secrecy is its
-        // whole point. A scale is shown instead, so the player isn't left guessing
-        // whether 'soğuk' (cold) is good or bad.
-        desc(q) { return T`${T(q.data.homeName)} çevresinde bir günlük yol içinde gizli bir nokta ara — her gün haber gelir.<br>
-            Son haber: <b>${T(q.data.hint)}</b> <span style="opacity:0.7">(soğuk → ılık → YANIYORSUN)</span>`; },
-        where(q) { return q.data.homeId; },
-        day(q) {
-            let d = Game.dist(state.player, q.data);
-            let h = d < 500 ? 'YANIYORSUN' : d < 1200 ? 'ılık' : 'soğuk';
-            if(h !== q.data.hint) {
-                q.data.hint = h;
-                alert(T`Bir kuş ayağında not getirdi: "${T(h)}"`);
-            }
-            if(d < 140) {
-                alert(T('Toprakta bir taş yığını. Altında kurşun mühürlü bir sandık var.'));
-                return 'done';
-            }
-        }
-    },
-
-    // 3 — Use the promotion tree
+    // 2 — Use the promotion tree
     sergeant_exam: {
         title: 'Çavuşluk Sınavı',
         givers: ['martial'],

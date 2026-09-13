@@ -10482,6 +10482,14 @@ const Save = {
         if(d.playerKingdom) FACTIONS['player_kingdom'] = d.playerKingdom;
         this.mergeInto(state, d.state);
 
+        // Quest definitions may be retired between releases. Strip them from old saves and
+        // cached offers before any quest UI tries to dereference a definition that no longer exists.
+        state.player.quests = (state.player.quests || []).filter(q => QUESTS[q.id]);
+        Object.keys(state.questOffers || {}).forEach(id => {
+            if(!state.questOffers[id] || !QUESTS[state.questOffers[id].id]) delete state.questOffers[id];
+        });
+        if(state.pendingQuest && !QUESTS[state.pendingQuest.id]) state.pendingQuest = null;
+
         let legacyLocs = false;
         (d.locations || []).forEach(sl => {
             let l = LOCATIONS.find(x => x.id === sl.id);

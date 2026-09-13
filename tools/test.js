@@ -831,7 +831,6 @@ function questSuite() {
 
     const drivers = {
         butter_blockade: q => Quests.emit('bought_item', { locId: q.data.locId, itemId: 'cheese', qty: q.data.need }),
-        fog_dot: q => { state.player.x = q.data.x; state.player.y = q.data.y; Quests.dailyTick(); },
         sergeant_exam: q => {
             state.player.party = Array.from({ length: q.data.need }, (_, i) =>
                 ({ id: 'v' + i, name: 'Svadya Şövalyesi', level: 21, type: 'cavalry' }));
@@ -867,6 +866,7 @@ function questSuite() {
         // purse is still empty, so the quest reward is the only money paid.
         clear_lair: q => Game.clearLair(q.data.lairId)
     };
+    assert.ok(!QUESTS.fog_dot, 'retired hidden-location quest is still in the offer pool');
 
     // First eligible giver for a quest: personality + the world's `can` precondition
     function giverFor(id) {
