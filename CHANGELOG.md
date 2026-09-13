@@ -5,6 +5,10 @@ başlangıç ekranının sağ alt köşesinde yazar.
 
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
+- **Kampta düşman baskını yok.** Bekleme sırasında harita dünyası hareket etmeyi sürdürse de düşman
+  çarpışması/pususu kampı kesmiyor; seçilen süre bitene kadar güvenle zaman geçiyor. Düşmanlar ayrıca
+  kamp çevresindeki güvenli mesafenin içine giremiyor; uyanır uyanmaz savaş açılmıyor.
+
 - **Dost şehir ve kalelerde beklenebiliyor.** Savaşta olmadığın şehir/kale menüsünde artık
   `⏳ Burada Bekle` var; aynı kamp süre seçenekleriyle haritaya dönüp zamanı geçiriyor.
 

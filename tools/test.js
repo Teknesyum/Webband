@@ -1048,6 +1048,32 @@ test('wait: map orders cannot cancel a running camp', () => {
     assert.strictEqual(state.player.targetLocation, null, 'a map order escaped the camp lock');
 });
 
+test('wait: a running camp is protected from map encounters', () => {
+    const g = H.world({ seed: 40 });
+    const { Game, state } = g;
+    const band = Game.createNPC('Çapulcular', 'bandit', 8, '#800');
+    state.player.wait = { until: 99 }; state.player.status = 'waiting';
+    assert.ok(Game.campProtected());
+    Game.triggerEncounter(band);
+    assert.strictEqual(state.player.wait.until, 99, 'an encounter interrupted the protected camp');
+    assert.strictEqual(state.player.currentEncounterNpcId, null, 'a protected camp opened an encounter');
+});
+
+test('wait: hostile parties hold outside the camp perimeter and cannot stack for an instant wake-up fight', () => {
+    const g = H.world({ seed: 41 });
+    const { Game, state } = g;
+    state.time.day = 20;
+    state.player.party = [];
+    state.player.wait = { until: 99 }; state.player.status = 'waiting';
+    const band = Game.createNPC('Çapulcular', 'bandit', 20, '#800');
+    band.x = state.player.x + 220; band.y = state.player.y;
+    band.targetX = state.player.x; band.targetY = state.player.y;
+    state.npcParties = [band];
+    Game.updateNPCs(10);
+    assert.ok(Game.dist(band, state.player) >= Game.CAMP_SAFE_RADIUS - 1,
+        'a hostile party crossed the protected camp perimeter');
+});
+
 test('wait: friendly cities and castles offer a place to pass time, enemy settlements do not', () => {
     const g = H.world({ seed: 39 });
     const { Game, LOCATIONS } = g;

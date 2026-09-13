@@ -2569,11 +2569,11 @@ const Game = {
             }
         }
 
-        if(timeFlows) this.checkAmbush(dt);
+        if(timeFlows && !this.campProtected()) this.checkAmbush(dt);
 
         // NPC -> player collision. Friendly nobles may cross the player's path, but a conversation
         // only starts when the player deliberately targets them; hostile parties still intercept.
-        if(timeFlows && state.encounterCooldown <= 0) {
+        if(timeFlows && !this.campProtected() && state.encounterCooldown <= 0) {
             for(let npc of state.npcParties) {
                 if(!this.npcCanInitiateEncounter(npc)) continue;
                 let d = this.dist(npc, state.player);
@@ -2602,6 +2602,8 @@ const Game = {
         if(npc.lordId && !hostile) return this.partiesTargetEachOther(npc);
         return !!(hostile || npc.trade);
     },
+
+    campProtected() { return !!state.player.wait; },
 
     partiesTargetEachOther(npc) {
         let mine = state.player.targetLocation;
@@ -2644,10 +2646,11 @@ const Game = {
     },
 
     // ---- CAMP: WAIT (#53 item 1.1) ----
-    // A single primitive: the player stops, time flows at ×4, the world keeps ticking, and
-    // any encounter (triggerEncounter) cuts the wait short. Resting, volunteer refresh,
+    // A single primitive: the player stops, time flows at ×4, and the world keeps ticking.
+    // The camp is protected: roaming enemies cannot cut it short. Resting, volunteer refresh,
     // waiting for a tournament/feast, waiting for a caravan — all of it is a customer of this.
     WAIT_SCALE: 4,
+    CAMP_SAFE_RADIUS: 120,
     npcWorldDelta(dt) { return dt * this.TIME_FLOW * this.timeScale() * (state.player.wait ? this.WAIT_SCALE : 1); },
     // Waiting has a cost: wages, food, spoilage already tick hourly
     WAIT_CHOICES: [[1, '1 saat'], [8, '8 saat'], [24, '1 gün'], [72, '3 gün']],   // raw; translated at display
@@ -2915,6 +2918,16 @@ const Game = {
                 npc.charging = true;
             }
 
+            // A camp is a protected time-skip, not a way to let a pursuer overlap the
+            // player and trigger on the first frame after waking. Hostile parties can keep
+            // moving on the campaign map, but hold outside the camp's safety perimeter.
+            if(this.campProtected() && hostile) {
+                let awayX = npc.x - state.player.x, awayY = npc.y - state.player.y;
+                let away = Math.hypot(awayX, awayY) || 1;
+                npc.targetX = state.player.x + awayX / away * this.CAMP_SAFE_RADIUS;
+                npc.targetY = state.player.y + awayY / away * this.CAMP_SAFE_RADIUS;
+            }
+
             this.clampTargetToMap(npc);
             let dx = npc.targetX - npc.x, dy = npc.targetY - npc.y;
             let d = Math.sqrt(dx*dx+dy*dy);
@@ -2986,8 +2999,9 @@ const Game = {
     },
 
     triggerEncounter(npc, ambush) {
-        // The camp breaks: you can't keep sleeping while someone's closing in on you (#53/1.1)
-        if(state.player.wait) this.stopWait();
+        // A wait is an explicit protected time-skip. This guard also covers encounter callers
+        // outside the normal collision loop (ambushes, raids and delayed road consequences).
+        if(this.campProtected()) return;
         state.encounterCooldown = 2;
         state.ambush = false;   // every encounter resets the flag; reopens the ambush branch
         state.player.currentEncounterNpcId = npc.id;
