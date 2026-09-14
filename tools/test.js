@@ -1665,6 +1665,17 @@ test('marriage: a female player can reach her husband and his benefits (#129)', 
     assert.ok(/spouseAction/.test(shown), 'the spouse menu is empty for a female player');
 });
 
+test('marriage: another noble no longer opens flirt options after the wedding', () => {
+    const g = H.world({ seed: 46 });
+    const { Nobles, state } = g;
+    const [spouse, other] = Nobles.courtables();
+    state.player.spouse = spouse.id;
+    Nobles.courtMenu(other.id);
+    const html = g._sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(html.includes(spouse.name), 'another noble did not redirect to the spouse dialogue');
+    assert.ok(!html.includes('İltifat et'), 'flirt options remained available after marriage');
+});
+
 test('peace: a treaty lifts the player siege against the new partner', () => {
     const g = H.world({ seed: 41 });
     const { Game, state, FACTIONS, LOCATIONS } = g;
