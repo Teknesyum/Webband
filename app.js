@@ -7562,6 +7562,7 @@ const Game = {
             ${it('💾', T('Kayıtlar'), 'Save.open()')}
             ${it(sesli ? '🔊' : '🔇', sesli ? T('Ses Açık') : T('Ses Kapalı'), 'Game.toggleMute(); Game.showMoreMenu()')}
             ${it('⚙️', T('Ayarlar'), 'Game.showSettings()')}
+            ${it('🏰', 'Tımarların', 'Game.openFiefLedger()')}
         </div>
         <button class="btn primary" style="margin-top:0.9rem" onclick="Game.closeModal()">${T`Kapat`}</button>`, '340px');
     },
@@ -8917,6 +8918,32 @@ const Game = {
     // (you pay its wage), it brings in daily tax, and you can stock its storage.
     // Enemy lords take back a fief you leave undefended (warTick → captureSettlement).
     myFiefs() { return LOCATIONS.filter(l => l.owner === 'player'); },
+    openFiefLedger() {
+        let fiefs = this.myFiefs(), inc = this.fiefIncome();
+        if(!fiefs.length) return alert('Henüz tımarın yok. Bir şehir ya da kale fethedildiğinde kral onu sana verirse burada yönetebilirsin.');
+        let rows = fiefs.map(loc => {
+            let garrison = (loc.garrison || []).length;
+            let wage = (loc.garrison || []).reduce((n, t) => n + this.troopWage(t), 0);
+            let net = this.fiefTax(loc) - wage;
+            let here = this.dist(loc, state.player) < 85;
+            return `<div style="padding:0.8rem;margin:0.55rem 0;border:1px solid var(--panel-border);border-left:4px solid ${(FACTIONS[loc.faction]||{}).color||'#c9a227'};border-radius:6px">
+                <div style="display:flex;justify-content:space-between;gap:0.6rem;align-items:center;flex-wrap:wrap"><b>${T(loc.name)}</b>
+                <span style="color:var(--text-muted)">${loc.type === 'city' ? T('Şehir') : loc.type === 'castle' ? T('Kale') : T('Köy')} · ${Math.round(this.dist(loc, state.player))} birim</span></div>
+                <div style="font-size:var(--fs-sm);margin-top:0.35rem">Vergi <b style="color:#ffcc00">+${this.fiefTax(loc)}</b> · garnizon <b style="color:${garrison ? '#7fd8a0' : '#e0463a'}">${garrison}</b> · maaş −${wage} · <b style="color:${net >= 0 ? '#7fd8a0' : '#e0463a'}">net ${net >= 0 ? '+' : ''}${net}/gün</b> · refah ${Math.round(loc.prosperity || 50)}</div>
+                <div style="display:flex;gap:0.45rem;flex-wrap:wrap;margin-top:0.6rem">
+                ${here ? `<button class="btn" onclick="Game.openGarrison(LOCATIONS.find(l=>l.id==='${loc.id}'))">🛡️ Garnizonu Yönet</button>` : `<button class="btn" onclick="Game.travelToFief('${loc.id}')">🗺️ Buraya Git</button>`}
+                ${this.vassals().length && loc.type !== 'village' ? `<button class="btn" onclick="Game.grantFiefMenu('${loc.id}')">👑 Vassala Ver</button>` : ''}
+                </div></div>`;
+        }).join('');
+        this.showModal(`<h3>🏰 Tımarların</h3><p style="color:var(--text-muted)">Toplam vergi +${inc.tax} · garnizon ${inc.troops} asker / −${inc.wage} maaş · <b style="color:${inc.net >= 0 ? '#7fd8a0' : '#e0463a'}">net ${inc.net >= 0 ? '+' : ''}${inc.net} dinar/gün</b></p>${rows}<button class="btn" style="margin-top:0.6rem" onclick="Game.closeModal()">${T`Kapat`}</button>`, '720px');
+    },
+    travelToFief(locId) {
+        let loc = LOCATIONS.find(l => l.id === locId);
+        if(!loc || state.player.prisoner || state.player.wait) return;
+        this.closeModal(); this.showScreen('map');
+        state.player.targetLocation = loc;
+        state.player.status = 'moving';
+    },
     // --- ENTERPRISE (#53 item 1.6) ---
     // Warband's enterprise: one big upfront cost, a small daily income. Like a fief,
     // it goes through fiefIncome; income stops if the city changes hands (the property stays, the profit doesn't).
