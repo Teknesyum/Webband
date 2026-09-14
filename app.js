@@ -6420,7 +6420,13 @@ const Game = {
     },
     refreshMarket() {
         this.setHtml('market-status', this.marketStatusHtml());
-        let buy = document.getElementById('market-buy'); buy.innerHTML = '';
+        // A purchase can finish just as the settlement/modal is being replaced on mobile.
+        // In that case the market lists are already gone; updating a missing list must not
+        // turn a completed transaction into an uncaught exception.
+        let buy = document.getElementById('market-buy');
+        let sell = document.getElementById('market-sell');
+        if(!buy || !sell) return;
+        buy.innerHTML = '';
         Object.values(ITEMS).forEach(item => {
             let price = this.marketPrice(item.id);
             let li = document.createElement('li'); li.style.marginBottom = '0.5rem';
@@ -6442,7 +6448,7 @@ const Game = {
                 + (note ? `<div style="font-size:var(--fs-xs);color:#cbb26b">${note}</div>` : '');
             buy.appendChild(li);
         });
-        let sell = document.getElementById('market-sell'); sell.innerHTML = '';
+        sell.innerHTML = '';
         state.player.inventory.forEach(item => {
             if(item.type === 'trade') {
                 let price = this.marketPrice(item.id, true);

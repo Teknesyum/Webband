@@ -127,6 +127,13 @@ test('mobile more menu: fief ledger remains reachable on a narrow screen', () =>
     const html = g._sandbox.document.getElementById('modal-body').innerHTML;
     assert.ok(html.includes('Game.openFiefLedger()'), 'More menu hid the only mobile route to fiefs');
 });
+test('market: a stale purchase refresh after leaving the settlement cannot throw', () => {
+    const g = H.world({ seed: 45 });
+    const doc = g._sandbox.document, original = doc.getElementById.bind(doc);
+    doc.getElementById = id => (id === 'market-buy' || id === 'market-sell') ? null : original(id);
+    assert.doesNotThrow(() => g.Game.refreshMarket(), 'missing market rows crashed refresh after leaving the market');
+    doc.getElementById = original;
+});
 
 test('prisonerValue: type multiplier, noble ransom', () => {
     assert.strictEqual(Game.prisonerValue({ level: 10, type: 'infantry' }), 145);
