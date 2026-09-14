@@ -129,7 +129,6 @@ const Battle = {
         this.projectiles = [];
         this.bloodStains = [];
         this.floatingTexts = [];
-        this.battlePings = [];
         this.swings = [];
         this.sparks = [];
         this.corpses = [];
@@ -420,12 +419,6 @@ const Battle = {
                 let q = quotes[Math.floor(Math.random()*quotes.length)];
 
                 this.log(`<span style="color:#ffaa00;font-size:1.1rem;display:block;margin-bottom:5px"><b>${T`Düşman Komutanı:`}</b></span><span style="color:#fff;font-style:italic">"${q}"</span>`, 'right');
-                
-                // Ping animation at the groups' advance points
-                let W = this.canvas.width, H = this.canvas.height;
-                this.battlePings.push({ x: W/3, y: 150, life: 3.0, label: n1 });
-                this.battlePings.push({ x: W/3, y: H-150, life: 3.0, label: n2 });
-                this.battlePings.push({ x: W/2, y: H/2, life: 3.0, label: T('Ana Grup') });
             }
         }, 1000);
 
@@ -797,12 +790,6 @@ const Battle = {
         if(this.floatingTexts.length > capText) this.floatingTexts.splice(0, this.floatingTexts.length - capText);
         if(this.bloodStains.length > capBlood) this.bloodStains.splice(0, this.bloodStains.length - capBlood);
         this.units.forEach(u => { if(u.hitFlash > 0) u.hitFlash -= dt; });
-
-        // Battle pings
-        if(this.battlePings) {
-            this.battlePings.forEach(p => p.life -= dt);
-            this.battlePings = this.battlePings.filter(p => p.life > 0);
-        }
 
         // id -> unit table (target lookups run through this)
         this._byId = {};
@@ -1393,22 +1380,6 @@ const Battle = {
             ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
         });
         ctx.globalAlpha = 1;
-
-        // Commander pings
-        if(this.battlePings) {
-            this.battlePings.forEach(p => {
-                let progress = 1 - (p.life / 3.0);
-                let size = 30 + progress * 20;
-                let alpha = p.life > 1.0 ? 1.0 : p.life;
-                ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, Math.PI*2);
-                ctx.strokeStyle = `rgba(255,50,50,${alpha})`; ctx.lineWidth = 3; ctx.stroke();
-                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
-                ctx.fillStyle = `rgba(255,50,50,${alpha})`; ctx.fill();
-                ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-                ctx.font = '14px Inter, sans-serif'; ctx.textAlign = 'center';
-                ctx.fillText(p.label, p.x, p.y - size - 10);
-            });
-        }
 
         // Vignette
         if(!this._vignette || this._vignette.w !== W) {

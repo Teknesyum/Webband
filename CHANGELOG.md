@@ -29,6 +29,9 @@ başlangıç ekranının sağ alt köşesinde yazar.
 - **Basacak tuşu olmayan pencereye `Kapat` düğmesi geliyor.** Köyde gönüllü kalmadığında ya da
   benzeri boş bildirimlerde köşedeki × aranmıyor.
 
+- **Savaş haritasındaki kırmızı isim daireleri kalktı.** Düşman komutanı hâlâ konuşuyor ama
+  sahanın ortasına atılan üç kırmızı halka ve isim etiketi çiziliyor değil.
+
 - **Yalnızken kimse kimseye bakmıyor.** "Kese hafiflemiş, herkes birbirine bakıyor" olayı tek
   başına gezerken çıkmıyor.
 
