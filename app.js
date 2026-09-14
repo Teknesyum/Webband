@@ -2605,6 +2605,10 @@ const Game = {
         npc.targetX = point.x; npc.targetY = point.y;
     },
 
+    nearMapEdge(point, margin = 220) {
+        return Math.hypot(point.x - 4500, point.y - 4500) > this.getMapRadius(point.x, point.y) - margin;
+    },
+
     npcCanInitiateEncounter(npc) {
         let hostile = this.isHostile(npc);
         if(npc.lordId && !hostile) return this.partiesTargetEachOther(npc);
@@ -2865,6 +2869,14 @@ const Game = {
                         let r = Math.random() < 0.45 ? Math.random() * 200 : 300 + Math.random() * 900;
                         npc.targetX = home.x + Math.cos(a)*r;
                         npc.targetY = home.y + Math.sin(a)*r;
+                    } else if(npc.type === 'bandit') {
+                        // Outlaws patrol inhabited roads, not an abstract circle whose outer
+                        // portion lies beyond the irregular coastline. This keeps fresh bands
+                        // distributed through the interior instead of feeding the map edge.
+                        let anchor = LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
+                        let r = 120 + Math.random() * 650;
+                        npc.targetX = anchor.x + Math.cos(a) * r;
+                        npc.targetY = anchor.y + Math.sin(a) * r;
                     } else {
                         let r = Math.sqrt(Math.random()) * 3800;   // evenly by area, not by radius (#97)
                         npc.targetX = 4500 + Math.cos(a)*r;
@@ -2939,6 +2951,15 @@ const Game = {
                 let away = Math.hypot(awayX, awayY) || 1;
                 npc.targetX = state.player.x + awayX / away * this.CAMP_SAFE_RADIUS;
                 npc.targetY = state.player.y + awayY / away * this.CAMP_SAFE_RADIUS;
+            }
+
+            // Bands inherited from old saves (and ones that fled there before the patrol
+            // change above) need an escape route too. Do not pull a band away from an actual
+            // chase, but a wandering party at the coast turns back toward the interior.
+            if(npc.type === 'bandit' && !npc.playerTargetId && !npc.hunting && this.nearMapEdge(npc)) {
+                let a = Math.atan2(npc.y - 4500, npc.x - 4500) + (Math.random() - 0.5) * 1.2;
+                npc.targetX = 4500 + Math.cos(a) * 2500;
+                npc.targetY = 4500 + Math.sin(a) * 2500;
             }
 
             this.clampTargetToMap(npc);
