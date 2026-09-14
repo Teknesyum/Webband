@@ -15,7 +15,14 @@
 // check alone would install a second, stale copy of every asset on top of the one
 // Capacitor already ships in the bundle.
 // ============================================================
-const CACHE = 'webband-v1.12.1';
+const CACHE = 'webband-v1.13';
+
+// The soundtrack (#131) is 20.8 MB and deliberately NOT in FILES: precaching it would make
+// the install a 20 MB download before the game is playable at all. Each piece is cached the
+// first time it is actually played, so the second evening is offline and the first is 2 MB
+// at a time. Music lives in its own cache, which `activate` below leaves alone — a VERSION
+// bump should not make the player download the whole soundtrack again.
+const MUSIC = 'webband-music';
 
 const FILES = [
     './', 'index.html', 'style.css', 'manifest.webmanifest',
@@ -32,11 +39,16 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
     e.waitUntil(caches.keys()
-        .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+        .then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== MUSIC).map(k => caches.delete(k))))
         .then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', e => {
     if(e.request.method !== 'GET') return;
+    if(/\/music\/[^/]+\.mp3$/.test(new URL(e.request.url).pathname)) {
+        e.respondWith(caches.open(MUSIC).then(c => c.match(e.request).then(hit => hit
+            || fetch(e.request).then(r => { if(r.ok) c.put(e.request, r.clone()); return r; }))));
+        return;
+    }
     e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
 });

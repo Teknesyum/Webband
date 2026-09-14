@@ -2998,288 +2998,79 @@ Tribute per day (seed 3): Azgad (prosperity 56) **22** · Emirin (90) **36** · 
 a **playerless** world — it has no renown curve to read — so that number would be invented,
 not measured. It needs a player-driving sim first.
 
-## Audio layer (#95, reworked #96, twenty bands #97)
+## Audio layer (SFX #95, recorded soundtrack #131)
 
-Nothing is loaded, everything is synthesised — the same rule the transaction SFX already
-followed, now applied to a whole score. Three reasons it is not mp3 files: `sw.js` precaches
-the fixed file list, so a soundtrack would have to be carried offline in full; a fixed track
-loops audibly on a map screen you stare at for an hour; and the repo stays asset-free.
-`Game.ac()` is the single AudioContext both halves share (a browser hands one out per gesture
-and only so many per page).
+Two halves with nothing in common any more. The **transaction SFX** are still synthesised —
+five short oscillator envelopes in `Game.SFX`, no file, no dependency, and `Game.ac()` is still
+the one AudioContext they live in. The **music** used to be synthesised too; since 1.13 it is
+fifteen recorded pieces.
 
-`Game.Music` splits in two on purpose:
+**Why the generator went.** It was an honest generator: church modes over a drone, twenty
+arrangements, a motif varied three ways per phrase, and a documented list of the mistakes it
+had already stopped making. It still sounded like a generator. Modal writing holds up for about
+ten minutes, and the map is a screen you stare at for an hour — past that the ear stops hearing
+music and starts hearing the machine that makes it. A thousand lines of app.js went with it.
 
-- **The score** — `bar(p, lift)` and `hz(tonic, mode, deg)` are pure functions with no audio
-  in them, which is why `tools/test.js` can gate them without a sound card. A piece draws one
-  rhythm (`RHYTHMS`, grouped by the bar they fill — four beats, three, or three and a
-  half, since not every band is in 4/4) and one contour (`CONTOURS`, scale
-  steps relative to the bar's chord root) and plays that **motif** over every chord of the
-  progression, the progression's last bar taking the contour backwards. The first version
-  generated each note from an independent random walk and it noodled: nothing ever came back,
-  so there was nothing to recognise — repetition is what turns notes into a tune (#96).
-  `modes` holds five church modes; **Ionian is deliberately absent** — the plain major scale
-  is the single thing that makes "medieval" music sound like a fairground, and a test asserts
-  it stays out.
-- **The synthesis** — `pluck()` is Karplus-Strong (a noise burst in a one-period delay line
-  losing 0.4% per pass), rendered into an `AudioBuffer` per note, then a lowpass for the
-  wooden top and a +7 dB peak at 190 Hz for the air inside the box — that resonance is most of
-  the difference between "a string" and "a guitar"; `bow()` is a sawtooth under
-  a resonant lowpass — a violin, and the two things that stop it being a buzzer are the filter
-  opening for 60 ms at the start of every stroke (rosin catching the string) and the vibrato
-  fading *in*, since no player shakes a note they have only just started; `drum()` is
-  a bandpassed noise burst with a 150→52 Hz pitch drop under the low stroke; `setDrone()`
-  holds a tonic and a slightly narrow fifth (organum, and the narrowness is what makes it
-  beat like two real strings); `verb()` is a generated noise-decay impulse response. `flute()` is nearly a sine plus a soft
-  octave, with a breath of bandpassed noise on the same envelope — that breath is the only
-  thing between it and a test tone. `voice()` is formant synthesis: a sawtooth through three
-  bandpasses parked on a vowel's formants (`VOWEL`), which is what separates a choir from a
-  synth pad. `section()` stacks detuned unison plus the octave below, because one bow is a
-  soloist and three are an orchestra. `struck()` is everything hit — dulcimer, harp, bell,
-  anvil — and its partials are deliberately *not* whole multiples: a stretched series is what
-  the ear hears as something struck rather than something blown, and the high partials have to
-  die first. `horn()` is brass: a sawtooth whose lowpass snaps open on the attack and settles
-  back, which is the entire signature. `reed()` is a zurna outdoors and a duduk indoors — a
-  square wave for the reed's buzz through a narrow bandpass for the bore. `shake()` is
-  bandpassed noise with a tail: shaker, tambourine, everything that is not a skin. `pizz()` is
-  `pluck()` through a different box — a violin's is small and an octave above a guitar's, and
-  the note is over before a bowed one would have arrived; the body is a `pluck()` argument
-  rather than a second copy of the Karplus-Strong loop.
+**What replaced it.** 118 CC0 candidates were probed, filtered to 72 unique, curated to 34,
+transcoded to 60-second previews and put on an audition page; the player picked 15. Ten for the
+map, three for a fight, two stings. Credits and sources: `music/CREDITS.md`.
 
-**Arrangement.** Every piece is built a bar at a time over a four-chord modal progression
-(`PROGS`; no progression uses the seventh degree as a root, so there is no leading tone pulling
-home). What plays that bar is the *band*, and there are twenty of them — ten for the map, ten
-for battle. The pass before this one had two line-ups with a handful of knobs on top, and the
-report was the obvious one: every piece sounded like the same piece (#97). A band now owns its
-instruments, its metre, its tempo and its texture.
+**Measured — the set.** 96 kbps stereo MP3, 15 files, **20.8 MB**, ~30 minutes. Loudness is
+fixed at transcode time with two-pass EBU R128 — map **−19 LUFS**, fight and stings **−16** —
+and comes out inside **0.1 dB** across the set. Sources ranged from −8.5 to −22.5 LUFS, a 14 dB
+spread: Market Day would otherwise have been five times louder than Exploration. Because the
+files are levelled against each other, `Music` carries **no per-track gain and no mixer**; the
+only knob left is `gain()`, which is `0.9 × volume` and sits just under the SFX peak (0.12).
 
-`BANDS` is the whole table, and one renderer (`emit`) plays whatever a row declares:
+**Not precached.** `sw.js`'s `FILES` list is the install download, and 20 MB before the game is
+playable is the wrong trade. Music is excluded and served by a second fetch branch instead:
+`music/*.mp3` goes to its own `webband-music` cache, filled on first play. So the first evening
+costs 2 MB at a time and the second is offline. `activate` deliberately spares that cache — a
+VERSION bump should invalidate the game, not the soundtrack. A test asserts all three: nothing
+in `FILES`, a runtime branch, and the cache surviving the sweep.
 
-| field | what it does |
-|---|---|
-| `beats` | bar length (4 = 4/4, 3 = 6/8 counted in dotted beats, 3.5 = 7/8, 4.5 = 9/8) |
-| `drums` | one char per grid step across the bar — `HITS` is the alphabet, `.` a rest. An *array* of grids is a build-up: the piece walks through them over its `len` bars |
-| `arp` | a running figure; `pat` are scale steps, `bass` puts the thumb on the root at the halves |
-| `ost` | low ostinato, `n` strokes to the bar — the engine room of anything epic; with a `pat` it becomes a bass *line* instead of a pedal |
-| `pad` | held chord, `deg` the voicing |
-| `lead` | the motif: `bars` of every four that carry it, `lift` in scale degrees, `stab` cuts it short |
-| `harm` | a second instrument on the same motif, `deg` steps away (0 = doubling) |
+**`<audio>`, not Web Audio.** A stream starts after a second; `decodeAudioData` wants the whole
+file first, and these are 1–3 MB each. It also deletes a whole bug class: #96's revive/wake
+machinery existed because an interrupted iOS AudioContext comes back reporting `running` while
+its clock stands still, and there is no context here to lie. One element is re-pointed rather
+than one element per track — a fresh `Audio` leaks a decoder per skip and iOS caps how many it
+hands out — so the listeners are bound exactly once, in `el()`.
 
-Twenty rows of data rather than twenty near-copies of the same forty lines, which is also why
-a band can be deleted on a shrug. The one rule that is not negotiable, and the reason the test
-asserts it: **the map is slow and calm (52–88 bpm), battle is fast and loud (152–170)** —
-everything else about a band is free to differ, and does. Map: fingerpicked guitar and flute,
-dulcimer, a piano room, a 7/8 watermill figure, a hand-drum courtyard under a reed, a soft horn
-over a harp, a synth pad under a piano, a shaker walk, a 6/8 lute tune, a string valley. The first cut of the ten included a lone reed on a drone, bells over a held choir, two
-flutes in parallel and a hymn; all four were rejected on the same ground, which named the rule
-the map actually runs on — **slow is not the same as static**. A calm piece still needs
-something moving underneath it, and the replacements all have a running figure or a pulse. Two
-of *those* were then rejected in turn, on a different ground and one worth writing down: with
-`pluck` and `flute` as the default pair, ten calm pieces drift into one timbre no matter how
-their figures differ — "çok gitar+flüt oldu". `piano()` and `synth()` exist because of that
-note, and the map now has a band that is only piano and one that is a synth pad under it. The
-synth one earned the `drums` array: what worked about it was the ticking shaker at the top, so
-the band now names five grids and the piece walks through them, the tick staying put while the
-rest fills in underneath. A build-up is the one way percussion gets to be interesting without
-breaking the map's calm — nothing speeds up, only more of the bar is occupied.
+**The spinner (#131).** Because nothing is precached, the first play of a piece is a real
+download, and several seconds of silence with no explanation reads as a bug. `busy()` arms a
+**400 ms** delay on `loadstart`/`waiting` and `playing` cancels it, so a cached piece never
+flashes the badge. `#music-load` is a fixed pill in the bottom-right corner; its spin is an
+ordinary CSS animation, which the global `body.reduced-motion` rule already stops.
 
-**The battle set is on its third line-up, and the third try changed the question (#98).** The
-first two were both rejected wholesale, and the second rejection — of a set that was correct
-bar by bar — is the one that mattered: *"bazılarını synthwave, bazılarını rock, bazılarını
-pop, bazılarını hızlı bir country edasında, bazılarını darksynth cyberpunk edasında,
-bazılarını türkü folk ama hareketli, bazılarını disco dans müziği gibi."* Ten arrangements of
-one orchestra is one piece heard ten times however carefully the arrangements differ; the fix
-is not another arrangement but another **genre**, and a genre is not expressible on a palette
-of lutes, horns and taikos. So a band now owns an idiom: **Neon Sefer** (synthwave), **Kara
-Devre** (darksynth), **Demir Tel** (rock), **Altın Sancak** (pop), **Meydan Dansı** (disco),
-**Dörtnala** (fast country), **Halay Ateşi** (zurna-and-davul folk), **Kanun Cengi** (7/8
-Anatolian), **Çelik Halay** (9/8 electro-folk) and **Kılıç Gölgesi** (cinematic). The score
-engine underneath is untouched, which is the point: every one of these still draws a church
-mode, a modal progression and one motif, so they are medieval tunes *played* as synthwave,
-not synthwave with a lute on top.
+**One switch point, still.** `Music.sync()` reads the screen (`#main-ui` active, the
+`in-battle` class), the settings (`muted`, `volume`, `music`) and `Game._chasing`, and picks
+`'map' | 'battle' | null`. `set(mode)` returns immediately when the mode has not changed, and
+**that** is what satisfies *"başlayınca devam etsin diyalog da olsa"* — a modal changes no
+screen, so nothing calls `set` with a new value and the piece simply keeps playing.
 
-Six voices were added for it and not one more than the genres need. `kick()`, `snare()` and
-`clap()` are the dance kit — the existing `drum()` is a taiko, a bandpassed noise burst around
-190 Hz, and no amount of pattern turns that into four-on-the-floor. `sub()` is the bass:
-`synth()` already makes the right waveform but sweeps its filter over most of a second, which
-is a pad's gesture, and a bass has to be gone before the next eighth lands — the envelope is
-the difference, not the oscillator. `dist()` is the guitar: two detuned saws through a
-`WaveShaper` and then a lowpass at 2.4 kHz over a peak at 220 Hz, and **that pair is the whole
-difference between a guitar and a fizz** — they are the speaker cabinet and the wooden box it
-sits in, not the amp. `clang()` and `whoosh()` are the
-sword sounds the user asked for, written *into the drum grid* rather than bolted on as a
-separate layer, so they sit on the beat like any other percussion; `roar()` is a line of men
-shouting, two vowel formants over noise with a slow swell, mixed low enough to be texture —
-close up it would be comic. No hi-hat voice was written: `shake()` bandpassed at 6–8 kHz
-already is one, and `s`/`H` in the alphabet are the closed and open hat.
+**What counts as a fight.** A real battle, an arena bout and a tournament round are all
+`Game.showScreen('battle')`, so all three are already the `in-battle` stamp and need no
+separate trigger. The fourth is new:
 
-The tempo floor holds at 152 even for the genres that would normally sit slower. That was an
-explicit instruction and it costs nothing to keep: a half-time drum grid at 152 reads as 76
-while the melody keeps its drive, so the *feel* is available without breaking the rule.
+**The chase (#131).** *"Düşmancıl bir parti 10 saat boyunca ekranda görünür kalıyorsa."*
+`Game.chaseTick(hours)` runs from `advanceTime` — the one clock that only ticks while the map
+is live and no modal is open. It tests the visible world rect exactly as `renderMap` computes
+it (camera centre, half a canvas each way, over the zoom) against every `isHostile` party, adds
+the hours when one is in it and **resets to zero, not decays,** when none is. At
+`CHASE_HOURS = 10` it flips `Game._chasing` and calls `sync()` — only on the flip, not every
+tick. Because the count is frozen while a dialog is open, a conversation pauses a chase instead
+of ending one.
 
-Six of the first ten battle bands were rejected in one pass, and the notes were all about
-timbre, not tempo. Their replacements were rejected too, on one word — *synth* — and the
-diagnosis is the useful part. All six put `bow` on the low line **and gave that line a `pat`**,
-so it moved; the four that survived all use `bow` as a pedal on the root. `bow()` is a sawtooth
-under a filter, which is literally how a synth string is made: parked on one note under a
-choir and a reverb it passes for a section, but walking a bass line it steps into the
-foreground and the sawtooth is audible for what it is. The rule that came out of it: **a
-sawtooth may sustain, it may not walk.** The moving low line now belongs to `piano`, `horn` or
-low `voice`, spread across the six so no one instrument is common to all of them again. Two of them (brass calls, the forge) put a *low* `pluck` under the horns:
-Karplus-Strong that far down is a metallic scrape, not a lute, and the anvil `HITS` entry was
-worse — a struck bell in the middle of a battle reads as a mistake. So the anvil is gone from
-the alphabet, and **nothing in a battle band plays `pluck` below the stave any more**; the low
-engine room is `bow`, which is what an orchestra actually puts there. The other rejections were
-melodic rather than timbral, and the replacements answer them by changing what carries the
-motif — a doubling flute, a stab, a bowed arpeggio — rather than by rewriting the texture.
+**The stings.** Victory and defeat are the two pieces that are not a playlist. `sting(won)` is
+hooked at the top of `Battle.endBattle`, which is the single door out of every kind of fight —
+battle, arena, tournament round, honour duel. It plays over whatever screen the lines below it
+switch to: `set()` records the new scene but leaves the speakers alone while `_sting` is up,
+and `next()` starts the right playlist when the sting ends. Muting cancels it; so does 🎵
+Sıradaki.
 
-**The plectrum was the problem, not the string (#98).** *"O metalik gitar sesi app'te her
-yerde var, daha akustik kibar bir şey seç."* Correct, and the diagnosis is one line of
-`pluck()`: Karplus-Strong is excited with white noise, so every harmonic up to Nyquist enters
-the delay line at full strength and the first fifty milliseconds are pure wire. Two smoothing
-passes over the ring before it is ever plucked roll that off — the string is unchanged, the
-finger is softer — and the body lowpass came down from 3400 Hz to 2200. Fixing the voice
-rather than swapping it out of one band is what reaches the map too, which is where the user
-actually hears it most; the map arrangements are untouched and only get gentler. On top of
-that the 7/8 band stopped fronting a plucked steel string altogether: **Bağlama Cengi** became
-**Kanun Cengi**, `struck` over `piano` under a `flute` lead. A plucked wire rings; a struck one
-is over.
-
-**The sword travelled (#98).** `W` (`clang`) and `w` (`whoosh`) were signed off in Kılıç
-Gölgesi — *"güzel olmuş kılıç sesi"* — so they now appear in four more grids, one stroke each
-and always on a step the kit left empty: Demir Tel takes the blade on the bar's last eighth
-where a crash would sit, Halay Ateşi takes a blade and then the `R` war cry on the two steps
-that close its bar, Çelik Halay takes one inside the 9/8 limp, and Neon Sefer takes the soft
-`w` instead — a blade passing rather than landing, which is what a synthwave bar can carry.
-Six of the ten now have steel in them; the other four are left clean so the sound stays an
-event.
-
-**The genre is the bed, the tune is played on something with a body (#98).** The set still read
-as synthetic after the timbre work, and the reason was structural rather than per-voice: five
-of the ten put `synth` or `dist` on the **lead**, so the one line an ear follows was the one
-made of sawtooth. Nothing in a battle band fronts a synthesised waveform any more — Neon Sefer
-is a flute over the synthwave bed, Kara Devre a zurna over the darksynth sub (the `dist` stays,
-as the grit under it), Demir Tel a string section over the guitar riff, Altın Sancak a choir
-over the pop kit. The bed keeps the genre; the melody keeps the century. Two knobs came down
-with it: `synth()`'s filter Q from 6 to 2.5 (a filter singing at its cutoff *is* the cheap-preset
-sound) and `dist()`'s drive from 5 to 3.5, past which tanh stops adding harmonics and only adds
-fizz.
-
-**Stereo, finally (#98).** Only the convolver was ever stereo: every dry voice connects to
-`this.bus` and so sat dead centre, which is a mono record with a wide tail on it. `part(pan, fn)`
-places a part by pointing the bus at a `StereoPannerNode` for the length of the call — cheaper
-than threading a destination argument through fourteen voices, and the panners hang off the
-real bus, so `retire()` still silences everything in one fade. The cache is keyed on the bus it
-was built from, because the bus is rebuilt with every piece and a node may not be connected
-across two `AudioContext`s. Positions are by role, not per band: drums and lead centre (where an
-ear expects the beat and the tune), arpeggio left, ostinato and harmony right, the pad's chord
-tones thrown to opposite sides, the drone's root and fifth hard apart — which is what organum on
-two instruments actually sounds like. Hats, shakers and the sword sit off-centre; kick and snare
-do not.
-
-**Three rejections, three root causes (#98).** Kanun Cengi and Çelik Halay were given `struck`
-arpeggios to get away from the metallic `pluck`, and that was a worse answer than the problem:
-`struck`'s default partials include a 4.72, which is a **bell**, and a bell arpeggiating under a
-flute is a glockenspiel. They now use `kanun()` — the softened `pluck` with a small bright box
-(2600/300/6), one line beside `pizz()`, because a kanun *is* a plucked string. Kılıç Gölgesi was
-rejected on the horn: `harm` doubles the melody at the unison, which is the one place brass has
-nowhere to hide, so **no battle band plays `horn` any more** (Altın Sancak's went to `piano`,
-Kılıç Gölgesi's to `flute`). And `voice()`'s breath burst was firing per chord tone per bar on
-the pads that use it — a singer breathes once and then holds, so the breath now scales as
-`0.6 / dur` and a bar-long note barely gets one.
-
-**Rendering the audition set.** Ten 60-second takes through `OfflineAudioContext` took 35
-minutes when rendered one after another and **two** when rendered together. Scheduling is
-synchronous JS on the shared `Music` graph and has to stay serial — but it is only 1.8 s for all
-ten; `startRendering()` is off-thread and is everything else. Schedule all ten, then
-`Promise.all` the renders.
-
-**Three ways to say one thing (#98).** *"Hep aynı melodi, bi o bi bu gibi olsun."* A piece
-repeats one motif over every chord — that is what makes it a piece rather than a random walk,
-but for two minutes it is also all an ear gets. `bar()` now takes a variation index and `emit`
-cycles it one four-bar phrase at a time: the contour forwards, the contour backwards, then the
-contour rotated onto its second half. Same instrument, same rhythm, same harmony, different
-order of notes.
-
-Rotation rather than inversion, because a mirrored `[7, 4, 2, 0]` climbs two octaves and leaves
-the register the band was written for; rotation preserves the set of degrees exactly, so no
-variation can walk out of range or out of the mix's level. All seven contours were checked to
-give three shapes that differ from each other — `tools/test.js` asserts it, so a contour added
-later cannot quietly collapse two phrases into one.
-
-*This replaced a first attempt that answered on a **different instrument**, which was not what
-was asked for and is recorded here because the way it failed is instructive: `vol` is not a
-loudness. The answering voice shipped 16 dB under its call because its level was guessed from
-the call's. Solo'd through the real `emit` path the twenty leads span rms 0.0062–0.0415 — a
-factor of seven between two lines that both read as "the tune" in the mix — and matching by rms
-is not enough either: `voice` matched the 7/8 mill piece at rms while peaking at 4.0, because a
-soprano formant set passes almost nothing of a low fundamental but its resonances still spike.
-Varying the pattern instead of the instrument makes the whole problem disappear: the same voice
-at the same `vol` cannot drift in level.*
-
-**Measured / decided numbers.** Map: 52–88 bpm, dorian/aeolian/lydian/mixolydian (a band may
-narrow that), tonic E3–B3, 12–16 bars per piece. Battle: 152–170 bpm, dorian/phrygian/aeolian,
-tonic A2–D3, 24–28 bars. Rendered offline through `emit` at the default volume, 45 s per band,
-all twenty: battle peak 0.47–0.79 / rms 0.066–0.070, map peak 0.31–0.85 / rms 0.065–0.071. The
-peak spread is instrumentation, not imbalance — a gallop and a plucked lute are transients, a
-choir is not.
-
-**Levels.** Every part has its own gain, and with those alone the battle came out three times
-the map's loudness (rms 0.147 against 0.051) — an army of strings and a choir against one
-guitar. The correction is a single per-band gain on the bus (`gain`, 0.61–2.5 across the twenty — 0.61–1.11 across the ten genre bands)
-rather than re-tuning every part, so the balance *inside* each band stays as written; the
-numbers come from an offline rms scan of all twenty and are re-measured whenever a band's
-parts change. Within the
-battle band the drums were then cut and the sustained parts raised: a 0.5 drum left the
-violins and the choir no room, and "epic" is the sustained parts, not the transients. A
-`DynamicsCompressorNode` sits on the output as a limiter: the parts are independent, so a bass
-note, a flute entry and a reverb tail can land on the same sample.
-
-**Fading in (#95).** The music used to arrive at full level inside a single frame — on the
-opening screen, and again on every crossing between map and battle. Nothing was clipping; it
-was the step itself, an instrument starting mid-note with no attack. `Music.volume(fade)` now
-ramps from silence over `FADE_IN`=**1.8 s** when the mode changes, and a piece change glides
-the bus to the new band's gain over 1.2 s instead of assigning it (the same bus plays on, so
-there is no gap to hide a step behind). The volume slider still writes straight through — a
-slider that ramped would feel broken.
-
-**Cost.** `section()` is the only part whose cost scales with how many notes are sounding, so
-it drops from four voices to one under `Game.lite()` — the same knob the renderer uses.
-
-**Transport.** The standard two-clock scheduler: notes go into Web Audio's clock ~0.6 s ahead
-and a 150 ms `setTimeout` tops the queue up, so the timer's drift is harmless and a
-backgrounded tab rebases instead of firing a burst of past-due notes.
-
-**Skipping a piece (🎵 Sıradaki, `N`).** The score re-composes itself, so the only way to hear
-a different band is to wait out the current one — twelve to sixteen bars, a minute or more.
-The button sits in the map HUD row next to ⏳ Bekle and 🌍 Diplomasi, where the map-only
-shortcuts already live; it is deliberately absent from battle, where the player has other
-things to press. `Music.skip()` is `set(null); set(mode)` — the same move `revive()` makes,
-because a bar is already queued ahead of the clock and retiring the bus is the only thing that
-cuts it. `newPiece` therefore cannot look at `this.piece` to avoid a repeat (retire() has
-already thrown it away), so the previous band is remembered in `_last` and filtered out of the
-pool: with ten to choose from, one roll in ten handing back the band you just skipped is
-exactly the answer the button exists to avoid. Everything in `newPiece` below the `this.bus`
-guard needs a live graph; everything above it is a pure data roll, which is what lets
-`tools/test.js` assert the no-repeat rule without a sound card.
-
-**Why a bus per piece.** A whole map phrase is queued at once — up to ten seconds — and Web
-Audio cannot cancel what is already scheduled. Every note of a piece therefore hangs off one
-gain node, so `retire()` fades that one node and the entire queued tail goes with it; the
-0.25 s fade *is* the crossfade into the drums.
-
-**Coming back from another app.** Backgrounding suspends the AudioContext and iOS does not
-resume it on return, while the `setTimeout` chain is throttled to a stop — the music simply
-never came back. `Music.wake()` calls `Game.ac()` (which resumes) and re-arms `tick()`, whose
-rebasing handles the gap in the clock. It hangs off **two** events: `visibilitychange` and the
-next `pointerdown` while the context is not running. The second is not belt-and-braces — with
-the visibility listener alone the music still only returned after toggling 🔇, because iOS
-grants the resume to a *gesture* and a tap is the gesture (#96). A context that was suspended
-has its piece rebuilt rather than merely re-armed: an interrupted iOS context can come back
-reporting `running` and still be silent.
-
-**One switch point.** `Music.sync()` reads the screen (`#main-ui` active, the `in-battle`
-class) and the settings (`muted`, `volume`, `music`) and picks `'map' | 'battle' | null`.
-It is called from `showScreen()` and `applySettings()`, so neither knows about the other.
+**Never the same piece twice running.** `pick(scene)` excludes the piece that just finished.
+With three fight tracks a plain roll repeats one time in three, and an immediate repeat is not
+heard as a shuffle — it is heard as the music having restarted.
 
 ## Visual layer (renovation)
 

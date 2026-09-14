@@ -1842,6 +1842,10 @@ const Battle = {
     },
 
     endBattle(won) {
+        // Every exit from a fight is here — real battle, arena, tournament round, duel —
+        // so the victory/defeat sting is hooked once (#131). It plays over the screen the
+        // lines below switch to, and hands the playlist back when it ends.
+        Game.Music.sting(won);
         this.clearRoutPrompt();
         this.canvas.removeEventListener('mousedown', this.clickHandler);
         window.removeEventListener('mouseup', this.upHandler);

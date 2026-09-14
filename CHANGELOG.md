@@ -3,6 +3,26 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.13 — Kalradya Ezgileri (2026-09-14)
+
+- **Müzik artık gerçek müzik.** Oyunun içinde üretilen ezgiler kalktı; yerine tamamı CC0
+  (kamu malı) **15 parça** geldi — 10'u harita, 3'ü savaş, 2'si zafer/yenilgi ezgisi.
+  Yaklaşık 30 dakika. Parçaların adı ve bestecisi çalarken üst çubukta yazıyor, tam liste
+  `music/CREDITS.md` dosyasında.
+- Parçalar **birbirine göre seviyelendi** — biri patlarken öbürü fısıldamıyor. Savaş müziği
+  haritadakinden bir tık yüksek.
+- **Savaş müziği artık arenada ve turnuvada da çalıyor.**
+- **Kovalamaca.** Düşman bir parti ekranda 10 oyun saati boyunca görünür kalırsa savaş
+  müziği başlıyor — daha kavga çıkmadan. Gözden kaybolursa sayaç sıfırlanıyor.
+- **Diyalog müziği kesmiyor.** Bir kez başlayan parça, araya bir konuşma penceresi girse de
+  kaldığı yerden devam ediyor. Bir kovalamaca sırasında açılan pencere sayacı durduruyor,
+  bitirmiyor.
+- **Savaş sonunda zafer ya da yenilgi ezgisi** çalıyor — gerçek savaşta, arenada, turnuva
+  turunda ve onur düellosunda.
+- **"🎶 Müzik yükleniyor…" göstergesi.** Parçalar oyunla birlikte inmiyor, ilk çalındıklarında
+  tek tek iniyor ve ondan sonra çevrimdışı da açılıyor. Yükleme yarım saniyeden uzun sürerse
+  sağ altta dönen bir halka çıkıyor.
+
 ## 1.12.1 — Üç Dil (2026-09-14)
 
 - Lonca ve lord kontratlarının **görev metinleri artık çevriliyor**. Oyunu İngilizce ya da

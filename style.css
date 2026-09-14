@@ -1065,6 +1065,23 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
     transition-duration: 0.001ms !important;
 }
 
+/* Müzik yükleniyor rozeti (#131). Parçalar worker önbelleğinde gelmiyor, ilk çalışta
+   gerçekten indiriliyor; 400 ms'den uzun sürerse bu rozet çıkıyor. Dönme animasyonunu
+   yukarıdaki reduced-motion kuralı kapatıyor, halka duruyor ama rozet yine okunuyor. */
+#music-load {
+    position: fixed; right: 12px; bottom: 12px; z-index: 60;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.35rem 0.7rem; border-radius: 999px;
+    background: rgba(10, 10, 14, 0.82); border: 1px solid var(--border-color);
+    color: var(--text-muted); font-size: var(--fs-xs); pointer-events: none;
+}
+#music-load i {
+    width: 0.9em; height: 0.9em; border-radius: 50%;
+    border: 2px solid rgba(212, 175, 55, 0.25); border-top-color: var(--primary);
+    animation: music-spin 0.8s linear infinite;
+}
+@keyframes music-spin { to { transform: rotate(360deg); } }
+
 /* Yerleşim sahnesi (#60): düğmelerin bina olarak çizildiği tuval */
 #scene-canvas {
     display: block;

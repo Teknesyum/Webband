@@ -2290,4 +2290,8 @@ I18N.dicts.id = {
         "Peti kampanye kosong. Kumpulkan <b>{0} dinar</b> dan bawa ke balaiku; kerajaan tak akan melupakan sumbanganmu.",
     "En az <b>{0} dinarla</b> görevi veren lordun salonuna dön (para teslimde alınır).":
         "Kembalilah ke balai lord yang memberi tugas dengan minimal <b>{0} dinar</b> (uangnya diambil saat penyerahan).",
+
+    // Müzik yükleme rozeti (#131) — sözlük üretildikten sonra eklendi
+    "Müzik yükleniyor…": "Memuat musik…",
+    "🎶 Müzik yükleniyor…": "🎶 Memuat musik…",
 };

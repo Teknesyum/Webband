@@ -2043,92 +2043,86 @@ test('a quest wave closes in where a plain band of the same size flees', () => {
     assert.ok(walk(false) > 200, 'an ordinary weak band still flees');
 });
 
-test('every generated bar is the same motif over a new chord', () => {
-    const { Game } = g, M = Game.Music;
-    const major = [0, 2, 4, 5, 7, 9, 11].join();
-    Object.values(M.modes).forEach(m => assert.notStrictEqual(m.join(), major, 'Ionian is excluded by design'));
-    const metres = new Set(M.BANDS.map(b => b.beats));
-    M.RHYTHMS.forEach(r => assert.ok(metres.has(r.reduce((a, b) => a + b, 0)), 'a rhythm fills someone\'s bar: ' + r));
-    // A band with a typo in it is silent or throws mid-bar, and only on the piece that draws
-    // it — which is a bug reported as "the music stopped once, last week".
-    const ids = new Set();
-    M.BANDS.forEach(b => {
-        assert.ok(!ids.has(b.id), 'band ids are unique: ' + b.id); ids.add(b.id);
-        assert.ok(M.RHYTHMS.some(r => r.reduce((x, y) => x + y, 0) === b.beats), b.id + ' has a rhythm for its metre');
-        ['arp', 'ost', 'pad', 'lead', 'harm'].forEach(k => b[k] &&
-            assert.strictEqual(typeof M[b[k].v], 'function', b.id + '.' + k + ' names a voice: ' + b[k].v));
-        [].concat(b.drums || '').join('').split('').forEach(c =>
-            assert.ok(c === '.' || M.HITS[c], b.id + ' drum char is in the alphabet: ' + c));
-        (b.modes || []).forEach(m => assert.ok(M.modes[m], b.id + ' knows its mode: ' + m));
-        assert.ok(b.harm ? !!b.lead : true, b.id + ' has a lead for its harmony');
-        // The one rule the user set: the map is calm, the battle is not (#97).
-        if(b.battle) assert.ok(b.bpm[0] >= 152, b.id + ' is a battle, so it moves: ' + b.bpm[0]);
-        else assert.ok(b.bpm[1] <= 100, b.id + ' is a map, so it stays slow: ' + b.bpm[1]);
-        // A sawtooth may sustain, it may not walk: `bow` pedalling on the root reads as a
-        // string section, `bow` walking a bass line reads as a synth, and six bands were
-        // rejected on exactly that (#97).
-        ['ost', 'arp'].forEach(k => assert.ok(!(b[k] && b[k].v === 'bow' && b[k].pat),
-            b.id + '.' + k + ' walks a line, so it cannot be a sawtooth'));
+// A hostile party that stays in view for CHASE_HOURS game hours is a chase, and a chase gets
+// the fight music (#131). The count lives in advanceTime, so it only runs while the map is up
+// and no modal is open — which is also what makes a dialog pause the chase instead of ending it.
+test('a chase is ten visible game hours, and losing sight resets it (#131)', () => {
+    const { Game, state } = g;
+    Game.mapCanvas = { width: 800, height: 600 };
+    Game.camera.x = state.player.x; Game.camera.y = state.player.y; Game.camera.zoom = 1;
+    const put = (dx, dy) => {
+        state.npcParties.length = 0;
+        state.npcParties.push({ id: 'chase-test', type: 'bandit', size: 30, x: Game.camera.x + dx,
+                                y: Game.camera.y + dy, targetX: 0, targetY: 0 });
+    };
+    Game._chase = 0; Game._chasing = false;
+    // Half a canvas away at zoom 1 is on screen; twice that is not.
+    put(100, 0);
+    assert.ok(Game.isHostile(state.npcParties[0]), 'a bandit band is hostile');
+    for(let i = 0; i < 9; i++) Game.chaseTick(1);
+    assert.strictEqual(Game._chasing, false, 'nine hours is not yet a chase');
+    Game.chaseTick(1);
+    assert.strictEqual(Game._chasing, true, 'the tenth hour is');
+    // Out of the visible rect: the count drops to zero, not down by one.
+    put(900, 0);
+    Game.chaseTick(1);
+    assert.strictEqual(Game._chasing, false, 'losing sight ends the chase');
+    assert.strictEqual(Game._chase, 0, 'and the count starts over, it does not decay');
+    // A friendly party in view is not a chase however long it sits there.
+    state.npcParties.length = 0;
+    state.npcParties.push({ id: 'caravan-test', type: 'caravan', trade: true, size: 10,
+                            x: Game.camera.x, y: Game.camera.y, targetX: 0, targetY: 0 });
+    for(let i = 0; i < 20; i++) Game.chaseTick(1);
+    assert.strictEqual(Game._chasing, false, 'a caravan in view is not a chase');
+    state.npcParties.length = 0;
+    Game._chase = 0; Game._chasing = false;
+});
+
+test('the soundtrack table names files that exist, one scene each (#131)', () => {
+    const fs = require('fs'), path = require('path');
+    const M = g.Game.Music, dir = path.join(__dirname, '..', 'music');
+    const seen = new Set();
+    M.TRACKS.forEach(t => {
+        assert.ok(!seen.has(t.f), 'one entry per file: ' + t.f); seen.add(t.f);
+        assert.ok(fs.existsSync(path.join(dir, t.f + '.mp3')), 'music/' + t.f + '.mp3 ships');
+        assert.ok(t.t && t.a, t.f + ' credits its title and author');
+        assert.ok(['map', 'battle', 'sting'].includes(t.s), t.f + ' is in a known scene: ' + t.s);
     });
-    // 🎵 Sıradaki exists to get a different band; rolling the same one back is the one
-    // answer it must never give. newPiece is safe to call here — with no `bus` it is a pure data roll.
-    for(const battle of [false, true]) {
-        M._last = null; M.piece = null;
+    // A stray .mp3 in music/ is 1-3 MB of dead weight the player still downloads offline.
+    fs.readdirSync(dir).filter(f => f.endsWith('.mp3'))
+        .forEach(f => assert.ok(seen.has(f.slice(0, -4)), 'music/' + f + ' is in TRACKS'));
+    // sting() looks these two up by name, so a rename that misses them is silence at the one
+    // moment the player is looking at the result screen.
+    ['sting-victory', 'sting-defeat'].forEach(f =>
+        assert.ok(seen.has(f), f + ' exists for Battle.endBattle'));
+    // 🎵 Sıradaki exists to get a different piece; rolling the same one back is the one answer
+    // it must never give. pick() is pure data — it touches no <audio>.
+    ['map', 'battle'].forEach(scene => {
+        M._last = {};
         let prev = null;
         for(let i = 0; i < 60; i++) {
-            M.newPiece(battle);
-            assert.notStrictEqual(M.piece.band.id, prev, 'a fresh piece is a fresh band: ' + prev);
-            assert.strictEqual(M.piece.band.battle || false, battle, 'and it is on the right side');
-            prev = M.piece.band.id;
-            if (i % 3 === 2) M.piece = null;   // what a skip's retire() does: the piece goes, the memory stays
+            const tr = M.pick(scene);
+            assert.strictEqual(tr.s, scene, 'a fresh piece is from the right scene');
+            assert.notStrictEqual(tr.f, prev, 'a fresh piece is a fresh file: ' + prev);
+            prev = tr.f;
         }
-    }
-    M._last = null; M.piece = null;
-
-    // Twice now the battle set came back as "they all sound the same", and both times the
-    // cause was one voice carrying the tune in nearly every band. Ten genres means ten
-    // line-ups: no single instrument fronts more than three of the ten (#98). Battle only —
-    // the map is calm by design, five flutes is what calm sounds like, and that set is
-    // signed off.
-    const leads = {};
-    M.BANDS.filter(b => b.battle).forEach(b => leads[b.lead.v] = (leads[b.lead.v] || 0) + 1);
-    assert.ok(Object.keys(leads).length >= 5, 'the battle fronts at least five instruments: ' + Object.keys(leads));
-    Object.entries(leads).forEach(([v, n]) =>
-        assert.ok(n <= 3, 'the battle leans on ' + v + ' for ' + n + ' of ten leads'));
-
-    // "hep aynı melodi": every four-bar phrase reorders the motif, and a variation that
-    // lands on a shape another variation already plays is not one (#98).
-    M.CONTOURS.forEach(c => {
-        const p = { motif: { r: [1, 1, 1, 1], c }, prog: [0, 0, 5, 6], bar: 0 };
-        const shapes = new Set();
-        for(let v = 0; v < M.VARIATIONS; v++) shapes.add(M.bar(p, 0, v).map(n => n.deg).join());
-        assert.strictEqual(shapes.size, M.VARIATIONS, 'three orderings of ' + c + ': ' + [...shapes]);
     });
-
-    assert.strictEqual(M.BANDS.filter(b => b.battle).length, 10, 'ten battle bands');
-    assert.strictEqual(M.BANDS.filter(b => !b.battle).length, 10, 'ten map bands');
-    const shapes = new Set();
-    M.RHYTHMS.forEach(r => M.CONTOURS.forEach(c => {
-        const p = { motif: { r, c }, prog: M.PROGS[0], bar: 0 };
-        for(p.bar = 0; p.bar < 8; p.bar++) {
-            const b = M.bar(p, 7);
-            assert.strictEqual(b.length, r.length, 'one note per rhythm slot');
-            assert.strictEqual(b[b.length - 1].at + b[b.length - 1].beats,
-                               r.reduce((x, y) => x + y, 0), 'the bar is filled exactly');
-            b.forEach((n, i) => {
-                assert.ok(n.beats > 0, 'no zero-length note');
-                assert.ok(n.deg >= -2 && n.deg <= 20, 'the melody stays in range: ' + n.deg);
-                if(i) assert.ok(Math.abs(n.deg - b[i - 1].deg) <= 7, 'no wild leap: ' + n.deg);
-            });
-            if(r === M.RHYTHMS[0] && c === M.CONTOURS[0]) shapes.add(b.map(n => n.deg - b[0].deg).join());
-        }
-    }));
-    // Four chords, one motif: the shape recurs instead of being re-rolled every bar, which is
-    // the whole difference between a tune and the random walk this replaced (#96).
-    assert.ok(shapes.size <= 2, 'the motif recurs, transposed: ' + shapes.size);
-    assert.ok(Math.abs(M.hz(50, 'dorian', 7) - 2 * M.hz(50, 'dorian', 0)) < 1e-9);
-    assert.ok(Math.abs(M.hz(50, 'dorian', -7) - M.hz(50, 'dorian', 0) / 2) < 1e-9);
+    M._last = {};
 });
+
+// The music is NOT precached — 20.8 MB would make the install a 20 MB download before the
+// game runs at all. sw.js caches each piece on first play instead, in its own cache that a
+// VERSION bump does not wipe.
+test('the soundtrack streams instead of being precached (#131)', () => {
+    const fs = require('fs'), path = require('path');
+    const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+    const files = sw.slice(sw.indexOf('const FILES'), sw.indexOf('];', sw.indexOf('const FILES')));
+    assert.ok(!/music\//.test(files), 'no music file is in the precache list');
+    assert.ok(/MUSIC/.test(sw) && /music\\\/\[\^\/\]\+\\\.mp3/.test(sw),
+        'sw.js runtime-caches music/*.mp3');
+    assert.ok(/k !== CACHE && k !== MUSIC/.test(sw), 'a VERSION bump leaves the music cache alone');
+});
+
 // The static extractor only sees `T('…')` **literals**; raw data translated
 // via a variable like `T(def.title)` is invisible to it. Quest titles are
 // written exactly that way — in 0.77 two new titles came out with no

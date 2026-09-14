@@ -2290,4 +2290,8 @@ I18N.dicts.en = {
         "The campaign chest is empty. Raise <b>{0} denars</b> and bring them to my hall; the realm does not forget a contribution.",
     "En az <b>{0} dinarla</b> görevi veren lordun salonuna dön (para teslimde alınır).":
         "Return to the hall of the lord who set the task carrying at least <b>{0} denars</b> (the coin is taken on delivery).",
+
+    // Müzik yükleme rozeti (#131) — sözlük üretildikten sonra eklendi
+    "Müzik yükleniyor…": "Loading music…",
+    "🎶 Müzik yükleniyor…": "🎶 Loading music…",
 };

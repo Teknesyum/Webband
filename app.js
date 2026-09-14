@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.12.1', date: '2026-09-14', name: 'Üç Dil' };  // the version name is not translated
+const VERSION = { no: '1.13', date: '2026-09-14', name: 'Kalradya Ezgileri' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -3219,7 +3219,27 @@ const Game = {
         this.updateTopBar();
     },
 
+    // A chase is not a battle yet, but it feels like one (#131): a hostile party that stays
+    // in view long enough gets the fight music. Counted in game hours from advanceTime — the
+    // one clock that only runs while the map is live and no modal is open, so a dialog pauses
+    // the count instead of breaking it, and the music already playing simply carries on.
+    CHASE_HOURS: 10,
+    chaseTick(hours) {
+        let cv = this.mapCanvas, cam = this.camera;
+        // The visible world rect is what renderMap draws: the camera centre, half a canvas
+        // each way, divided by the zoom. "On screen" means exactly that and nothing else.
+        let seen = !!cv && state.npcParties.some(n => this.isHostile(n)
+            && Math.abs(n.x - cam.x) < cv.width / (2 * cam.zoom)
+            && Math.abs(n.y - cam.y) < cv.height / (2 * cam.zoom));
+        this._chase = seen ? (this._chase || 0) + hours : 0;
+        let on = this._chase >= this.CHASE_HOURS;
+        if(on === !!this._chasing) return;   // sync() only when the answer changes
+        this._chasing = on;
+        this.Music.sync();
+    },
+
     advanceTime(hours) {
+        this.chaseTick(hours);
         let before = state.time.day * 24 + state.time.hour;
         state.time.hour += hours;
         // Wage debt ticks hour by hour: a growing pressure instead of a one-time fixed
@@ -6487,1014 +6507,213 @@ const Game = {
     },
     toggleMute() { this.setOpt('muted', !this.opt('muted')); this.updateTopBar(); if(!this.opt('muted')) this.sfx('buy'); this.Music.sync(); },
 
-    // ============ MUSIC (#95) ============
-    // Same rule as the SFX above: no audio file ships. That is not only about repo size —
-    // the worker precaches everything, so a soundtrack would have to be carried offline in
-    // full, and a fixed track loops audibly on a map you stare at for an hour. So the music
-    // is written rather than recorded: church modes over a drone, phrases of uneven length,
-    // a different piece every few minutes. Medieval European music really was modal, droned
-    // and largely unmetered, so here the honest version and the cheap version coincide.
+    // ============ MUSIC (#95, recorded since #131) ============
+    // The procedural engine is gone. It was an honest generator and it sounded like one:
+    // church modes over a drone hold up for ten minutes and then the listener hears the
+    // machine rather than the music. Fifteen recorded CC0 pieces replace it — ten for the
+    // map, three for a fight, two stings — chosen by the player from an audition of 34.
+    //
+    // They cost 20.8 MB, so they are the one thing the worker does NOT precache: each file
+    // streams on demand and is cached after it has been heard once (see `sw.js`). The first
+    // play of a piece is therefore a real download, which is what the spinner is for.
+    //
+    // Loudness is fixed at transcode time (two-pass EBU R128: map −19 LUFS, fight and stings
+    // −16, measured within 0.1 dB across the set), so the table below carries no per-track
+    // gain and this object contains no mixer. The one knob left is the volume slider.
+    //
+    // Played through a single <audio> element rather than Web Audio: a stream starts after a
+    // second instead of after decoding a whole file, and the entire class of "the
+    // AudioContext reports running while its clock stands still" bugs (#96) leaves with the
+    // context. `Game.ac()` still exists for the SFX, which are generated and tiny.
     Music: {
-        // Semitones from the tonic. Ionian — the plain major scale — is left out on purpose:
-        // it is the one thing that makes "medieval" music sound like a fairground.
-        modes: {
-            dorian:     [0, 2, 3, 5, 7, 9, 10],
-            aeolian:    [0, 2, 3, 5, 7, 8, 10],
-            phrygian:   [0, 1, 3, 5, 7, 8, 10],
-            mixolydian: [0, 2, 4, 5, 7, 9, 10],
-            lydian:     [0, 2, 4, 6, 7, 9, 11]
-        },
-        // tonic is a MIDI note (50 = D3). Tempo is a property of the band, not of the screen:
-        // a bell piece and a fingerpicked one do not want the same clock. The screen only
-        // decides how high the key sits and which modes are on the table.
-        MAP:    { modes: ['dorian', 'aeolian', 'lydian', 'mixolydian'], tonic: [52, 59] },
-        BATTLE: { modes: ['dorian', 'phrygian', 'aeolian'],             tonic: [45, 50] },
-
-        // Twenty bands. The previous pass had two line-ups and a handful of knobs on top of
-        // them, and every piece came out sounding like the same two pieces — which is exactly
-        // what got reported (#97). A band now owns its instruments, its metre, its tempo and
-        // its texture, so the draw is between *arrangements*, not between settings.
-        //
-        //   beats  bar length in beats (4 = 4/4, 3 = 6/8 counted in dotted beats, 3.5 = 7/8)
-        //   drums  one char per grid step across the bar — see HITS. '.' is a rest
-        //   arp    a running figure; `pat` are scale steps over the bar's chord, `bass` puts
-        //          the thumb on the root at the halves the way a picking hand does
-        //   ost    a low staccato ostinato, `n` strokes to the bar — the engine room
-        //   pad    held chord, `deg` the voicing in scale steps
-        //   lead   the motif: `bars` of every four that carry it, `lift` in scale degrees
-        //          (7 = one octave up), `stab` cuts every note short
-        //   harm   a second instrument on the same motif, `deg` steps away (0 = doubling)
-        //
-        // The one rule the user set: the map is slow and calm, the battle is fast and loud.
-        // Everything else is allowed to differ, and does.
-        BANDS: [
-            // ---- map: ten quiet ones ----
-            { id: 'cayir', name: 'Çayır Yolu', beats: 4, bpm: [66, 78], len: 16, gain: 1.4,
-              arp: { v: 'pluck', pat: [0, 2, 4, 2, 0, 2, 4, 2], vol: 0.1, bass: true },
-              lead: { v: 'flute', lift: 7, vol: 0.09, bars: 2 } },
-            { id: 'gol', name: 'Göl Aynası', beats: 4, bpm: [58, 68], len: 14, gain: 1.8,
-              modes: ['lydian', 'mixolydian'],
-              arp: { v: 'struck', pat: [0, 2, 4, 7, 9, 7, 4, 2], vol: 0.085, hold: 3.5 },
-              lead: { v: 'flute', lift: 7, vol: 0.07, bars: 1 } },
-            { id: 'oda', name: 'Oda Penceresi', beats: 4, bpm: [60, 70], len: 14, gain: 1.8,
-              modes: ['aeolian', 'dorian'],
-              arp: { v: 'piano', pat: [0, 4, 2, 7, 4, 2, 4, 2], vol: 0.09, hold: 2.2, bass: true },
-              lead: { v: 'piano', lift: 7, vol: 0.085, bars: 2, hold: 1.6 } },
-            { id: 'degirmen', name: 'Su Değirmeni', beats: 3.5, bpm: [70, 80], len: 14, gain: 1.9,
-              modes: ['dorian', 'mixolydian'],
-              arp: { v: 'struck', pat: [0, 2, 4, 2, 7, 4, 2], vol: 0.08, hold: 2 },
-              ost: { v: 'pluck', n: 7, pat: [0, 0, 4, 4, 2, 2, 0], vol: 0.085 },
-              lead: { v: 'flute', lift: 7, vol: 0.075, bars: 1 } },
-            { id: 'han', name: 'Han Avlusu', beats: 4, bpm: [72, 82], len: 16, gain: 1.95,
-              modes: ['dorian', 'phrygian'], drums: 'o.xx.ox.',
-              ost: { v: 'pluck', n: 4, pat: [0, 4, 2, 4], vol: 0.17 },
-              lead: { v: 'reed', lift: 0, vol: 0.075, bars: 3 } },
-            { id: 'alaca', name: 'Alacakaranlık', beats: 4, bpm: [58, 66], len: 12, gain: 2.1,
-              modes: ['lydian', 'mixolydian'], drums: 's.s.s.s.',
-              arp: { v: 'struck', pat: [0, 4, 7, 4, 2, 4, 7, 4], vol: 0.075, hold: 2.5 },
-              lead: { v: 'horn', lift: 0, vol: 0.07, bars: 2 } },
-            { id: 'sis', name: 'Sis Vadisi', beats: 4, bpm: [56, 64], len: 12, gain: 2.5,
-              modes: ['lydian', 'mixolydian'],
-              drums: ['s.......', 's...s...', 's.s.s.s.', 'sos.s.so', 'sostsoso'],
-              ost: { v: 'synth', n: 2, pat: [0, 4], vol: 0.18 },
-              pad: { v: 'synth', deg: [0, 2, 7], lift: 0, vol: 0.13 },
-              lead: { v: 'piano', lift: 7, vol: 0.06, bars: 2, hold: 1.8 } },
-            { id: 'yolcu', name: 'Yolcu Adımı', beats: 4, bpm: [74, 84], len: 16, gain: 1.45,
-              drums: 'o..s..s.',
-              arp: { v: 'pluck', pat: [0, 2, 4, 2, 0, 2, 4, 2], vol: 0.09, bass: true },
-              lead: { v: 'flute', lift: 7, vol: 0.085, bars: 2 } },
-            { id: 'kopuz', name: 'Kopuz Havası', beats: 3, bpm: [76, 88], len: 16, gain: 2.4,
-              modes: ['mixolydian', 'dorian'], drums: 'o..x..',
-              arp: { v: 'pluck', pat: [0, 4, 2, 7, 4, 2], vol: 0.065, bass: true },
-              lead: { v: 'pluck', lift: 7, vol: 0.09, bars: 2 } },
-            { id: 'vadi', name: 'Yaylı Vadi', beats: 4, bpm: [54, 62], len: 12, gain: 1.25,
-              pad: { v: 'bow', deg: [0, 2, 7], lift: 0, vol: 0.06 },
-              ost: { v: 'bow', n: 1, vol: 0.05 },
-              lead: { v: 'flute', lift: 7, vol: 0.085, bars: 2 } },
-
-            // ---- battle: ten loud ones, one genre each (#98) ----
-            // Ten pieces in one orchestral idiom is one piece heard ten times, which is what
-            // came back the first two times. A band now owns a *genre* as well as a line-up:
-            // the modal score engine underneath is unchanged, so every one of these is still
-            // a medieval tune — it is the kit, the bass and the guitar that place it.
-            { id: 'neon', name: 'Neon Sefer', battle: true, beats: 4, bpm: [152, 158], len: 24, gain: 0.67,
-              modes: ['phrygian', 'aeolian'],
-              drums: 'K.s.N.s.K.sKN.sw',           // 16 steps: the grid a drum machine is written on
-              ost: { v: 'sub', n: 8, pat: [0, 0, 0, 0, 0, 0, 4, 2], vol: 0.1 },
-              pad: { v: 'synth', deg: [0, 2, 4], lift: 0, vol: 0.055 },
-              lead: { v: 'flute', lift: 7, vol: 0.09, bars: 4, hold: 1.1 },
-              harm: { v: 'synth', deg: 0, vol: 0.04 } },
-            { id: 'devre', name: 'Kara Devre', battle: true, beats: 4, bpm: [156, 164], len: 24, gain: 0.75,
-              modes: ['phrygian'], drone: true,
-              drums: 'K..kN..WK.k.N.w.',
-              ost: { v: 'sub', n: 16, pat: [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 3, 2, 1, 0], vol: 0.09 },
-              lead: { v: 'reed', lift: 7, vol: 0.085, bars: 4, stab: true },
-              harm: { v: 'dist', deg: 0, vol: 0.05 } },
-            { id: 'tel', name: 'Demir Tel', battle: true, beats: 4, bpm: [158, 166], len: 24, gain: 0.61,
-              modes: ['aeolian', 'dorian'],
-              drums: 'K.s.N.s.K.sKN.sW',
-              ost: { v: 'dist', n: 8, pat: [0, 0, 0, 0, 4, 4, 2, 2], vol: 0.075 },
-              lead: { v: 'section', lift: 7, vol: 0.09, bars: 4 },
-              harm: { v: 'dist', deg: 4, vol: 0.045 } },   // the fifth on top: a power chord, not a third
-            { id: 'sancak', name: 'Altın Sancak', battle: true, beats: 4, bpm: [152, 160], len: 24, gain: 0.97,
-              modes: ['mixolydian', 'dorian'],
-              drums: 'K.s.c.s.K.s.c.sH',
-              ost: { v: 'sub', n: 8, pat: [0, 0, 4, 4, 2, 2, 0, 0], vol: 0.09 },
-              pad: { v: 'voice', deg: [0, 2, 4], lift: 0, vol: 0.055 },
-              lead: { v: 'voice', lift: 7, vol: 0.1, bars: 4 },
-              harm: { v: 'piano', deg: 0, vol: 0.05 } },
-            { id: 'meydan', name: 'Meydan Dansı', battle: true, beats: 4, bpm: [152, 158], len: 24, gain: 0.7,
-              modes: ['dorian', 'aeolian'],
-              drums: 'K.sHK.sHK.sHK.sH',           // four on the floor, hat on every off-beat
-              ost: { v: 'sub', n: 8, pat: [0, 7, 0, 7, 0, 7, 0, 7], vol: 0.095 },
-              arp: { v: 'section', pat: [0, 0, 4, 4, 2, 2, 4, 4], vol: 0.055, hold: 0.35 },
-              lead: { v: 'section', lift: 7, vol: 0.09, bars: 4, stab: true } },
-            { id: 'dortnala', name: 'Dörtnala', battle: true, beats: 4, bpm: [160, 170], len: 24, gain: 1.11,
-              modes: ['mixolydian', 'dorian'],
-              drums: 'o.s.X.s.o.s.X.s.',           // the train beat, brushes rather than sticks
-              arp: { v: 'pluck', pat: [0, 2, 4, 2, 0, 2, 4, 2], vol: 0.085, bass: true },
-              ost: { v: 'pizz', n: 4, pat: [0, 4, 0, 4], vol: 0.1 },
-              lead: { v: 'bow', lift: 7, vol: 0.09, bars: 4 },
-              harm: { v: 'pluck', deg: 2, vol: 0.06 } },
-            { id: 'halay', name: 'Halay Ateşi', battle: true, beats: 4, bpm: [158, 166], len: 24, gain: 0.98,
-              modes: ['phrygian', 'dorian'], drone: true,
-              drums: 'O.xxO.x.O.xxOxWR',
-              ost: { v: 'pluck', n: 8, pat: [0, 0, 4, 2, 0, 0, 4, 2], vol: 0.1 },
-              lead: { v: 'reed', lift: 7, vol: 0.09, bars: 4 },
-              harm: { v: 'reed', deg: 2, vol: 0.06 } },   // two zurnas a third apart, as they are played
-            // Karplus-Strong out in front reads as a wiry electric guitar, not a lute — and it
-            // is already the map's main voice, so hearing it lead here too is what "that
-            // metallic guitar is everywhere" meant. The kanun is the right Anatolian answer
-            // and it is `struck`, which is sweeter by construction: a plucked wire rings, a
-            // struck one is over (#98).
-            { id: 'kanun', name: 'Kanun Cengi', battle: true, beats: 3.5, bpm: [156, 164], len: 28, gain: 0.91,
-              modes: ['phrygian', 'dorian'],
-              drums: 'O.xO.x.',                    // 7/8 counted 3+2+2, the Anatolian limp
-              arp: { v: 'kanun', pat: [0, 2, 4, 2, 0, 4, 2], vol: 0.085, hold: 1.4 },
-              ost: { v: 'piano', n: 7, pat: [0, 0, 4, 4, 2, 2, 0], vol: 0.085 },
-              lead: { v: 'flute', lift: 7, vol: 0.1, bars: 4 },
-              harm: { v: 'voice', deg: 0, vol: 0.05 } },
-            { id: 'celik', name: 'Çelik Halay', battle: true, beats: 4.5, bpm: [158, 166], len: 28, gain: 0.86,
-              modes: ['phrygian', 'dorian'], drone: true,
-              drums: 'K.xK.xW.N',                  // 9/8 with a dance kick under it: the fusion, stated
-              ost: { v: 'sub', n: 9, pat: [0, 0, 0, 4, 4, 2, 2, 0, 0], vol: 0.09 },
-              arp: { v: 'kanun', pat: [0, 4, 2, 0, 4, 2, 0, 4, 2], vol: 0.07, hold: 1.2 },
-              lead: { v: 'reed', lift: 7, vol: 0.085, bars: 4 } },
-            { id: 'kilic', name: 'Kılıç Gölgesi', battle: true, beats: 4, bpm: [152, 160], len: 28, gain: 0.96,
-              modes: ['aeolian', 'dorian'], drone: true,
-              drums: 'O..W.xO..w.xO.WR',           // the fight itself, written into the grid
-              ost: { v: 'sub', n: 4, vol: 0.085 },
-              pad: { v: 'voice', deg: [0, 2, 7], lift: 7, vol: 0.06 },
-              lead: { v: 'section', lift: 7, vol: 0.095, bars: 3, hold: 1.15 },
-              harm: { v: 'flute', deg: 0, vol: 0.055 } }
+        // `f` is the file stem under `music/`, `t` the work's own title and `a` its author —
+        // proper names, so neither goes through T(); CC0 asks for no credit and the game
+        // gives it anyway, in the top bar and in `music/CREDITS.md`.
+        TRACKS: [
+            { f: 'map-exploration',       t: 'Medieval: Exploration',    a: 'randommind', s: 'map' },
+            { f: 'map-harvest',           t: 'Medieval: Harvest Season', a: 'randommind', s: 'map' },
+            { f: 'map-bards-tale',        t: "Medieval: The Bard's Tale", a: 'randommind', s: 'map' },
+            { f: 'map-market-day',        t: 'Medieval: Market Day',     a: 'randommind', s: 'map' },
+            { f: 'map-minstrel-dance',    t: 'Medieval: Minstrel Dance', a: 'randommind', s: 'map' },
+            { f: 'map-kings-feast',       t: "Medieval: King's Feast",   a: 'randommind', s: 'map' },
+            { f: 'map-tower-inn',         t: 'Medieval: The Old Tower Inn', a: 'randommind', s: 'map' },
+            { f: 'map-rejoicing',         t: 'Medieval: Rejoicing',      a: 'randommind', s: 'map' },
+            { f: 'map-theme',             t: 'Medieval Theme',           a: 'umplix',     s: 'map' },
+            { f: 'map-sailors-chant',     t: "A sailor's chant",         a: 'thimras',    s: 'map' },
+            { f: 'battle-medieval',       t: 'Medieval: Battle',         a: 'randommind', s: 'battle' },
+            { f: 'battle-pursuit',        t: 'Determined Pursuit',       a: 'emmama',     s: 'battle' },
+            { f: 'battle-knight-templar', t: 'Knight Templar',           a: 'iamoneabe',  s: 'battle' },
+            { f: 'sting-victory',         t: 'Medieval: Victory Theme',  a: 'randommind', s: 'sting' },
+            { f: 'sting-defeat',          t: 'Medieval: Defeat Theme',   a: 'randommind', s: 'sting' }
         ],
 
-        // One chord per bar, as scale degrees. No progression contains the seventh degree as
-        // a chord root, so there is never a leading tone pulling home: the chords lean
-        // instead of resolving, which is the modal sound and not the Renaissance-fair one.
-        PROGS: [[0, 0, 5, 6], [0, 6, 0, 4], [0, 3, 5, 0], [0, 4, 6, 5], [0, 5, 3, 4]],
-        // Two vowels, not one. Formant synthesis is the trick — the same sawtooth through one
-        // lowpass is a synth pad, through these three bandpasses it is a human vowel — but a
-        // *held* vowel is still a pad, because nothing in it moves. VOWEL is an open "ah" and
-        // VOWEL_O a rounder "oh"; a sung note travels from the second to the first, and that
-        // journey is most of what makes the ear hear a mouth instead of a filter (#98).
-        VOWEL: [800, 1150, 2900],
-        VOWEL_O: [520, 1000, 2500],
+        FADE_IN: 1.8,     // start and scene changes ease in rather than cut in (#95)
+        FADE_OUT: 0.35,   // long enough to kill the click, short enough not to feel like a wait
 
-        // ---- the score: no audio in here, which is the half worth testing ----
+        // One element, re-pointed. A fresh Audio per track leaks a decoder per skip and iOS
+        // caps how many it hands out; the listeners below are therefore bound exactly once.
+        el() {
+            if(this._el) return this._el;
+            let a = this._el = new Audio();
+            a.preload = 'none';
+            a.addEventListener('ended', () => this.next());
+            a.addEventListener('loadstart', () => this.busy(true));
+            a.addEventListener('waiting', () => this.busy(true));
+            a.addEventListener('playing', () => { this._fails = 0; this.busy(false); });
+            // A dropped connection mid-playlist should not end the soundtrack for the session,
+            // but retrying forever while offline is a request loop. Three tries, then quiet.
+            a.addEventListener('error', () => {
+                this.busy(false);
+                if(this._mode && ++this._fails <= 3) this._retry = setTimeout(() => this.next(), 2000);
+            });
+            // A browser starts no audio before a gesture. The first tap or key is where the
+            // music actually begins; until then the game is simply quiet.
+            let go = () => { if(this._mode && this._el && this._el.paused && !this._el.error) this.resume(); };
+            document.addEventListener('pointerdown', go);
+            document.addEventListener('keydown', go);
+            document.addEventListener('visibilitychange', () => { if(!document.hidden) go(); });
+            return a;
+        },
 
-        // A rhythm and a shape, each exactly one bar. The first version generated every note
-        // from an independent random walk, which is precisely why it noodled: nothing ever
-        // came back, so there was nothing to recognise. A piece now draws ONE rhythm and ONE
-        // contour and plays that motif over every chord of the progression — repetition is
-        // what turns a handful of notes into a tune (#96). The three groups fill a bar of
-        // four beats, of three, and of three and a half — a band draws from its own metre.
-        RHYTHMS: [
-            [1, 1, 2], [2, 1, 1], [1, 0.5, 0.5, 2], [1.5, 0.5, 2], [1, 1, 1, 1], [2, 2], [0.5, 0.5, 1, 2],
-            [1, 1, 1], [1.5, 1.5], [1, 0.5, 0.5, 1], [2, 1],
-            [1, 1, 1.5], [1.5, 1, 1], [1, 0.5, 1, 1], [2, 1.5],
-            [1, 1, 1, 1.5], [1.5, 1.5, 1.5], [2, 1, 1.5], [1, 0.5, 1, 2]
-        ],
-        // Steps of the mode, relative to the bar's chord root. They lean on the chord tones
-        // (0, 2, 4) so the melody sits on the harmony instead of arguing with it.
-        CONTOURS: [
-            [0, 2, 4, 2], [4, 2, 0, 2], [0, -1, 2, 4], [2, 4, 7, 4], [0, 4, 2, 0], [7, 4, 2, 0], [0, 2, 1, 4]
-        ],
+        // Random, but never the piece that just finished: with three fight tracks a plain roll
+        // repeats one time in three, and an immediate repeat is heard as "the music restarted".
+        pick(scene) {
+            let pool = this.TRACKS.filter(t => t.s === scene);
+            let ok = pool.filter(t => t !== (this._last || {})[scene]);
+            if(!ok.length) ok = pool;
+            let tr = ok[Math.floor(Math.random() * ok.length)];
+            (this._last || (this._last = {}))[scene] = tr;
+            return tr;
+        },
 
-        // One bar of melody as [{ deg, beats, at }], `at` in beats from the bar's start.
-        // `lift` raises the whole shape by scale degrees (7 = the octave, where the flute and
-        // the violins live). The progression's last bar plays the contour backwards: a repeat
-        // needs one variation or it turns into wallpaper.
-        //
-        // `v` is the phrase variation, cycled one four-bar phrase at a time (#98): the same
-        // notes on the same instrument in a different order, which is what "hep aynı melodi"
-        // asked for. Retrograde first, then the contour rotated onto its second half —
-        // rotation rather than inversion because a mirrored [7,4,2,0] climbs two octaves and
-        // leaves the register the band was written for. Checked against all seven contours:
-        // every one gives three shapes that differ from each other.
-        VARIATIONS: 3,
-        bar(p, lift, v) {
-            let i = p.bar % p.prog.length, m = p.motif;
-            let c = m.c;
-            if(v === 1) c = c.slice().reverse();
-            else if(v === 2) c = c.slice(2).concat(c.slice(0, 2));
-            if(i === p.prog.length - 1) c = c.slice().reverse();
-            let root = p.prog[i] + (lift || 0), at = 0;
-            return m.r.map((beats, j) => {
-                let n = { deg: root + c[j % c.length], beats, at };
-                at += beats;
-                return n;
+        play(tr) {
+            clearTimeout(this._retry);
+            let a = this.el();
+            this._now = tr;
+            a.volume = 0;
+            a.src = 'music/' + tr.f + '.mp3';
+            this.resume();
+            this.refresh();
+        },
+
+        resume() {
+            let a = this.el(), p = a.play();
+            if(p) p.then(() => this.ramp(this.gain(), this.FADE_IN)).catch(() => {});
+        },
+
+        // <audio>.volume takes no automation, so the ramp is a 40 ms interval — forty-five
+        // ticks for a fade, against the AudioContext it replaced.
+        ramp(to, secs, done) {
+            clearInterval(this._ramp); this._ramp = null;
+            let a = this._el;
+            if(!a) return done && done();
+            let from = a.volume, t0 = Date.now(), ms = Math.max(1, secs * 1000);
+            this._ramp = setInterval(() => {
+                let k = Math.min(1, (Date.now() - t0) / ms);
+                a.volume = Math.max(0, Math.min(1, from + (to - from) * k));
+                if(k < 1) return;
+                clearInterval(this._ramp); this._ramp = null;
+                if(done) done();
+            }, 40);
+        },
+
+        // 0.9 keeps the music just under the transaction SFX (0.12 peak) at the same setting:
+        // background, not foreground. The files are already levelled against each other.
+        gain() { return Math.min(1, 0.9 * Game.opt('volume')); },
+
+        stop() {
+            clearTimeout(this._retry);
+            this.ramp(0, this.FADE_OUT, () => {
+                // A `set` during the fade wins: by the time this runs the scene may be back.
+                if(this._mode) return;
+                let a = this._el;
+                if(a) { a.pause(); a.removeAttribute('src'); a.load(); }   // load() aborts the download too
+                this._now = null;
+                this.busy(false);
+                this.refresh();
             });
         },
 
-        // Degree -> Hz. Degrees outside 0..6 wrap into the octaves above and below.
-        hz(tonic, mode, deg) {
-            let s = this.modes[mode], oct = Math.floor(deg / s.length);
-            return 440 * Math.pow(2, (tonic + s[deg - oct * s.length] + 12 * oct - 69) / 12);
+        // One piece ends, the next begins — and a sting hands the speakers back to whatever
+        // the screen has become in the meantime.
+        next() {
+            this._sting = false;
+            if(this._mode) this.play(this.pick(this._mode)); else this.stop();
         },
 
-        // ---- synthesis ----
+        // 🎵 Sıradaki / N. A sting is interruptible the same way a piece is.
+        skip() { if(!this._mode) return; this._sting = false; this.play(this.pick(this._mode)); },
 
-        // Karplus-Strong: a burst of noise in a delay line one period long that loses its
-        // highs on every pass. It is the one trick that sounds like a plucked gut string
-        // instead of a beep, and it is pure arithmetic — no sample, no library. Built per
-        // note rather than cached: the adds are nothing next to holding PCM on a phone, and
-        // fresh noise means no two plucks are identical.
-        pluck(t, f, dur, vol, body) {
-            let ac = this.ac, sr = ac.sampleRate;
-            t = Math.max(0, t + (Math.random() - 0.5) * 0.012);   // a picking hand is not a sequencer,
-            // and a humanised note that lands before the clock's zero throws rather than plays
-            let len = Math.floor(sr * Math.min(3, dur + 1.2)), n = Math.max(2, Math.round(sr / f));
-            let buf = ac.createBuffer(1, len, sr), d = buf.getChannelData(0), ring = new Float32Array(n);
-            for(let i = 0; i < n; i++) ring[i] = Math.random() * 2 - 1;
-            // White noise is a plectrum on steel: every harmonic up to Nyquist enters at full
-            // strength and the first 50 ms are pure wire. Two smoothing passes over the ring
-            // roll the excitation off before it is ever plucked, which is what a fingertip on
-            // gut does — the string is the same, the finger is softer (#98).
-            for(let p = 0; p < 2; p++)
-                for(let i = 0; i < n; i++) ring[i] = (ring[i] + ring[(i + 1) % n]) * 0.5;
-            for(let i = 0, j = 0; i < len; i++, j = (j + 1) % n) {
-                d[i] = ring[j];
-                ring[j] = (ring[j] + ring[(j + 1) % n]) * 0.498;   // 0.996 per period: highs fade first, as on a real string
-            }
-            let src = ac.createBufferSource(), g = ac.createGain();
-            let lp = ac.createBiquadFilter(), bd = ac.createBiquadFilter();
-            src.buffer = buf;
-            // Raw Karplus-Strong is a psaltery: bright, wiry, and the reason the old map music
-            // did not sound acoustic. The lowpass is the wooden top; the peak at 190 Hz is the
-            // air inside the box, and that resonance is most of the difference between "a
-            // string" and "a guitar" (#96).
-            let bx = body || [2200, 190, 7];
-            lp.type = 'lowpass'; lp.frequency.value = bx[0]; lp.Q.value = 0.7;
-            bd.type = 'peaking'; bd.frequency.value = bx[1]; bd.Q.value = 1.1; bd.gain.value = bx[2];
-            g.gain.setValueAtTime(vol, t);
-            g.gain.setTargetAtTime(0.0001, t + dur * 0.85, 0.22);
-            src.connect(lp); lp.connect(bd); bd.connect(g); g.connect(this.bus);
-            src.start(t); src.stop(t + len / sr);
+        // Victory and defeat are the only two pieces that are not a playlist: `Battle.endBattle`
+        // plays one over whatever the screen becomes next, and `next()` restores the playlist.
+        // Every exit from a fight goes through that one call — real battle, arena, tournament
+        // round, honour duel.
+        sting(won) {
+            if(!this._mode) return;
+            this._sting = true;
+            this.play(this.TRACKS.find(t => t.f === (won ? 'sting-victory' : 'sting-defeat')));
         },
-
-        // The same string plucked instead of bowed. A violin's box is small and sits an octave
-        // above a guitar's, and a pizzicato note is over before a bowed one has arrived.
-        pizz(t, f, dur, vol) { this.pluck(t, f, Math.min(dur, 0.5), vol, [5200, 420, 5]); },
-
-        // A kanun is a small trapezoid box of thin strings plucked with two plectra: brighter
-        // than a lute's belly, far smaller than a guitar's, and the note is gone in a second.
-        // `struck` was tried here first and was worse than what it replaced — its 4.72 partial
-        // is a bell, and a bell arpeggiating under a flute is a glockenspiel (#98).
-        kanun(t, f, dur, vol) { this.pluck(t, f, Math.min(dur, 1.1), vol, [2600, 300, 6]); },
-
-        // White noise as a buffer source. Cheaper to write once than to inline three times.
-        noise(dur) {
-            let ac = this.ac, sr = ac.sampleRate, len = Math.max(1, Math.floor(sr * dur));
-            let b = ac.createBuffer(1, len, sr), d = b.getChannelData(0);
-            for(let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-            let src = ac.createBufferSource(); src.buffer = b; return src;
-        },
-
-        // Flute: almost a pure sine with a soft octave above it — and a breath of filtered
-        // noise riding the same envelope, which is the only thing standing between a sine
-        // and a test tone.
-        flute(t, f, dur, vol) {
-            let ac = this.ac, g = ac.createGain();
-            let vib = ac.createOscillator(), va = ac.createGain();
-            vib.type = 'sine'; vib.frequency.value = 4.8; va.gain.value = f * 0.007;
-            vib.connect(va);
-            [[1, 1], [2, 0.16]].forEach(([m, lvl]) => {
-                let o = ac.createOscillator(), og = ac.createGain();
-                o.type = 'sine'; o.frequency.value = f * m; og.gain.value = lvl;
-                va.connect(o.frequency);
-                o.connect(og); og.connect(g);
-                o.start(t); o.stop(t + dur + 0.08);
-            });
-            let nb = this.noise(dur + 0.1), bp = ac.createBiquadFilter(), ng = ac.createGain();
-            bp.type = 'bandpass'; bp.frequency.value = f * 2; bp.Q.value = 0.8; ng.gain.value = 0.05;
-            nb.connect(bp); bp.connect(ng); ng.connect(g);
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.linearRampToValueAtTime(vol, t + 0.07);          // a player's tongue, not a bow
-            g.gain.setValueAtTime(vol, t + dur * 0.75);
-            g.gain.linearRampToValueAtTime(0.0001, t + dur);
-            g.connect(this.bus);
-            vib.start(t); vib.stop(t + dur + 0.08); nb.start(t); nb.stop(t + dur + 0.08);
-        },
-
-        // Voices singing a vowel. See VOWEL above for why the filters are the point — and why
-        // there are two vowels. Four things separate this from the pad it used to be, and all
-        // four are things a singer does rather than things a synth does: the vowel opens over
-        // the note, the vibrato arrives *after* the onset (nobody shakes a note they have only
-        // just started), there is a breath at the front, and the sawtooth is rolled off before
-        // it reaches the formants, because a glottal pulse is nothing like as bright as a saw.
-        voice(t, f, dur, vol) {
-            let ac = this.ac, o = ac.createOscillator(), g = ac.createGain();
-            let vib = ac.createOscillator(), va = ac.createGain(), src = ac.createBiquadFilter();
-            o.type = 'sawtooth'; o.frequency.value = f;
-            src.type = 'lowpass'; src.frequency.value = 2400; src.Q.value = 0.4;
-            o.connect(src);
-            vib.type = 'sine'; vib.frequency.value = 5.2;
-            va.gain.setValueAtTime(0.0001, t);
-            va.gain.linearRampToValueAtTime(f * 0.011, t + Math.min(dur * 0.55, 0.5));
-            vib.connect(va); va.connect(o.frequency);
-            let move = Math.min(dur * 0.45, 0.4);
-            this.VOWEL.forEach((fq, i) => {
-                let bp = ac.createBiquadFilter(), fg = ac.createGain();
-                bp.type = 'bandpass'; bp.Q.value = 6 + i * 3;
-                bp.frequency.setValueAtTime(this.VOWEL_O[i], t);
-                bp.frequency.exponentialRampToValueAtTime(fq, t + move);
-                fg.gain.value = [1, 0.5, 0.22][i];
-                src.connect(bp); bp.connect(fg); fg.connect(g);
-            });
-            // The breath: through the same mouth, so it runs into the formants rather than
-            // straight to the bus. Without it every entry starts out of nowhere.
-            let br = this.noise(0.07), bh = ac.createBiquadFilter(), bg = ac.createGain();
-            bh.type = 'highpass'; bh.frequency.value = 1800;
-            // Scaled down on long notes: a singer takes one breath and then holds, so a
-            // bar-long pad chord getting the same burst per tone every bar is a hiss (#98).
-            bg.gain.setValueAtTime(vol * 0.5 * Math.min(1, 0.6 / dur), t);
-            bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
-            br.connect(bh); bh.connect(bg); bg.connect(g);
-            br.start(t); br.stop(t + 0.08);
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.linearRampToValueAtTime(vol, t + dur * 0.3);     // a choir does not start suddenly
-            g.gain.setValueAtTime(vol, t + dur * 0.65);
-            g.gain.linearRampToValueAtTime(0.0001, t + dur);
-            g.connect(this.bus);
-            o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
-        },
-
-        // A string section is detuned unison plus the octave below — one bow is a soloist,
-        // three are an orchestra. Lite mode drops to a single voice: this is the only part
-        // of the score whose cost scales with how many notes are playing at once.
-        section(t, f, dur, vol) {
-            let v = Game.lite() ? [1] : [1, 1.005, 0.995, 0.5];
-            v.forEach(m => this.bow(t, f * m, dur, vol * (m === 0.5 ? 0.8 : 0.62)));
-        },
-
-        // One violin: a sawtooth under a resonant lowpass. Two things stop it being a buzzer.
-        // The filter opens for 60 ms at the start of every stroke — that is rosin catching the
-        // string, and it is what the ear hears as a bow. And the vibrato fades IN, because no
-        // player shakes a note they have only just started (#96).
-        bow(t, f, dur, vol) {
-            let ac = this.ac, o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
-            let vib = ac.createOscillator(), va = ac.createGain();
-            t = Math.max(0, t + (Math.random() - 0.5) * 0.014);   // no section plays perfectly together
-            o.type = 'sawtooth'; o.frequency.value = f;
-            vib.type = 'sine'; vib.frequency.value = 5 + Math.random() * 0.8;
-            va.gain.setValueAtTime(0.0001, t);
-            va.gain.linearRampToValueAtTime(f * 0.008, t + Math.min(0.45, dur * 0.6));
-            vib.connect(va); va.connect(o.frequency);
-            lp.type = 'lowpass'; lp.Q.value = 2.2;
-            lp.frequency.setValueAtTime(Math.min(f * 8, 14000), t);
-            lp.frequency.exponentialRampToValueAtTime(Math.min(f * 4, 9000), t + 0.06);
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.linearRampToValueAtTime(vol, t + 0.045);
-            g.gain.setValueAtTime(vol, t + dur * 0.75);
-            g.gain.linearRampToValueAtTime(0.0001, t + dur);
-            o.connect(lp); lp.connect(g); g.connect(this.bus);
-            o.start(t); vib.start(t);
-            o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
-        },
-
-        // Frame drum. The noise burst alone is a click; the skin's pitch falling from 150 to
-        // 52 Hz underneath it is what makes the low stroke read as a drum.
-        drum(t, low, vol) {
-            let ac = this.ac, sr = ac.sampleRate, len = Math.floor(sr * 0.16);
-            let buf = ac.createBuffer(1, len, sr), d = buf.getChannelData(0);
-            for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, low ? 3 : 7);
-            let src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
-            src.buffer = buf;
-            bp.type = 'bandpass'; bp.frequency.value = low ? 190 : 2200; bp.Q.value = low ? 1.1 : 0.7;
-            g.gain.value = vol;
-            src.connect(bp); bp.connect(g); g.connect(this.bus);
-            src.start(t);
-            if(low) {
-                let o = ac.createOscillator(), og = ac.createGain();
-                o.frequency.setValueAtTime(150, t);
-                o.frequency.exponentialRampToValueAtTime(52, t + 0.13);
-                og.gain.setValueAtTime(vol, t);
-                og.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-                o.connect(og); og.connect(this.bus); o.start(t); o.stop(t + 0.18);
-            }
-        },
-
-        // Struck wire and metal: hammered dulcimer, harp, bell. The partials are deliberately
-        // NOT whole multiples — a stretched series is what the ear hears as something hit
-        // rather than something blown, and the high ones have to die first. `parts` swaps the
-        // series, which is the whole difference between a dulcimer and a piano.
-        struck(t, f, dur, vol, parts) {
-            let ac = this.ac, g = ac.createGain();
-            (parts || [[1, 1], [2.01, 0.4], [3.03, 0.17], [4.72, 0.07]]).forEach(([m, lvl]) => {
-                let o = ac.createOscillator(), og = ac.createGain();
-                o.type = 'sine'; o.frequency.value = f * m;
-                og.gain.setValueAtTime(lvl * vol, t);
-                og.gain.exponentialRampToValueAtTime(0.0001, t + dur * (0.3 + 0.7 / m));
-                o.connect(og); og.connect(g);
-                o.start(t); o.stop(t + dur + 0.05);
-            });
-            g.connect(this.bus);
-        },
-
-        // A piano is a struck string that is *nearly* harmonic — the stretch is a fraction of a
-        // percent, not the dulcimer's two — plus the hammer itself, which is the felt thump the
-        // ear uses to tell a piano from a bell. Same oscillator bank, two different numbers.
-        piano(t, f, dur, vol) {
-            this.struck(t, f, dur, vol, [[1, 1], [2.002, 0.42], [3.008, 0.2], [4.02, 0.09], [5.04, 0.04]]);
-            let ac = this.ac, src = this.noise(0.03), lp = ac.createBiquadFilter(), g = ac.createGain();
-            lp.type = 'lowpass'; lp.frequency.value = Math.min(f * 6, 5000);
-            g.gain.setValueAtTime(vol * 0.22, t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
-            src.connect(lp); lp.connect(g); g.connect(this.bus);
-            src.start(t); src.stop(t + 0.04);
-        },
-
-        // The one voice in here that is not pretending to be wood or gut: two saws a few cents
-        // apart through a resonant lowpass that falls over the note. The detune is the width and
-        // the falling filter is the movement — an analogue synth is those two things.
-        synth(t, f, dur, vol) {
-            let ac = this.ac, lp = ac.createBiquadFilter(), g = ac.createGain();
-            // Q 6 is a filter singing at its cutoff, which is the exact sound of cheap plastic
-            // preset; 2.5 still sweeps audibly but stops whistling. The ceiling comes down with
-            // it — above 4.5 kHz a detuned saw pair is fizz, not brightness (#98).
-            lp.type = 'lowpass'; lp.Q.value = 2.5;
-            lp.frequency.setValueAtTime(Math.min(f * 6, 4500), t);
-            lp.frequency.exponentialRampToValueAtTime(Math.max(f * 1.4, 110), t + Math.min(dur, 1.5));
-            [-7, 7].forEach(cents => {
-                let o = ac.createOscillator();
-                o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = cents;
-                o.connect(lp); o.start(t); o.stop(t + dur + 0.08);
-            });
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(vol * 0.5, t + 0.02);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-            lp.connect(g); g.connect(this.bus);
-        },
-
-        // Brass. A horn is a sawtooth whose filter snaps open on the attack and settles back:
-        // that rising brightness is the whole signature, and without it a saw is just a saw.
-        horn(t, f, dur, vol) {
-            let ac = this.ac, o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
-            o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 0.992, t);
-            o.frequency.linearRampToValueAtTime(f, t + 0.05);        // the lip finding the note
-            lp.type = 'lowpass'; lp.Q.value = 1.4;
-            lp.frequency.setValueAtTime(Math.min(f * 1.5, 9000), t);
-            lp.frequency.linearRampToValueAtTime(Math.min(f * 7, 12000), t + 0.09);
-            lp.frequency.linearRampToValueAtTime(Math.min(f * 3.2, 10000), t + dur);
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.linearRampToValueAtTime(vol, t + 0.05);
-            g.gain.setValueAtTime(vol, t + dur * 0.8);
-            g.gain.linearRampToValueAtTime(0.0001, t + dur);
-            o.connect(lp); lp.connect(g); g.connect(this.bus);
-            o.start(t); o.stop(t + dur + 0.05);
-        },
-
-        // Double reed — zurna outdoors, duduk indoors. A square wave is the reed's buzz; the
-        // narrow bandpass a fifth and a bit above is the bore that turns buzz into a voice.
-        reed(t, f, dur, vol) {
-            let ac = this.ac, o = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain();
-            let vib = ac.createOscillator(), va = ac.createGain();
-            o.type = 'square'; o.frequency.value = f;
-            vib.type = 'sine'; vib.frequency.value = 5.5;
-            va.gain.setValueAtTime(0.0001, t);
-            va.gain.linearRampToValueAtTime(f * 0.01, t + Math.min(0.4, dur * 0.7));
-            vib.connect(va); va.connect(o.frequency);
-            bp.type = 'bandpass'; bp.frequency.value = Math.min(f * 3, 4200); bp.Q.value = 3.2;
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.linearRampToValueAtTime(vol, t + 0.035);
-            g.gain.setValueAtTime(vol, t + dur * 0.85);
-            g.gain.linearRampToValueAtTime(0.0001, t + dur);
-            o.connect(bp); bp.connect(g); g.connect(this.bus);
-            o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
-        },
-
-        // Shaker, tambourine: filtered noise with a tail. Everything that isn't a skin.
-        shake(t, dur, f, vol) {
-            let ac = this.ac, src = this.noise(dur), bp = ac.createBiquadFilter(), g = ac.createGain();
-            bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 0.9;
-            g.gain.setValueAtTime(vol, t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-            src.connect(bp); bp.connect(g); g.connect(this.bus);
-            src.start(t); src.stop(t + dur + 0.02);
-        },
-
-        // ---- the electric half (#98) ----
-        // Ten battle bands in one idiom is one band; the ask was synthwave, rock, pop,
-        // country, darksynth, folk and disco, and none of those are playable on a palette of
-        // lutes and horns. What follows is the smallest set of voices that makes them
-        // possible — a dance kit, a bass, a guitar, and the sound of the fight itself.
-
-        // The acoustic drum() is a taiko: bandpassed noise around 190 Hz. A dance kick is the
-        // opposite — barely any noise, a sine dropping fast, and a click on top, because a
-        // phone speaker cannot reproduce the fundamental at all and the click is what is left.
-        kick(t, vol) {
-            let ac = this.ac, o = ac.createOscillator(), g = ac.createGain();
-            o.frequency.setValueAtTime(155, t);
-            o.frequency.exponentialRampToValueAtTime(41, t + 0.09);
-            g.gain.setValueAtTime(vol, t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-            o.connect(g); g.connect(this.bus); o.start(t); o.stop(t + 0.3);
-            let src = this.noise(0.012), hp = ac.createBiquadFilter(), cg = ac.createGain();
-            hp.type = 'highpass'; hp.frequency.value = 1400;
-            cg.gain.setValueAtTime(vol * 0.5, t);
-            cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.012);
-            src.connect(hp); hp.connect(cg); cg.connect(this.bus);
-            src.start(t); src.stop(t + 0.02);
-        },
-
-        // The backbeat, and it is two things at once: a band of noise for the wires under the
-        // head and a short tuned thud for the head itself. Noise alone is a hiss, the tone
-        // alone is a tom.
-        snare(t, vol) {
-            let ac = this.ac, src = this.noise(0.2), hp = ac.createBiquadFilter(), g = ac.createGain();
-            hp.type = 'highpass'; hp.frequency.value = 1100;
-            g.gain.setValueAtTime(vol, t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-            src.connect(hp); hp.connect(g); g.connect(this.bus);
-            src.start(t); src.stop(t + 0.22);
-            [188, 331].forEach((f, i) => {
-                let o = ac.createOscillator(), og = ac.createGain();
-                o.type = 'triangle'; o.frequency.value = f;
-                og.gain.setValueAtTime(vol * (i ? 0.3 : 0.5), t);
-                og.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
-                o.connect(og); og.connect(this.bus); o.start(t); o.stop(t + 0.1);
-            });
-        },
-
-        // Not one clap but a room of them: three bursts a few milliseconds apart and a longer
-        // tail. The scatter is the entire effect — a single burst is a snare with the tone
-        // missing, which is why a drum machine without it never sounded like a disco.
-        clap(t, vol) {
-            let ac = this.ac;
-            [0, 0.009, 0.019, 0.03].forEach((dt, i) => {
-                let tail = i === 3, dur = tail ? 0.18 : 0.02;
-                let src = this.noise(dur), bp = ac.createBiquadFilter(), g = ac.createGain();
-                bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 0.8;
-                g.gain.setValueAtTime(vol * (tail ? 0.55 : 1), t + dt);
-                g.gain.exponentialRampToValueAtTime(0.0001, t + dt + dur);
-                src.connect(bp); bp.connect(g); g.connect(this.bus);
-                src.start(t + dt); src.stop(t + dt + dur + 0.02);
-            });
-        },
-
-        // Steel meeting steel, behind the band and never in front of it. The first version led
-        // with tuned partials around 600 Hz and came back as **a cowbell** — which is fair,
-        // because two inharmonic tones down there *is* how a cowbell is made. A blade is the
-        // other way round: almost all of it is a very bright, very short noise transient, and
-        // the ring on top is thin, high and quiet. Partials close enough together to beat
-        // against each other, rolled per hit so a row of clashes is a fight, not a machine.
-        clang(t, vol) {
-            let ac = this.ac, src = this.noise(0.09), hp = ac.createBiquadFilter(), g = ac.createGain();
-            hp.type = 'highpass'; hp.frequency.value = 3600;
-            g.gain.setValueAtTime(vol * 1.6, t);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
-            src.connect(hp); hp.connect(g); g.connect(this.bus);
-            src.start(t); src.stop(t + 0.1);
-            this.struck(t + 0.004, 2400 + Math.random() * 900, 0.5, vol * 0.22,
-                        [[1, 1], [1.41, 0.8], [1.93, 0.55], [2.37, 0.35]]);
-        },
-
-        // A blade going past: one narrow band of noise sweeping up and back down. Nothing
-        // else is needed — a moving resonance is how the ear recognises something passing it.
-        whoosh(t, vol) {
-            let ac = this.ac, src = this.noise(0.26), bp = ac.createBiquadFilter(), g = ac.createGain();
-            bp.type = 'bandpass'; bp.Q.value = 3.5;
-            bp.frequency.setValueAtTime(500, t);
-            bp.frequency.exponentialRampToValueAtTime(2600, t + 0.11);
-            bp.frequency.exponentialRampToValueAtTime(420, t + 0.26);
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(vol, t + 0.1);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
-            src.connect(bp); bp.connect(g); g.connect(this.bus);
-            src.start(t); src.stop(t + 0.28);
-        },
-
-        // A line of men shouting, far enough off to be texture. Noise through two vowel
-        // formants with a slow swell: close up it would be comic, at this level and this
-        // distance it is a crowd, and it is mixed to sit under everything.
-        roar(t, vol) {
-            let ac = this.ac, src = this.noise(0.9), g = ac.createGain();
-            [700, 1150].forEach(f => {
-                let bp = ac.createBiquadFilter();
-                bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = 5;
-                src.connect(bp); bp.connect(g);
-            });
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(vol, t + 0.3);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
-            g.connect(this.bus); src.start(t); src.stop(t + 0.92);
-        },
-
-        // Synth bass. `synth()` sweeps its filter over the best part of a second, which is a
-        // pad's gesture; a bass has to be gone before the next eighth arrives, so the envelope
-        // is the difference between them, not the waveform. A sine doubles the saw because
-        // nothing the player owns reproduces 55 Hz — the sine at least leaves a harmonic to fold.
-        sub(t, f, dur, vol) {
-            let ac = this.ac, lp = ac.createBiquadFilter(), g = ac.createGain();
-            lp.type = 'lowpass'; lp.Q.value = 4;
-            lp.frequency.setValueAtTime(Math.min(f * 14, 2600), t);
-            lp.frequency.exponentialRampToValueAtTime(Math.max(f * 2, 90), t + Math.min(dur, 0.3));
-            let saw = ac.createOscillator(), sg = ac.createGain();
-            saw.type = 'sawtooth'; saw.frequency.value = f;
-            sg.gain.value = 0.5; saw.connect(sg); sg.connect(lp);
-            let sin = ac.createOscillator();
-            sin.type = 'sine'; sin.frequency.value = f; sin.connect(lp);
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
-            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-            lp.connect(g); g.connect(this.bus);
-            [saw, sin].forEach(o => { o.start(t); o.stop(t + dur + 0.05); });
-        },
-
-        // Electric guitar: two detuned saws folded through a waveshaper, then a cabinet — a
-        // lowpass near 3 kHz, which is the speaker rather than the amp. Distortion without
-        // that filter is a fizz; the cab is the whole difference between fuzz and a guitar.
-        // The curve is built once and kept: it is the same 1024 numbers for every note.
-        dist(t, f, dur, vol) {
-            let ac = this.ac, ws = ac.createWaveShaper(), cab = ac.createBiquadFilter();
-            let body = ac.createBiquadFilter(), pre = ac.createGain(), g = ac.createGain();
-            if(!this._curve) {
-                let n = 1024, c = new Float32Array(n);
-                // Drive 3.5, not 5: past tanh's knee the odd harmonics stop growing and only the
-                // fizz does. A real amp is driven until it sings, not until it buzzes (#98).
-                for(let i = 0; i < n; i++) c[i] = Math.tanh((i / (n - 1) * 2 - 1) * 3.5);
-                this._curve = c;
-            }
-            ws.curve = this._curve; ws.oversample = '2x';
-            cab.type = 'lowpass'; cab.frequency.value = 2400; cab.Q.value = 0.8;
-            // The cabinet is a wooden box as well as a speaker, and the bump at 220 Hz is the
-            // box. Without it the lowpass alone reads as a muffled buzzer.
-            body.type = 'peaking'; body.frequency.value = 220; body.Q.value = 1.2; body.gain.value = 4;
-            pre.gain.value = 0.45;
-            [-6, 6].forEach(cents => {
-                let o = ac.createOscillator();
-                o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = cents;
-                o.connect(pre); o.start(t); o.stop(t + dur + 0.05);
-            });
-            // Held, then released: a guitar note does not decay like a struck one, and the
-            // sustain is clamped off zero so a stab cannot put two events out of order.
-            g.gain.setValueAtTime(0.0001, t);
-            g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
-            g.gain.setValueAtTime(vol, t + Math.max(dur * 0.7, 0.02));
-            g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(dur, 0.05));
-            pre.connect(ws); ws.connect(cab); cab.connect(body); body.connect(g); g.connect(this.bus);
-        },
-
-        // The percussion alphabet a band's `drums` string is written in: loud and soft skin,
-        // rim, shaker, tambourine. One table beats a switch, and a band reads as a rhythm you
-        // can see at a glance. An anvil lived here too and was struck from the roster: a
-        // metallic hit in the middle of a battle is a scrape, not a weapon (#97).
-        HITS: {
-            O: ['drum', true, 0.38], o: ['drum', true, 0.2], X: ['drum', false, 0.26],
-            x: ['drum', false, 0.15], s: ['shake', 0.05, 6200, 0.05], S: ['shake', 0.09, 5200, 0.09],
-            t: ['shake', 0.3, 3800, 0.06], H: ['shake', 0.26, 7600, 0.045],
-            // The dance kit and the fight (#98). `s`/`H` double as closed and open hi-hat —
-            // a bandpass at 6–8 kHz already is one, so no new voice was written for it.
-            K: ['kick', 0.6], k: ['kick', 0.34], N: ['snare', 0.3], n: ['snare', 0.13],
-            c: ['clap', 0.22], W: ['clang', 0.13], w: ['whoosh', 0.1], R: ['roar', 0.11]
-        },
-        // Placing the parts (#98). Only the reverb was ever stereo — every dry voice connects to
-        // `this.bus` and so landed dead centre, which is a mono record with a wide tail on it.
-        // A part is positioned by pointing the bus at a panner for the length of the call:
-        // cheaper than threading a destination argument through fourteen voices, and the
-        // panners hang off the real bus, so `retire()` still silences the lot in one fade.
-        // Drums and the lead stay centre — that is where an ear expects the beat and the tune;
-        // everything else opens up around them.
-        PANS: {
-            arp: -0.4, ost: 0.22, harm: 0.45, pad: [-0.55, 0.55, 0], drone: [-0.5, 0.5],
-            // The kit: kick and snare are the centre of the record, the hands and the metal
-            // are what a room hears from the sides.
-            hit: { s: 0.35, S: 0.35, t: -0.3, H: -0.4, c: 0.3, W: -0.5, w: 0.5, R: 0, x: 0.25, X: 0.25 }
-        },
-
-        // Cached per bus, because the bus is rebuilt with every piece and a node may not be
-        // connected across two AudioContexts.
-        part(pan, fn) {
-            let real = this.bus;
-            if(pan) {
-                let c = this._pans;
-                if(!c || c.bus !== real) c = this._pans = { bus: real, m: {} };
-                if(!c.m[pan]) { let n = this.ac.createStereoPanner(); n.pan.value = pan; n.connect(real); c.m[pan] = n; }
-                this.bus = c.m[pan];
-            }
-            fn();
-            this.bus = real;
-        },
-
-        hit(c, t) { let h = this.HITS[c]; if(h) this.part(this.PANS.hit[c] || 0, () => this[h[0]](t, ...h.slice(1))); },
-        // The drone carries the harmony the period actually used: a held tonic and its fifth
-        // (organum), not a chord progression. Retuned rather than restarted, so a new piece
-        // slides into place instead of cutting.
-        setDrone(f, bright) {
-            let ac = this.ac;
-            if(!this._dr) this._dr = [0, 1].map(i => {   // rebuilt with the bus: retire() stops the old pair
-                let o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
-                o.type = 'sawtooth'; lp.type = 'lowpass'; lp.Q.value = 0.6; g.gain.value = 0;
-                o.connect(lp); lp.connect(g); o.start();
-                this.part(this.PANS.drone[i], () => g.connect(this.bus));
-                return { o, lp, g };
-            });
-            this._dr.forEach((v, i) => {
-                // 1.4983, not 1.5: a fifth a shade narrow beats slowly, like two real strings
-                let vf = f * (i ? 1.4983 : 1);
-                v.o.frequency.setTargetAtTime(vf, ac.currentTime, 0.8);
-                v.lp.frequency.setTargetAtTime(vf * (bright ? 4 : 2.2), ac.currentTime, 0.8);
-                v.g.gain.setTargetAtTime(bright ? 0.05 : 0.035, ac.currentTime, 1.2);
-            });
-        },
-
-        // A generated impulse response: exponentially decaying noise. Ten lines, and the
-        // difference between a stone hall and a ringtone.
-        verb() {
-            let ac = this.ac, sr = ac.sampleRate, len = Math.floor(sr * 2.2);
-            let b = ac.createBuffer(2, len, sr);
-            for(let c = 0; c < 2; c++) {
-                let d = b.getChannelData(c);
-                for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
-            }
-            let cv = ac.createConvolver(); cv.buffer = b;
-            return cv;
-        },
-
-        // ---- transport ----
-
-        // Web Audio's clock is the only accurate one but cannot fire callbacks, so notes go in
-        // ahead of time and a plain timer tops the queue up — the standard two-clock
-        // arrangement, which makes setTimeout's drift harmless.
-        LOOKAHEAD: 0.6,
-
-        // Rolls a fresh piece: band, mode, key, tempo, chords, motif. The band comes first —
-        // it decides the metre, which decides which rhythms are even legal.
-        newPiece(battle) {
-            let c = battle ? this.BATTLE : this.MAP, r = Math.random;
-            let any = a => a[Math.floor(r() * a.length)];
-            // Never the band that just finished: with ten to choose from a repeat is one roll
-            // in ten, and back-to-back is exactly what the 🎵 Sıradaki button is pressed to
-            // escape. `_last` rather than `this.piece.band`, because a skip goes through
-            // retire() — which has already thrown the piece away by the time this runs.
-            let pool = this.BANDS.filter(x => !!x.battle === battle && x !== this._last);
-            let b = this._last = any(pool.length ? pool : this.BANDS.filter(x => !!x.battle === battle));
-            let sum = a => a.reduce((x, y) => x + y, 0);
-            this.piece = {
-                battle, band: b, left: b.len, bar: 0,
-                mode: any(b.modes || c.modes),
-                tonic: c.tonic[0] + Math.floor(r() * (c.tonic[1] - c.tonic[0] + 1)),
-                bpm: b.bpm[0] + r() * (b.bpm[1] - b.bpm[0]),
-                prog: any(this.PROGS),
-                motif: { r: any(this.RHYTHMS.filter(x => sum(x) === b.beats)), c: any(this.CONTOURS) }
-            };
-            // Everything below needs a live graph; above this line the roll is pure data,
-            // which is what lets the no-repeat rule be tested without an AudioContext.
-            if(this.bus) {
-                // Each band carries its own level, so a piece change is also a level change:
-                // assigning it stepped the volume mid-stream. Glided instead (#95) — the same
-                // bus plays on, so there is no gap to hide the step behind.
-                let t = this.ac.currentTime;
-                this.bus.gain.cancelScheduledValues(t);
-                this.bus.gain.setValueAtTime(this.bus.gain.value, t);
-                this.bus.gain.linearRampToValueAtTime(b.gain, t + 1.2);
-                // A drone only suits a band whose harmony sits still. Under a guitar working
-                // through a VI or a VII it is mud, so most of the map bands do without.
-                if(b.drone) this.setDrone(this.hz(this.piece.tonic, this.piece.mode, 0) / 2, battle);
-                else if(this._dr) this._dr.forEach(v => v.g.gain.setTargetAtTime(0, this.ac.currentTime, 0.5));
-            }
-            let el = document.getElementById('music-now');   // ⚙️ Ayarlar, if it happens to be open
-            if(el) el.innerHTML = this.nowPlaying();
-        },
-
-        // What the settings screen shows. The piece changes every minute or so, so newPiece
-        // writes straight into the row when the panel is open rather than leaving it stale.
-        nowPlaying() {
-            let p = this.piece;
-            if(!p || !this._mode) return T('🎶 Müzik kapalı');
-            let mode = p.mode[0].toUpperCase() + p.mode.slice(1);
-            return T`🎶 Çalan: <b>${T(p.band.name)}</b> · ${mode}`;
-        },
-
-        // One bar of whatever the band declares. Twenty arrangements and one renderer: the
-        // variety belongs in the BANDS table, where it can be read, not in twenty near-copies
-        // of the same forty lines (#97).
-        emit(spb) {
-            let p = this.piece, b = p.band, t = this._at, bar = b.beats * spb;
-            let root = p.prog[p.bar % p.prog.length], last = p.bar % p.prog.length === p.prog.length - 1;
-            let f = d => this.hz(p.tonic, p.mode, d);
-            if(b.drums) {
-                // A `drums` array is a set of stages the piece walks through, one after another
-                // over its `len` bars: the same grid, filling in. That is a build-up, and it is
-                // the one way percussion is allowed to be interesting on a calm map.
-                let g = Array.isArray(b.drums)
-                    ? b.drums[Math.min(b.drums.length - 1, Math.floor(p.bar / b.len * b.drums.length))]
-                    : b.drums;
-                let n = g.length, st = bar / n;
-                for(let i = 0; i < n; i++) this.hit(g[i], t + i * st);
-                // A fill over the last half of the closing bar: the one place the drums stop
-                // being a pulse and say something, and it lands where the melody turns around.
-                if(last) [0, 1, 2, 3].forEach(i => this.drum(t + bar - 4 * st + i * st, i === 3, 0.22 + i * 0.06));
-            }
-            if(b.arp) this.part(this.PANS.arp, () => {
-                let n = b.arp.pat.length, st = bar / n;
-                b.arp.pat.forEach((d, i) => {
-                    // Thumb on the root at the halves, fingers on the chord tones between —
-                    // how a picking hand actually moves, rather than a run up the scale.
-                    let bass = b.arp.bass && i % (n / 2) === 0;
-                    this[b.arp.v](t + i * st, f(bass ? root - 7 + (i ? 4 : 0) : root + d),
-                                  st * (b.arp.hold || 2.6), b.arp.vol * (bass ? 2 : 1));
-                });
-            });
-            if(b.ost) this.part(this.PANS.ost, () => {
-                let st = bar / b.ost.n, p2 = b.ost.pat;
-                // With a `pat` the engine room becomes a bass *line*; without one it pedals on
-                // the root, which is what anything epic wants underneath it.
-                for(let i = 0; i < b.ost.n; i++)
-                    this[b.ost.v](t + i * st, f(root + (p2 ? p2[i % p2.length] : 0)) / 2, st * 0.75, b.ost.vol);
-            });
-            // A chord's tones go to different places, which is the one thing that makes a pad
-            // sound like players rather than a preset.
-            if(b.pad) b.pad.deg.forEach((d, i) => this.part(this.PANS.pad[i] || 0, () =>
-                this[b.pad.v](t, f(root + (b.pad.lift || 0) + d), bar * 0.95, b.pad.vol * [1, 0.72, 0.55][i])));
-            // The lead breathes: `bars` of melody in every four, the rest off. Always playing
-            // is exhausting to listen to, and a chill screen is where that shows.
-            // Each four-bar phrase plays the motif a different way round. One melody for two
-            // minutes is what "hep aynı melodi" means; three orderings of it is still one tune.
-            let ld = b.lead;
-            if(ld && p.bar % 4 < ld.bars) this.bar(p, ld.lift, Math.floor(p.bar / 4) % this.VARIATIONS).forEach(n => {
-                let dur = n.beats * spb * (ld.hold || 0.92);
-                let d = ld.stab ? Math.min(dur, spb * 0.45) : dur;
-                this[ld.v](t + n.at * spb, f(n.deg), d, ld.vol);
-                if(b.harm) this.part(this.PANS.harm, () => this[b.harm.v](t + n.at * spb, f(n.deg + b.harm.deg), d, b.harm.vol));
-            });
-            p.bar++;
-            this._at = t + bar;
-        },
-
-        tick() {
-            if(!this.ac || !this.piece) return;
-            let now = this.ac.currentTime, spb = 60 / this.piece.bpm;
-            // A backgrounded tab throttles timers; the queue is rebased rather than firing a
-            // burst of notes whose start times are already in the past.
-            if(this._at < now) this._at = now + 0.1;
-            while(this._at < now + this.LOOKAHEAD) {
-                this.emit(spb);
-                if(--this.piece.left <= 0) { this.newPiece(this.piece.battle); spb = 60 / this.piece.bpm; }
-            }
-            this._timer = setTimeout(() => this.tick(), 150);
-        },
-
-        // A whole phrase is queued at once, so when the battle starts there can still be ten
-        // seconds of lute in the pipeline — and Web Audio has no "cancel what I scheduled".
-        // Every note of a piece therefore hangs off one bus gain: retiring the bus silences
-        // the lot. The 0.25s fade is not politeness, it is the crossfade into the drums.
-        retire() {
-            let t = this.ac.currentTime;
-            if(this._dr) this._dr.forEach(v => { v.g.gain.setTargetAtTime(0, t, 0.12); v.o.stop(t + 0.6); });
-            this._dr = null;
-            let old = this.bus;
-            this.bus = null; this.piece = null; this._pans = null;
-            if(!old) return;
-            old.gain.setTargetAtTime(0, t, 0.08);
-            setTimeout(() => old.disconnect(), 1500);   // long after the fade: an early disconnect clicks
-        },
-
-        // Coming back from another app, iOS leaves the context suspended and throttles the
-        // timer chain to a stop. Resuming off a visibilitychange is not enough on its own —
-        // the music only really came back after toggling 🔇, because a tap is a gesture and a
-        // gesture is what the browser actually wants (#96). So the same wake hangs off both,
-        // and a context that was suspended has its pieces rebuilt rather than merely
-        // re-armed: an interrupted iOS context can come back "running" and silent.
-        wake() {
-            if(document.hidden || !this._mode) return;
-            let was = this.ac && this.ac.state, ac = Game.ac();
-            if(!ac) return;
-            // resume() is a promise, so reading ac.state on the next line is a race — and
-            // losing it is precisely why tapping did nothing while toggling 🔇 worked: that
-            // path rebuilds without asking the state at all.
-            ac.resume().then(() => {
-                if(document.hidden || !this._mode) return;
-                if(was === 'running' && this.bus) { clearTimeout(this._timer); this.tick(); return; }
-                let m = this._mode;
-                this._mode = null;
-                this.set(m);
-                this.revive();
-            }).catch(() => {});   // refused without a gesture: the next tap tries again
-        },
-
-        // A context that reports `running` while its clock stands still is dead — WebKit
-        // leaves one like that after an audio interruption, and nothing in its state says so.
-        // Measured in the browser pane: after a suspend/resume the old context sat at
-        // currentTime 0.02 forever while a brand new one ticked normally. So the clock gets
-        // half a second to move, and if it hasn't, the whole AudioContext is thrown away and
-        // rebuilt — which is the one thing toggling 🔇 could not do either (#96).
-        revive() {
-            let ac = this.ac, t0 = ac.currentTime;
-            setTimeout(() => {
-                if(!this._mode || this.ac !== ac || ac.currentTime > t0) return;
-                let m = this._mode;
-                this.set(null);
-                try { ac.close(); } catch(e) {}
-                Game._audio = null;     // Game.ac() hands out a fresh one
-                this.out = null;        // and the hall is rebuilt with it
-                this._mode = null;
-                this.set(m);
-            }, 500);
-        },
-
-        // A bar is queued ahead of the clock and Web Audio cannot un-schedule it, so a skip
-        // retires the whole bus — the same move `revive()` makes — and `set` rolls a fresh
-        // band on the way back in.
-        skip() { let m = this._mode; if(!m) return; this.set(null); this.set(m); },
 
         // The only entry point: 'map', 'battle', or null for silence.
         set(mode) {
-            if(mode === this._mode) return;
-            clearTimeout(this._timer); this._timer = null;
-            let ac = mode ? Game.ac() : this.ac;
-            if(!ac) return;                      // no Web Audio: the game is simply quiet
-            this.ac = ac;
-            this.retire();
-            this._mode = mode;
-            if(!mode) return;
-            if(!this.out) {                      // the hall outlives the pieces played in it
-                this.out = ac.createGain();
-                this.wet = ac.createGain(); this.wet.gain.value = 0.3;
-                this.cv = this.verb();
-                this.cv.connect(this.wet); this.wet.connect(this.out);
-                // Measured peak sits around a quarter of full scale, but the parts are
-                // independent: a guitar bass note, a flute entry and a reverb tail can land
-                // on the same sample. A limiter costs one node and removes the whole class
-                // of "it crackled once" bugs.
-                let lim = ac.createDynamicsCompressor();
-                lim.threshold.value = -6; lim.knee.value = 3; lim.ratio.value = 12;
-                lim.attack.value = 0.003; lim.release.value = 0.25;
-                this.out.connect(lim); lim.connect(ac.destination);
-            }
-            // Two listeners, one wake — see wake() for why a tap is needed as well as a
-            // visibility change. Bound once and never again: `out` is rebuilt when a dead
-            // context is replaced, so the graph block above is not the "runs once" place.
-            if(!this._bound) {
-                this._bound = true;
-                document.addEventListener('visibilitychange', () => this.wake());
-                document.addEventListener('pointerdown', () => {
-                    if(this._mode && this.ac && this.ac.state !== 'running') this.wake();
-                });
-            }
-            this.bus = ac.createGain();
-            // Measured: with every part at its own level Cenk Korosu came out three times the
-            // map's loudness (rms 0.147 against 0.051) — an army of strings and a choir
-            // against one guitar. Levelled with one gain per band (set in newPiece) rather
-            // than by re-tuning eight numbers, so each arrangement stays as written.
-            this.bus.connect(this.out); this.bus.connect(this.cv);
-            this.volume(this.FADE_IN);   // fade in rather than cut in (#95)
-            this.newPiece(mode === 'battle');
-            this._at = ac.currentTime + 0.2;
-            this.tick();
+            if(mode === this._mode) return;   // the same scene twice never restarts the piece —
+            this._mode = mode;                // which is what keeps a dialog from cutting the music
+            if(!mode) { this._sting = false; return this.stop(); }
+            // A sting owns the speakers until it finishes. The new scene is recorded above, so
+            // `next()` starts the right playlist when it ends.
+            if(this._sting) return;
+            this.play(this.pick(mode));
         },
 
-        // How long the music takes to reach full level when it starts or changes screen (#95).
-        FADE_IN: 1.8,
-
-        // 1.2 puts the music a little below the transaction SFX (0.12 peak): measured peak
-        // lands near 0.16 at the default volume, which is background, not foreground.
-        //
-        // With `fade`, the level is ramped from silence instead of assigned (#95). The music
-        // used to arrive at full volume inside a single frame — on the opening screen, and
-        // again on every crossing between map and battle. Nothing was clipping; it was the
-        // step itself, an instrument starting mid-note with no attack. The volume slider
-        // still writes straight through, because a slider that ramped would feel broken.
-        volume(fade) {
-            if(!this.out) return;
-            let g = 1.2 * Game.opt('volume');
-            if(!fade || !this.ac) { this.out.gain.value = g; return; }
-            let t = this.ac.currentTime;
-            this.out.gain.cancelScheduledValues(t);
-            this.out.gain.setValueAtTime(0, t);
-            this.out.gain.linearRampToValueAtTime(g, t + fade);
+        // The spinner (#131). The music is not precached, so the first play of a piece is a
+        // real download and on a slow line that is several seconds of silence — silence with
+        // no explanation reads as a bug. A cached piece starts well inside the 400 ms delay,
+        // so the spinner only appears when there is genuinely something to wait for.
+        busy(on) {
+            clearTimeout(this._spin); this._spin = null;
+            if(!on) return this.spinner(false);
+            if(!this._busy) this._spin = setTimeout(() => this.spinner(true), 400);
+        },
+        spinner(on) {
+            if(this._busy === on) return;
+            this._busy = on;
+            let d = document.getElementById('music-load');
+            if(!d) {
+                if(!on) return;
+                d = document.createElement('div'); d.id = 'music-load';
+                document.body.appendChild(d);
+            }
+            d.innerHTML = on ? `<i></i>${T('Müzik yükleniyor…')}` : '';
+            d.classList.toggle('hidden', !on);
+            this.refresh();
         },
 
-        // Music follows the screen. Called from showScreen (which knows the screen) and from
-        // applySettings (which knows the settings), so neither has to know about the other.
+        // `#music-now` belongs to the settings screen and is usually absent. Writing to it
+        // when it is not there is the normal case, not an error.
+        refresh() {
+            let e = document.getElementById('music-now');
+            if(e) e.innerHTML = this.nowPlaying();
+        },
+
+        nowPlaying() {
+            if(!this._mode || !this._now) return T('🎶 Müzik kapalı');
+            if(this._busy) return T('🎶 Müzik yükleniyor…');
+            return T`🎶 Çalan: <b>${this._now.t}</b> · ${this._now.a}`;
+        },
+
+        // Music follows the screen. Called from showScreen (which knows the screen), from
+        // applySettings (which knows the settings), and from Game.chaseTick (which knows
+        // whether something is on your heels). Nothing else decides what plays.
         sync() {
             let live = document.getElementById('main-ui');
-            this.volume();
-            let el = document.getElementById('music-now');
-            if(el) setTimeout(() => { let e2 = document.getElementById('music-now'); if(e2) e2.innerHTML = this.nowPlaying(); });
+            if(this._el && !this._ramp) this._el.volume = this.gain();
+            // applySettings rebuilds the settings screen right after calling this, so the
+            // read-out is written on the next turn rather than into markup about to be replaced.
+            if(document.getElementById('music-now')) setTimeout(() => this.refresh());
             this.set(!live || !live.classList.contains('active') || Game.opt('muted') || !Game.opt('music') ? null
-                : document.body.classList.contains('in-battle') ? 'battle' : 'map');
+                // Fight music covers a real battle, the arena and a tournament round (all three
+                // are the `battle` screen) — and a chase, which is not a battle yet (#131).
+                : document.body.classList.contains('in-battle') || Game._chasing ? 'battle' : 'map');
         }
     },
 
