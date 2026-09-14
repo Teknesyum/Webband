@@ -6764,12 +6764,26 @@ const Game = {
     DIFFS: {
         easy:   { taken: 0.6, dealt: 1.25, name: 'Kolay', note: 'Aldığın hasar %40 az, verdiğin %25 fazla' },
         normal: { taken: 1,   dealt: 1,    name: 'Orta',  note: 'Tasarlandığı denge' },
-        hard:   { taken: 1.5, dealt: 0.85, name: 'Zor',   note: 'Aldığın hasar %50 fazla, verdiğin %15 az' }
+        hard:   { taken: 1.5, dealt: 0.85, name: 'Zor',   note: 'Aldığın hasar %50 fazla, verdiğin %15 az' },
+        extreme: { taken: 1.85, dealt: 0.72, name: 'Extreme', note: 'Rakipler daha sert ve turnuvalarda daha taktiksel' },
+        ultra:   { taken: 2.25, dealt: 0.62, name: 'Ultra Extreme', note: 'En acımasız kadro ve en hızlı turnuva temposu' }
     },
     diff() { return this.DIFFS[this.opt('difficulty')] || this.DIFFS.normal; },
     // If the target is on your side this is the damage "taken", otherwise "dealt".
     // The single call site is `Battle.afterArmor` — melee and arrows both pass through it.
     dmgMult(tgt) { let d = this.diff(); return tgt && tgt.isPlayerTeam ? d.taken : d.dealt; },
+    // Higher tournament modes change the draw, team sizes and enemy decisions as well as damage.
+    // Campaign troops deliberately do not read this table.
+    tourneyRules() {
+        let key = this.opt('difficulty');
+        return {
+            easy:    { spread:[-3,-2,-1,0,1,2,4], teams:[3,2,1], hp:0.92, attack:0.94, defense:0, speed:0, cadence:1.08, retarget:1.12, block:0, label:'Kolay ring', summary:'Daha kısa takımlar, daha sakin rakipler' },
+            normal:  { spread:[-1,0,1,2,3,4,6], teams:[4,2,1], hp:1, attack:1, defense:0, speed:0, cadence:1, retarget:1, block:0, label:'Klasik ring', summary:'Sekiz dövüşçü, dengeli kadro' },
+            hard:    { spread:[0,1,2,3,4,6,8], teams:[4,3,1], hp:1.06, attack:1.07, defense:1, speed:3, cadence:0.93, retarget:0.88, block:0.05, label:'Sert ring', summary:'Yarı finalde daha kalabalık ve baskın' },
+            extreme: { spread:[1,2,3,4,6,8,10], teams:[4,3,2], hp:1.15, attack:1.14, defense:2, speed:7, cadence:0.82, retarget:0.7, block:0.12, label:'Extreme ring', summary:'Güçlü kadro, iki kişilik final, hızlı refleksler' },
+            ultra:   { spread:[3,4,5,7,9,11,13], teams:[4,4,2], hp:1.28, attack:1.24, defense:3, speed:12, cadence:0.7, retarget:0.52, block:0.2, label:'Ultra Extreme ring', summary:'Dörtlü yarı final, elit rakipler, sürekli baskı' }
+        }[key] || { spread:[-1,0,1,2,3,4,6], teams:[4,2,1], hp:1, attack:1, defense:0, speed:0, cadence:1, retarget:1, block:0, label:'Klasik ring', summary:'Sekiz dövüşçü, dengeli kadro' };
+    },
     opt(k) { let v = (state.settings || {})[k]; return v === undefined ? this.OPTS[k] : v; },
 
     // A JS literal that survives a double-quoted inline handler: JSON.stringify('auto')
@@ -6844,7 +6858,7 @@ const Game = {
         let epBtn = ['auto', true, false].map(v => `<button class="btn${ep === v ? ' primary' : ''}" style="font-size:var(--fs-sm);padding:0.25rem 0.6rem"
             onclick="Game.setOpt('edgePan', ${this.lit(v)})">${v === 'auto' ? T('Cihaza göre') : v ? T('Açık') : T('Kapalı')}</button>`).join(' ');
         let df = this.opt('difficulty');
-        let dfBtn = ['easy', 'normal', 'hard'].map(v => `<button class="btn${df === v ? ' primary' : ''}" style="font-size:var(--fs-sm);padding:0.25rem 0.6rem"
+        let dfBtn = Object.keys(this.DIFFS).map(v => `<button class="btn${df === v ? ' primary' : ''}" style="font-size:var(--fs-sm);padding:0.25rem 0.6rem"
             onclick="Game.setOpt('difficulty', '${v}')">${T(this.DIFFS[v].name)}</button>`).join(' ');
         let hz = this._step === Infinity ? T('ölçülmedi') : Math.round(1000 / this._step) + T(' Hz');
         this.showModal(`<div id="settings-panel"><h3>${T`⚙️ Ayarlar`}</h3>
@@ -7492,13 +7506,14 @@ const Game = {
     // rides with the player: a companion in the party signs up too.
     tourneyField(loc) {
         let lv = state.player.stats.level;
+        let rules = this.tourneyRules();
         let names = LORDS.filter(l => l.faction === loc.faction && l.rank !== 'vizier').map(l => l.name)
             .concat(this.TOURNEY_REGULARS)
             .concat(state.player.party.filter(t => t.isCompanion).map(t => t.name));
         names = names.sort(() => Math.random() - 0.5).slice(0, 7);
         // A bracket where everyone is the player's equal has no shape: the spread runs from an
         // easy first round up to a champion who is genuinely above you.
-        let spread = [-1, 0, 1, 2, 3, 4, 6];
+        let spread = rules.spread;
         let field = names.map((n, i) => ({ name: n, lv: Math.max(1, lv + spread[i]) }));
         field.push({ name: state.player.name, lv, you: true });
         return field.sort(() => Math.random() - 0.5);
@@ -7584,13 +7599,15 @@ const Game = {
             btn = `<button class="btn primary" onclick="Game.tourneyClose()">${T`Meydandan Ayrıl`}</button>`;
         } else {
             let foe = t.rounds[t.round][t.rounds[t.round].findIndex(f => f.you) ^ 1];
-            let teams = this.TOURNEY_TEAMS[t.round], size = [4, 2, 1][t.round];
+            let teams = this.TOURNEY_TEAMS[t.round], size = this.tourneyRules().teams[t.round];
+            let rules = this.tourneyRules();
             msg = `<p>${T`Sıradaki: <b>${T(this.TOURNEY_ROUNDS[t.round])}</b> — karşında <b>${T(foe.name)}</b> (Sv. ${foe.lv}).`}
                    <span style="color:var(--text-muted)">${T`Canın: ${Math.round(state.player.stats.hp)}/${Math.round(state.player.stats.maxHp)}`}</span><br>
                    <b style="color:${teams[0].color}">● ${T(teams[0].name)}</b> ${T`${size} kişi`}
                    <span style="color:var(--text-muted)"> — </span>
                    <b style="color:${teams[1].color}">● ${T(teams[1].name)}</b> ${T`${size} kişi`}<br>
-                   <span style="color:var(--text-muted)">${T('Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.')}</span></p>`;
+                   <span style="color:var(--text-muted)">${T('Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.')}<br>
+                   ${T(rules.label)} — ${T(rules.summary)}</span></p>`;
             btn = `<button class="btn primary" onclick="Game.tourneyFight()">${T`⚔️ Meydana Çık`}</button>`;
         }
         this.showModal(`<h3>${T`🏆 ${T((LOCATIONS.find(l => l.id === t.locId) || {}).name || 'Turnuva')} Turnuvası`}</h3>
@@ -7604,7 +7621,8 @@ const Game = {
         if(i < 0) return;
         let foe = cur[i ^ 1];
         foe.round = this.TOURNEY_ROUNDS[t.round];   // raw name; the battle log translates it
-        let size = [4, 2, 1][t.round], pool = t.rounds[0].filter(f => !f.you && f !== foe)
+        foe.tourneyRules = this.tourneyRules();    // freeze this match if the settings modal is opened later
+        let size = this.tourneyRules().teams[t.round], pool = t.rounds[0].filter(f => !f.you && f !== foe)
             .slice().sort(() => Math.random() - 0.5);
         foe.teamFight = {
             size,

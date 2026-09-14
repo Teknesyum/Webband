@@ -895,6 +895,31 @@ test('tournament: a 4v4 round spawns two complete, colour-coded teams', () => {
     Battle.active = false;
 });
 
+test('tournament: extreme rules change the bracket and opponent behaviour, not just damage', () => {
+    const gt = H.world({ seed: 124 });
+    const { Battle, Game, state } = gt;
+    state.settings.difficulty = 'extreme';
+    const extreme = Game.tourneyRules();
+    assert.strictEqual(Array.from(extreme.teams).join(','), '4,3,2', 'Extreme did not add fighters to later rounds');
+    assert.ok(extreme.spread[6] > 5, 'Extreme did not draw a stronger champion');
+
+    state.settings.difficulty = 'ultra';
+    const ultra = Game.tourneyRules();
+    assert.strictEqual(Array.from(ultra.teams).join(','), '4,4,2', 'Ultra Extreme did not make the semi-final a full team fight');
+    assert.ok(ultra.cadence < 1 && ultra.retarget < 1 && ultra.block > 0,
+        'Ultra Extreme did not change AI reaction, attack tempo and blocking');
+
+    const pair = Game.TOURNEY_TEAMS[1];
+    const foe = { name:'Ultra Kaptan', lv:5, round:Game.TOURNEY_ROUNDS[1], tourneyRules:ultra,
+        teamFight:{ size:4, player:pair[0], enemy:pair[1], allies:[], enemies:[] } };
+    Battle.startTourneyFight(foe);
+    const enemy = Battle.units.find(u => !u.isPlayerTeam);
+    assert.ok(enemy.maxHp > 80 && enemy.attack > 15 && enemy.speed > 70,
+        'Ultra Extreme opponent did not receive roster, stamina and pace tuning');
+    assert.strictEqual(enemy.tourneyCadence, ultra.cadence, 'enemy did not retain tournament attack cadence');
+    Battle.active = false;
+});
+
 test('tournament: the shared result hook completes the ambition immediately and only on a win', () => {
     const gh = H.world({ seed: 123 });
     const { Game, state } = gh;
