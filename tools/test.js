@@ -1545,6 +1545,19 @@ test('map movement: an off-coast lord destination is pulled back inside instead 
         'lord kept an unreachable target beyond the coast');
 });
 
+test('map movement: wandering bandits turn back from the coast instead of collecting at the edge', () => {
+    const g = H.world({ seed: 47 });
+    const { Game, state } = g;
+    const band = Game.spawnBand('bandit');
+    band.x = band.targetX = 8650; band.y = band.targetY = 4500;
+    Game.clampToMap(band);
+    band.targetX = band.x; band.targetY = band.y;
+    state.npcParties = [band];
+    Game.updateNPCs(0.01);
+    assert.ok(!Game.nearMapEdge({ x:band.targetX, y:band.targetY }, 500),
+        'a wandering bandit selected another coast-hugging destination');
+});
+
 test('map encounter: a friendly lord cannot force a conversation by bumping into the player', () => {
     const gm = H.world({ seed: 26 });
     const { Game, Nobles, state } = gm;
