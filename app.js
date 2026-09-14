@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.13', date: '2026-09-14', name: 'Kalradya Ezgileri' };  // the version name is not translated
+const VERSION = { no: '1.13.1', date: '2026-09-14', name: 'Kalradya Ezgileri' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -2605,10 +2605,17 @@ const Game = {
         npc.targetX = point.x; npc.targetY = point.y;
     },
 
+    // Crossing someone's path is not a conversation (#131). Only a fight stops you unasked:
+    // anything hostile still intercepts, and everything else — a friendly lord, a caravan, a
+    // villager train — needs intent on one side, either yours or theirs.
+    //
+    // `npc.trade` used to sit in here, so a caravan you merely walked past opened a modal.
+    // Nothing is lost by removing it: clicking a party is a separate path that never comes
+    // through this gate at all — `setTarget` locks onto it and `updatePlayer` calls
+    // `triggerEncounter` directly on arrival. Trade is still one click away, it just no
+    // longer happens *to* you.
     npcCanInitiateEncounter(npc) {
-        let hostile = this.isHostile(npc);
-        if(npc.lordId && !hostile) return this.partiesTargetEachOther(npc);
-        return !!(hostile || npc.trade);
+        return this.isHostile(npc) || this.partiesTargetEachOther(npc);
     },
 
     mapPartyIsFoe(npc) {

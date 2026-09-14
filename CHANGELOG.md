@@ -3,6 +3,15 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.13.1 — Kalradya Ezgileri (2026-09-14)
+
+- **Kervanlar da artık yolunu kesmiyor.** Üzerinden geçtiğin bir kervan ya da köylü kafilesi
+  kendiliğinden pencere açmıyor; ticaret için üstüne tıklaman gerekiyor. Lordlar için aynı
+  kural 1.10'da gelmişti, kervanlar dışarıda kalmıştı. Tıklayarak açılan 🗡️ Soy / 🚪 Yoluna
+  Bırak seçimi aynen duruyor — o bambaşka bir yol ve hiç değişmedi.
+- Düşmanlar eskisi gibi yolunu kesmeye devam ediyor: haydutlar, savaşta olduğun krallığın
+  lordları, kan davalıların. Seni durduran tek şey kavga.
+
 ## 1.13 — Kalradya Ezgileri (2026-09-14)
 
 - **Müzik artık gerçek müzik.** Oyunun içinde üretilen ezgiler kalktı; yerine tamamı CC0

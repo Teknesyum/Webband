@@ -1241,8 +1241,9 @@ existing machinery for free.
   ale carries 10–19.
 - **They don't attack.** `isHostile` returns false; they only flee you if you're at war with
   their kingdom.
-- Bumping into one opens a **choice**, not a battle (`Game.meetTrader`): 🗡️ Rob / 🚪 Let Pass
+- **Clicking** one opens a **choice**, not a battle (`Game.meetTrader`): 🗡️ Rob / 🚪 Let Pass
   (letting it pass sets `encounterCooldown = 6`, so passing right by it doesn't reopen the modal).
+  Since #131 merely *bumping into* one opens nothing — see "Who may stop you" below.
 - **Robbing is banditry** (`Game.robTrader`): hitting a convoy of a kingdom at peace costs
   **−5 renown** and **−4 relation** with *every* lord of that kingdom (net −2 once the
   victory's +3 renown is counted). A convoy of a kingdom you're at war with is fair loot, no
@@ -1999,6 +2000,38 @@ written in a line.
 
 Measured (400 days, a roaming and growing 6-person party): **156 events — one every 2.6 days**,
 60% negative, 12 of 13 events appeared (the horseshoe event needs a horse).
+
+### Who may stop you (#131, first half in 1.10)
+
+Two different things used to be called "an encounter", and only one of them was asked for.
+
+- **You chose it.** `setTarget` locks onto a settlement, a party (within 30, and only if
+  `Game.canSee` it) or a site, and `updatePlayer` calls `triggerEncounter` when you arrive.
+  This path never consults any gate — a thing you clicked always opens.
+- **It happened to you.** The collision loop in `updatePlayer` scans every party each tick and
+  fires at `d < 24`. This is the one that needs a rule, and the rule is
+  `Game.npcCanInitiateEncounter(npc)`:
+
+```js
+npcCanInitiateEncounter(npc) {
+    return this.isHostile(npc) || this.partiesTargetEachOther(npc);
+}
+```
+
+`partiesTargetEachOther` is intent on either side: `state.player.targetLocation` is this party,
+or `npc.playerTargetId === 'player'`. So:
+
+| crossing your path | stops you? |
+|---|---|
+| bandits, a lord at war, a blood feud, relation ≤ −50 | **yes** — `isHostile`; being intercepted is the point |
+| a friendly or neutral lord | no, unless one of you went looking for the other |
+| a caravan or villager train | no — `isHostile` is false for every trade party |
+
+Both exemptions were reported the same way: *"when I go over a party it shouldn't create the
+dialogue if I don't click on it."* The lord half shipped in 1.10. The caravan half took until
+#131 because `npcCanInitiateEncounter` had `|| npc.trade` in it — a trade party is never
+hostile, so that clause was the only thing letting one through, and it let *every* one through.
+Removing it costs no interaction: trade was already reachable by clicking, on the other path.
 
 ### Road events — encounters with a decision (#67)
 The day's event just *happens to* you; a road event **asks** you. `Game.ROAD_EVENTS` has 20

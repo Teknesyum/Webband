@@ -1538,6 +1538,41 @@ test('map encounter: a friendly lord cannot force a conversation by bumping into
     assert.ok(Nobles.lord(lord.lordId), 'the lord is no longer available for player-initiated talk');
 });
 
+// The same rule, for the party type it used to exempt (#131). A caravan is not hostile —
+// isHostile returns false for every trade party — so before this it got through the gate on
+// `npc.trade` alone and stopped you just by being walked past.
+test('map encounter: a caravan cannot force a conversation by bumping into the player', () => {
+    const gm = H.world({ seed: 26 });
+    const { Game, state, LOCATIONS } = gm;
+    const van = state.npcParties.find(n => n.trade);
+    assert.ok(van, 'the world has a trade party to test');
+    assert.ok(!Game.isHostile(van), 'a trade party is not hostile in the first place');
+
+    state.player.targetLocation = null; van.playerTargetId = null;
+    assert.ok(!Game.npcCanInitiateEncounter(van), 'a caravan still stops the player unasked');
+
+    // Both halves of "intent" still open it: you clicked them, or they came for you.
+    state.player.targetLocation = { id: van.id, isNpc: true };
+    assert.ok(Game.npcCanInitiateEncounter(van), 'a caravan the player walked to opens nothing');
+    state.player.targetLocation = null;
+    van.playerTargetId = 'player';
+    assert.ok(Game.npcCanInitiateEncounter(van), 'a caravan hunting the player opens nothing');
+    van.playerTargetId = null;
+
+    // And the click path is what keeps trade reachable: it sets a target and never consults
+    // the gate, so gating the collision loop cannot take the caravan menu away. setTarget only
+    // locks onto what the player can see, and prefers a settlement within 36 — so the caravan
+    // is put in open country beside the player, which is the case being claimed anyway.
+    state.player.wait = null;
+    van.x = state.player.x + 20; van.y = state.player.y + 20;
+    assert.ok(Game.canSee(van), 'a party twenty paces away is visible');
+    assert.ok(!LOCATIONS.some(l => Game.dist(l, van) < 36), 'and not standing on a settlement');
+    Game.setTarget({ x: van.x, y: van.y });
+    assert.ok(state.player.targetLocation && state.player.targetLocation.isNpc
+        && state.player.targetLocation.id === van.id, 'clicking a caravan no longer targets it');
+    state.player.targetLocation = null; state.player.status = 'idle';
+});
+
 test('map labels: a lord actively pursuing the player is marked hostile outside a formal war', () => {
     const g = H.world({ seed: 38 });
     const { Game, state } = g;
