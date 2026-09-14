@@ -16,7 +16,7 @@ const unesc = s => s.replace(/\\(u\{[0-9a-fA-F]+\}|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{
 });
 
 /** Collects `T('…')` and `T`…`` keys from a single file. */
-function keysIn(src) {
+function keysIn(src, withSpans) {
     const out = [], n = src.length;
     for(let i = 0; i < n; i++) {
         // Comments are skipped: a `` T` `` in prose was producing false positives
@@ -37,7 +37,7 @@ function keysIn(src) {
                 s += c;
             }
             if(src[k + 1] !== ')') continue;                  // T('a' + b): not a key
-            out.push(unesc(s)); i = k + 1;
+            out.push(withSpans ? { key: unesc(s), a: i, b: k + 1 } : unesc(s)); i = k + 1;
         } else if(src[j] === '`') {                           // T`… ${x} …`
             let s = '', esc = false, depth = 0, arg = 0, k = j + 1;
             for(; k < n; k++) {
@@ -53,7 +53,7 @@ function keysIn(src) {
                 if(c === '`') break;
                 s += c;
             }
-            out.push(unesc(s)); i = k;
+            out.push(withSpans ? { key: unesc(s), a: i, b: k } : unesc(s)); i = k;
         }
     }
     return out;
@@ -76,4 +76,22 @@ function dicts() {
     return ctx.I18N.dicts;
 }
 
-module.exports = { keysIn, norm, codeKeys, dicts };
+/**
+ * Turkish prose sitting in an HTML text node that never passes through T() — the gap
+ * codeKeys() cannot see, because it only reports the keys that ARE wrapped. A raw string
+ * here ships Turkish to every language (#129 shipped the spouse menu that way).
+ * Data tables are unaffected: they hold bare strings, not `>text<`.
+ */
+function rawUiText(src) {
+    const spans = keysIn(src, true), out = [];
+    const inT = i => spans.some(s => i > s.a && i < s.b);
+    const re = /[>]([^<>${}`'"]*[\u00e7\u011f\u0131\u015f\u00f6\u00fc\u00c7\u011e\u0130\u015e\u00d6\u00dc][^<>${}`'"]*)</g;
+    let m;
+    while((m = re.exec(src)) !== null) {
+        const t = m[1].trim();
+        if(t && !inT(m.index)) out.push({ text: t, line: src.slice(0, m.index).split('\n').length });
+    }
+    return out;
+}
+
+module.exports = { keysIn, norm, codeKeys, dicts, rawUiText };

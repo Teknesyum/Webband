@@ -1588,6 +1588,23 @@ test('marriage: spouse council gives one useful daily action, not a blank dialog
     assert.strictEqual(Game.getPartyCapacity(), 17, 'marriage benefit disappeared while speaking to spouse');
 });
 
+test('marriage: a female player can reach her husband and his benefits (#129)', () => {
+    const g = H.world({ seed: 7 });
+    const { Nobles, state, Game } = g;
+    state.player.gender = 'female';
+    const s = Nobles.suitors()[0];
+    assert.ok(s, 'a female player has no one to marry');
+    const solo = Game.getPartyCapacity();
+    state.player.spouse = s.id;
+    assert.strictEqual(Game.getPartyCapacity(), solo + 5, 'marrying a lord gave no party capacity');
+    let shown = '';
+    Game.showModal = h => { shown = h; };
+    Nobles.talk(s.lordId);
+    assert.ok(/spouseMenu/.test(shown), 'her husband offers no way into the spouse conversations');
+    Nobles.spouseMenu(s.id);
+    assert.ok(/spouseAction/.test(shown), 'the spouse menu is empty for a female player');
+});
+
 test('peace: a treaty lifts the player siege against the new partner', () => {
     const g = H.world({ seed: 41 });
     const { Game, state, FACTIONS, LOCATIONS } = g;
@@ -1857,6 +1874,35 @@ test('i18n: every T key in the code is in both dictionaries', () => {
     const K = require('./i18n-keys');
     const d = K.dicts(), missing = [...K.codeKeys()].filter(k => !(k in d.en) || !(k in d.id));
     assert.ok(missing.length === 0, `${missing.length} keys missing from a dictionary, first: ${JSON.stringify(missing[0])}`);
+});
+
+// The dictionary gate above only sees prose that is already wrapped in T(). Prose that
+// was never wrapped is invisible to it and ships Turkish to every language — which is
+// exactly how #129 shipped the spouse menu. This gate reads the other direction: Turkish
+// sitting in an HTML text node outside any T() call.
+test('i18n: no Turkish prose reaches the screen outside T()', () => {
+    const fs = require('fs'), path = require('path');
+    const K = require('./i18n-keys');
+    const bad = [];
+    for(const f of ['app.js', 'battle.js', 'nobles.js', 'quests.js'])
+        K.rawUiText(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'))
+            .forEach(h => bad.push(`${f}:${h.line} ${JSON.stringify(h.text.slice(0, 60))}`));
+    assert.ok(bad.length === 0, `${bad.length} untranslated UI string(s), first: ${bad[0]}`);
+});
+
+// A translation that loses a {0} silently drops the number it was carrying, and one that
+// loses a <b> ships broken markup. Both are invisible to the key-existence gate.
+test('i18n: translations keep every placeholder and tag of their key', () => {
+    const d = require('./i18n-keys').dicts();
+    const ph = t => (t.match(/\{\d+\}/g) || []).sort().join(',');
+    const tags = t => (t.match(/<\/?[a-z][a-z0-9]*/gi) || []).map(x => x.toLowerCase()).sort().join(',');
+    const bad = [];
+    for(const lang of ['en', 'id'])
+        for(const [k, v] of Object.entries(d[lang])) {
+            if(ph(k) !== ph(v)) bad.push(`${lang} placeholders ${JSON.stringify(k.slice(0, 50))}`);
+            if(tags(k) !== tags(v)) bad.push(`${lang} tags ${JSON.stringify(k.slice(0, 50))}`);
+        }
+    assert.ok(bad.length === 0, `${bad.length} broken translation(s), first: ${bad[0]}`);
 });
 
 // An inline handler lives inside a double-quoted attribute, so anything it

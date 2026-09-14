@@ -447,7 +447,12 @@ const Nobles = {
         // A female player's courtship path: from the lord's own dialogue (the hall's renown gate lives here)
         let suitor = this.isFemale() ? this.suitors().find(x => x.lordId === id) : null;
         if(suitor) {
-            html += Game.peakRenown() >= this.HALL_RENOWN
+            // Married already: her husband IS this lord, so the courting button is gone and
+            // nothing replaced it — the spouse conversations were only wired to the male
+            // path, which reaches them through the ladies list (#129).
+            html += state.player.spouse === suitor.id
+                ? `<button class="btn" style="border-color:#ff9ec4;color:#ff9ec4" onclick="Nobles.spouseMenu('${suitor.id}')">${T`💞 Eşinle vakit geçir`}</button>`
+                : Game.peakRenown() >= this.HALL_RENOWN
                 ? `<button class="btn" style="border-color:#ff9ec4;color:#ff9ec4" onclick="Nobles.courtMenu('${suitor.id}')">${T`💘 Ona kur yap (ilgi ${this.aff(suitor.id)})`}</button>`
                 : `<button class="btn" disabled style="opacity:0.4">${T`💘 Kur yapmak için ${this.HALL_RENOWN} nam gerekir (sende ${Game.peakRenown()})`}</button>`;
         }
@@ -993,14 +998,14 @@ const Nobles = {
         let used = (state.spouseTalkDay || -99) === state.time.day;
         let disabled = used ? ' disabled style="opacity:0.4"' : '';
         Game.showModal(`<div style="display:flex;gap:1.5rem;align-items:center">${this.portraitCss(L,140)}
-            <div><h3 style="margin:0">${T(L.name)}</h3><p style="font-style:italic">"Eve ne zaman döneceksin? Ama önce otur; konuşacaklarımız var."</p>
-            <p style="font-size:var(--fs-sm);color:var(--text-muted)">Eşin günlük 50 dinar getirir, +5 birlik kapasitesi sağlar ve savaşta yanında süvari olarak dövüşür.</p></div></div>
+            <div><h3 style="margin:0">${T(L.name)}</h3><p style="font-style:italic">${T`"Eve ne zaman döneceksin? Ama önce otur; konuşacaklarımız var."`}</p>
+            <p style="font-size:var(--fs-sm);color:var(--text-muted)">${T`Eşin günlük 50 dinar getirir, +5 birlik kapasitesi sağlar ve savaşta yanında süvari olarak dövüşür.`}</p></div></div>
             <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem">
-            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','talk')">💬 Dertleş (+5 moral)</button>
-            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','counsel')">🗺️ Savaş meclisi (+35 liderlik XP)</button>
-            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','court')">🏛️ Saray desteği (hanedana +2 ilişki)</button>
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','talk')">${T`💬 Dertleş (+5 moral)`}</button>
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','counsel')">${T`🗺️ Savaş meclisi (+35 liderlik XP)`}</button>
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','court')">${T`🏛️ Saray desteği (hanedana +2 ilişki)`}</button>
             <button class="btn" onclick="Game.closeModal()">${T`Kapat`}</button></div>
-            ${used ? '<p style="color:var(--text-muted);font-size:var(--fs-sm);margin-top:0.7rem">Bugün zaten birlikte vakit geçirdiniz.</p>' : ''}`);
+            ${used ? '<p style="color:var(--text-muted);font-size:var(--fs-sm);margin-top:0.7rem">' + T`Bugün zaten birlikte vakit geçirdiniz.` + '</p>' : ''}`);
     },
 
     spouseAction(ladyId, action) {
@@ -1010,16 +1015,16 @@ const Nobles = {
         let result;
         if(action === 'counsel') {
             Game.addProficiencyXp('leadership', 35);
-            result = 'Harita ve erzak üstünde uzun uzun konuştunuz. Birliğin komutası daha berrak geliyor. (+35 liderlik XP)';
+            result = T`Harita ve erzak üstünde uzun uzun konuştunuz. Birliğin komutası daha berrak geliyor. (+35 liderlik XP)`;
         } else if(action === 'court') {
             LORDS.filter(l => l.faction === L.faction).forEach(l => this.addRel(l.id, 2));
-            result = 'Eşin kendi hanesine mektup yazdı; sarayda adın daha sıcak anılacak. (hanedana +2 ilişki)';
+            result = T`Eşin kendi hanesine mektup yazdı; sarayda adın daha sıcak anılacak. (hanedana +2 ilişki)`;
         } else {
             Game.addMorale(5);
-            result = 'Yolun yükünü paylaştınız. Askerler de komutanlarının yüzünün güldüğünü gördü. (+5 moral)';
+            result = T`Yolun yükünü paylaştınız. Askerler de komutanlarının yüzünün güldüğünü gördü. (+5 moral)`;
         }
         Game.updateTopBar();
-        Game.showModal(`<h3>${T(L.name)}</h3><p>${result}</p><button class="btn primary" onclick="Nobles.spouseMenu('${ladyId}')">Geri</button>`);
+        Game.showModal(`<h3>${T(L.name)}</h3><p>${result}</p><button class="btn primary" onclick="Nobles.spouseMenu('${ladyId}')">${T`Geri`}</button>`);
     },
 
     courtMenu(ladyId) {

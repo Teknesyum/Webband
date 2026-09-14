@@ -3,6 +3,27 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.12 — Üç Dil (2026-09-14)
+
+- **Eşinle konuşma ekranı artık üç dilde.** Evlendikten sonra açılan `💬 Dertleş`, `🗺️ Savaş meclisi`
+  ve `🏛️ Saray desteği` seçenekleri ile verdikleri cevaplar İngilizce ve Endonezcede Türkçe
+  kalıyordu; hepsi çevrildi. Aynı ekranda evliliğin ne kazandırdığını anlatan satır da öyle.
+
+- **Kadın karakter de eşiyle konuşabiliyor.** Bekâr bir lordla evlenen kadın oyuncunun kocasının
+  konuşmasında hiçbir şey çıkmıyordu — yeni eş konuşmaları yalnızca erkek yola bağlanmıştı.
+  Artık `💞 Eşinle vakit geçir` orada.
+
+- **"bugün" artık çevriliyor.** Son görülme tarihlerinde `1 gün önce` çevrilirken hemen yanındaki
+  `bugün` Türkçe kalıyordu.
+
+- **Ayarlardaki tazeleme hızı ve iki hata mesajı çevrildi.** Ekran hızı ölçülemediğinde yazan
+  `ölçülmedi`, savaş döngüsü kendini toparladığında ve savaş tuvali açılamadığında çıkan uyarılar
+  artık oyunun dilinde.
+
+- **Çeviri açıkları için iki yeni test.** Biri T() dışında ekrana kaçan Türkçe metni yakalıyor —
+  eş konuşmaları tam olarak öyle kaçmıştı; diğeri bir çevirinin `{0}` ya da `<b>` gibi parçalarını
+  düşürmediğini denetliyor.
+
 ## 1.11 — Tımar Fermanı (2026-09-14)
 
 - **Kralından toprak isteyebiliyorsun.** Bir hanedana bağlıysan kralın konuşmasında `🏰 Tımar iste`

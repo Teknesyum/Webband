@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.11', date: '2026-09-14', name: 'Tımar Fermanı' };  // the version name is not translated
+const VERSION = { no: '1.12', date: '2026-09-14', name: 'Üç Dil' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -1151,7 +1151,7 @@ const Game = {
 
     agoText(day) {
         let n = state.time.day - day;
-        return n <= 0 ? '<b>bugün</b>' : `<b>${T`${n} gün önce`}</b>`;
+        return n <= 0 ? `<b>${T`bugün`}</b>` : `<b>${T`${n} gün önce`}</b>`;
     },
 
     siteTipHtml(s) {
