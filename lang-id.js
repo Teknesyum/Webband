@@ -2240,4 +2240,54 @@ I18N.dicts.id = {
   "Tuz Yolu": "Jalur Garam",
   "Savaş Sandığı": "Peti Perang",
   "⏳ Burada Bekle": "⏳ Tunggu di Sini",
+
+    // Ek kontrat görevleri (#129) — sözlük üretildikten sonra eklendi
+    "Bu mühürlü fermanı <b>{0}</b> kapısındaki kumandana götür. Mührü kırma, oyalanma.":
+        "Bawa titah bersegel ini kepada komandan di gerbang <b>{0}</b>. Jangan pecahkan segelnya, jangan berlama-lama.",
+    "<b>{0}</b> şehrine gir ve mühürlü fermanı teslim et.":
+        "Masuki kota <b>{0}</b> dan serahkan titah bersegel itu.",
+    "Sınırdaki üç yerleşimi dolaş. Garnizonları say, yolların açık olup olmadığını bana bildir.":
+        "Kelilingi tiga permukiman di perbatasan. Hitung garnisunnya dan laporkan padaku apakah jalannya aman.",
+    "İşaretli yerleşimleri ziyaret et — <b>{0}/{1}</b> teftiş tamamlandı.":
+        "Kunjungi permukiman yang ditandai — <b>{0}/{1}</b> selesai diperiksa.",
+    "Ordu ambarı boş. Pazarlardan <b>{0} çuval buğday</b> topla ve kapıma getir.":
+        "Lumbung pasukan kosong. Kumpulkan <b>{0} karung gandum</b> dari pasar dan bawa ke depan pintuku.",
+    "Buğday satın al — <b>{0}/{1}</b>; yeterince topladığında görevi veren lordun salonuna dön.":
+        "Beli gandum — <b>{0}/{1}</b>; setelah cukup, kembalilah ke balai lord yang memberi tugas.",
+    "Mahzende tek damla kalmadı. <b>{0} fıçı bira</b> bulup salonuma getir.":
+        "Tak setetes pun tersisa di gudang. Carikan <b>{0} tong bir</b> dan bawa ke balaiku.",
+    "Çantanda <b>{0}/{1}</b> bira olsun ve görevi veren lordun salonuna dön.":
+        "Bawa <b>{0}/{1}</b> bir di ranselmu dan kembalilah ke balai lord yang memberi tugas.",
+    "Pazarlık için canlı adamlara ihtiyacım var. Soylu olmayan <b>{0} esir</b> getir.":
+        "Aku butuh orang hidup untuk ditawar. Bawakan <b>{0} tawanan rakyat jelata</b>.",
+    "Soylu olmayan esirleri lordun salonuna getir — <b>{0}/{1}</b>.":
+        "Bawa tawanan rakyat jelata ke balai lord — <b>{0}/{1}</b>.",
+    "Yolları tutan <b>{0} ayrı haydut çetesini</b> dağıt. Hangi bayrağı taşıdıkları önemli değil.":
+        "Bubarkan <b>{0} gerombolan bandit</b> yang menguasai jalan. Bendera siapa yang mereka bawa tidak penting.",
+    "Haritada haydut veya çapulcu gruplarını yen — <b>{0}/{1}</b>.":
+        "Kalahkan gerombolan bandit atau perampok di peta — <b>{0}/{1}</b>.",
+    "Acemiler değil, savaş görmüş adamlar istiyorum. En az {0}. seviyede <b>{1} askerle</b> gel.":
+        "Aku mau orang yang sudah kenyang perang, bukan rekrutan. Datanglah dengan <b>{1} prajurit</b> minimal level {0}.",
+    "En az {0}. seviyede asker yetiştir — <b>{1}/{2}</b>; sonra lordun salonuna dön.":
+        "Latih prajurit sampai minimal level {0} — <b>{1}/{2}</b>; lalu kembali ke balai lord.",
+    "İki yabancı şehrin kapısına kadar git. Nöbet düzenlerini gör ve sağ dön.":
+        "Pergilah sampai ke gerbang dua kota asing. Lihat susunan penjagaan mereka, lalu pulanglah hidup-hidup.",
+    "İşaretli yabancı şehirleri ziyaret et — <b>{0}/{1}</b>.":
+        "Kunjungi kota asing yang ditandai — <b>{0}/{1}</b>.",
+    "İki yabancı lordla konuş. Savaşa mı barışa mı yakın olduklarını öğren; söz verme.":
+        "Bicaralah dengan dua lord asing. Cari tahu apakah mereka condong ke perang atau damai; jangan berjanji apa pun.",
+    "Belirlenen yabancı lordlarla konuş — <b>{0}/{1}</b>.":
+        "Bicaralah dengan lord asing yang ditentukan — <b>{0}/{1}</b>.",
+    "Üç farklı şehir pazarında alışveriş yap. Fiyatları deftere geçirip bana dön.":
+        "Berbelanjalah di pasar tiga kota berbeda. Catat harganya di buku lalu kembali padaku.",
+    "Farklı şehirlerde birer mal satın al — <b>{0}/{1}</b>; sonra loncaya dön.":
+        "Beli satu barang di tiap kota berbeda — <b>{0}/{1}</b>; lalu kembali ke serikat.",
+    "Kışlık etler bozulmadan <b>{0} yük tuz</b> satın alıp loncaya getir.":
+        "Beli <b>{0} muatan garam</b> dan bawa ke serikat sebelum daging musim dingin membusuk.",
+    "Pazarlardan tuz satın al — <b>{0}/{1}</b>; sonra loncaya dön.":
+        "Beli garam dari pasar — <b>{0}/{1}</b>; lalu kembali ke serikat.",
+    "Sefer sandığı boş. <b>{0} dinar</b> topla ve salonuma getir; krallık katkını unutmaz.":
+        "Peti kampanye kosong. Kumpulkan <b>{0} dinar</b> dan bawa ke balaiku; kerajaan tak akan melupakan sumbanganmu.",
+    "En az <b>{0} dinarla</b> görevi veren lordun salonuna dön (para teslimde alınır).":
+        "Kembalilah ke balai lord yang memberi tugas dengan minimal <b>{0} dinar</b> (uangnya diambil saat penyerahan).",
 };

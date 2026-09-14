@@ -1572,7 +1572,7 @@ const Feast = {
             Herkesle bir kez selamlaşabilirsin (+2 ilişki).`}</p>`;
 
         if(state.pendingWedding && state.pendingWedding.locId === loc.id && state.time.day >= state.pendingWedding.day) {
-            html += `<button class="btn primary" style="margin:1rem 0;font-size:1.1rem" onclick="Nobles.marry('${state.pendingWedding.ladyId}','Salon doldu, kadehler kalktı.')">${T`💍 Nikâhı Kıy!`}</button>`;
+            html += `<button class="btn primary" style="margin:1rem 0;font-size:1.1rem" onclick="Nobles.marry('${state.pendingWedding.ladyId}', T('Şölen salonu doldu, kadehler kalktı.'))">${T`💍 Nikâhı Kıy!`}</button>`;
         }
 
         html += `<h4 style="color:var(--primary);margin-top:1rem">${T`Lordlar`}</h4><div style="display:flex;flex-wrap:wrap;gap:1rem">`;

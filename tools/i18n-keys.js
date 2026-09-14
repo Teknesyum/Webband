@@ -94,4 +94,39 @@ function rawUiText(src) {
     return out;
 }
 
-module.exports = { keysIn, norm, codeKeys, dicts, rawUiText };
+/**
+ * Turkish prose inside an `offer(q)` / `desc(q)` body that sits outside every T() span.
+ * These two return the quest pitch and the objective line — pure prose, no data — so a
+ * single untagged letter there ships Turkish to every language (#129 shipped twelve quests
+ * that way). Interpolations are safe to ignore: identifiers are ASCII, so any ç/ğ/ı/ş/ö/ü
+ * left over is literal text. rawUiText() cannot cover this — it only sees `>text<` between
+ * tags, and a pitch ends at the closing backtick, not at a `<`.
+ */
+function untaggedProse(src) {
+    const TR = /[\u00e7\u011f\u0131\u015f\u00f6\u00fc\u00c7\u011e\u0130\u015e\u00d6\u00dc]/;
+    const out = [];
+    const re = /\b(offer|desc)\s*\([^)]*\)\s*\{/g;
+    let m;
+    while((m = re.exec(src)) !== null) {
+        let i = re.lastIndex, depth = 1;
+        for(; i < src.length && depth > 0; i++) {
+            const c = src[i];
+            if(c === "'" || c === '"') { const q = c; for(i++; i < src.length; i++) { if(src[i] === '\\') i++; else if(src[i] === q) break; } }
+            else if(c === '`') { let t = 0; for(i++; i < src.length; i++) { const d = src[i]; if(d === '\\') i++; else if(t) { if(d === '{') t++; else if(d === '}') t--; } else if(d === '$' && src[i+1] === '{') { t = 1; i++; } else if(d === '`') break; } }
+            else if(c === '{') depth++;
+            else if(c === '}') depth--;
+        }
+        const a = re.lastIndex, body = src.slice(a, i);
+        const spans = keysIn(body, true);
+        // Two rules, because either alone has a hole: a body with no T() at all is raw even
+        // when its Turkish happens to carry no diacritic ("Soylu olmayan esirleri..."), and a
+        // body that calls T() on a place name can still leave the sentence around it untagged.
+        let at = spans.length ? -1 : 0;
+        for(let j = 0; at < 0 && j < body.length; j++)
+            if(TR.test(body[j]) && !spans.some(s2 => j > s2.a && j < s2.b)) at = j;
+        if(at >= 0) out.push({ name: m[1], line: src.slice(0, a + at).split('\n').length });
+    }
+    return out;
+}
+
+module.exports = { keysIn, norm, codeKeys, dicts, rawUiText, untaggedProse };

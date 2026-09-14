@@ -1890,6 +1890,20 @@ test('i18n: no Turkish prose reaches the screen outside T()', () => {
     assert.ok(bad.length === 0, `${bad.length} untranslated UI string(s), first: ${bad[0]}`);
 });
 
+// A quest's pitch and objective line are the two strings a player reads most, and #129
+// shipped twelve of them as bare template literals — the Indonesian build showed a Turkish
+// brief under an Indonesian header. The gate below is the shape-based one: it does not care
+// whether the sentence happens to contain a Turkish diacritic.
+test('i18n: every quest offer/desc goes through T() (#129)', () => {
+    const fs = require('fs'), path = require('path');
+    const K = require('./i18n-keys');
+    const bad = [];
+    for(const f of ['quests.js', 'nobles.js'])
+        K.untaggedProse(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'))
+            .forEach(h => bad.push(`${f}:${h.line} ${h.name}()`));
+    assert.ok(bad.length === 0, `${bad.length} untranslated quest text(s), first: ${bad[0]}`);
+});
+
 // A translation that loses a {0} silently drops the number it was carrying, and one that
 // loses a <b> ships broken markup. Both are invisible to the key-existence gate.
 test('i18n: translations keep every placeholder and tag of their key', () => {

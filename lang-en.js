@@ -2240,4 +2240,54 @@ I18N.dicts.en = {
   "Tuz Yolu": "The Salt Road",
   "Savaş Sandığı": "War Chest",
   "⏳ Burada Bekle": "⏳ Wait Here",
+
+    // Ek kontrat görevleri (#129) — sözlük üretildikten sonra eklendi
+    "Bu mühürlü fermanı <b>{0}</b> kapısındaki kumandana götür. Mührü kırma, oyalanma.":
+        "Carry this sealed decree to the commander at the gates of <b>{0}</b>. Do not break the seal, do not dawdle.",
+    "<b>{0}</b> şehrine gir ve mühürlü fermanı teslim et.":
+        "Enter the town of <b>{0}</b> and hand over the sealed decree.",
+    "Sınırdaki üç yerleşimi dolaş. Garnizonları say, yolların açık olup olmadığını bana bildir.":
+        "Ride round the three settlements on the border. Count the garrisons and report back whether the roads are open.",
+    "İşaretli yerleşimleri ziyaret et — <b>{0}/{1}</b> teftiş tamamlandı.":
+        "Visit the marked settlements — <b>{0}/{1}</b> inspected.",
+    "Ordu ambarı boş. Pazarlardan <b>{0} çuval buğday</b> topla ve kapıma getir.":
+        "The army granary is empty. Gather <b>{0} sacks of wheat</b> from the markets and bring them to my door.",
+    "Buğday satın al — <b>{0}/{1}</b>; yeterince topladığında görevi veren lordun salonuna dön.":
+        "Buy wheat — <b>{0}/{1}</b>; once you have enough, return to the hall of the lord who set the task.",
+    "Mahzende tek damla kalmadı. <b>{0} fıçı bira</b> bulup salonuma getir.":
+        "Not a drop is left in the cellar. Find <b>{0} barrels of ale</b> and bring them to my hall.",
+    "Çantanda <b>{0}/{1}</b> bira olsun ve görevi veren lordun salonuna dön.":
+        "Carry <b>{0}/{1}</b> ale in your pack and return to the hall of the lord who set the task.",
+    "Pazarlık için canlı adamlara ihtiyacım var. Soylu olmayan <b>{0} esir</b> getir.":
+        "I need living men to bargain with. Bring me <b>{0} commoner prisoners</b>.",
+    "Soylu olmayan esirleri lordun salonuna getir — <b>{0}/{1}</b>.":
+        "Bring commoner prisoners to the lord's hall — <b>{0}/{1}</b>.",
+    "Yolları tutan <b>{0} ayrı haydut çetesini</b> dağıt. Hangi bayrağı taşıdıkları önemli değil.":
+        "Scatter the <b>{0} separate bandit gangs</b> holding the roads. Whose banner they carry is no concern of mine.",
+    "Haritada haydut veya çapulcu gruplarını yen — <b>{0}/{1}</b>.":
+        "Defeat bandit or looter bands on the map — <b>{0}/{1}</b>.",
+    "Acemiler değil, savaş görmüş adamlar istiyorum. En az {0}. seviyede <b>{1} askerle</b> gel.":
+        "I want men who have seen battle, not recruits. Come to me with <b>{1} troops</b> of at least level {0}.",
+    "En az {0}. seviyede asker yetiştir — <b>{1}/{2}</b>; sonra lordun salonuna dön.":
+        "Train troops to at least level {0} — <b>{1}/{2}</b>; then return to the lord's hall.",
+    "İki yabancı şehrin kapısına kadar git. Nöbet düzenlerini gör ve sağ dön.":
+        "Ride up to the gates of two foreign towns. See how their watch is set, and come back alive.",
+    "İşaretli yabancı şehirleri ziyaret et — <b>{0}/{1}</b>.":
+        "Visit the marked foreign towns — <b>{0}/{1}</b>.",
+    "İki yabancı lordla konuş. Savaşa mı barışa mı yakın olduklarını öğren; söz verme.":
+        "Speak with two foreign lords. Find out whether they lean towards war or peace; promise nothing.",
+    "Belirlenen yabancı lordlarla konuş — <b>{0}/{1}</b>.":
+        "Speak with the appointed foreign lords — <b>{0}/{1}</b>.",
+    "Üç farklı şehir pazarında alışveriş yap. Fiyatları deftere geçirip bana dön.":
+        "Trade in the markets of three different towns. Write the prices in the ledger and come back to me.",
+    "Farklı şehirlerde birer mal satın al — <b>{0}/{1}</b>; sonra loncaya dön.":
+        "Buy one good in each of several different towns — <b>{0}/{1}</b>; then return to the guild.",
+    "Kışlık etler bozulmadan <b>{0} yük tuz</b> satın alıp loncaya getir.":
+        "Buy <b>{0} loads of salt</b> and bring them to the guild before the winter meat spoils.",
+    "Pazarlardan tuz satın al — <b>{0}/{1}</b>; sonra loncaya dön.":
+        "Buy salt from the markets — <b>{0}/{1}</b>; then return to the guild.",
+    "Sefer sandığı boş. <b>{0} dinar</b> topla ve salonuma getir; krallık katkını unutmaz.":
+        "The campaign chest is empty. Raise <b>{0} denars</b> and bring them to my hall; the realm does not forget a contribution.",
+    "En az <b>{0} dinarla</b> görevi veren lordun salonuna dön (para teslimde alınır).":
+        "Return to the hall of the lord who set the task carrying at least <b>{0} denars</b> (the coin is taken on delivery).",
 };

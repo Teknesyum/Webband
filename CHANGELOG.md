@@ -3,6 +3,15 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.12.1 — Üç Dil (2026-09-14)
+
+- Lonca ve lord kontratlarının **görev metinleri artık çevriliyor**. Oyunu İngilizce ya da
+  Endonezce oynarken görev başlığı çevriliyor ama altındaki teklif ve hedef satırı Türkçe
+  kalıyordu — 12 kontratın 24 metni birden ham Türkçe gidiyordu.
+- Şölendeki **"💍 Nikâhı Kıy!"** düğmesinin evlilik mesajı da çevriliyor.
+- Görev metinleri için yeni bir çeviri kapısı: bir kontratın teklif veya hedef satırı
+  çeviriden geçmezse testler patlıyor.
+
 ## 1.12 — Üç Dil (2026-09-14)
 
 - **Eşinle konuşma ekranı artık üç dilde.** Evlendikten sonra açılan `💬 Dertleş`, `🗺️ Savaş meclisi`
