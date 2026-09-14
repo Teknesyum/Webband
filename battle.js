@@ -8,6 +8,9 @@
 const Battle = {
     canvas: null, ctx: null, units: [], projectiles: [], bloodStains: [], floatingTexts: [], active: false, loopId: null, clickHandler: null, commandListener: null, currentCommand: 'charge',
     swings: [], sparks: [], corpses: [], knockedOut: false, grass: null,
+    // Keep formations and command opportunities relevant: played battles take roughly
+    // one-third longer without changing troop ratios or the auto-resolve model.
+    DAMAGE_PACE: 0.75,
 
     // Rival suitor duel: 1-on-1, no group, no loot
     startDuel(lord) {
@@ -62,12 +65,50 @@ const Battle = {
     // the result goes — `Game.tourneyRoundDone` puts it back on the board instead of the map.
     startTourneyFight(foe) {
         this.isTourney = foe;
-        this.soloFoe(foe, '#d9a441');
+        let match = foe.teamFight || { size:1, player:{ name:'Mavi Takım', color:'#2497ff' },
+                                      enemy:{ name:'Kırmızı Takım', color:'#ff3b4f' }, allies:[], enemies:[] };
+        this.soloFoe(foe, match.enemy.color);
+        let player = this.units.find(u => u.id === 'player');
+        let captain = this.units.find(u => !u.isPlayerTeam);
+        // Tournament issue is supplied by the arena: personal armour, weapon, shield and horse
+        // never enter the ring. Levels still matter, but everybody gets the same padded armour
+        // and blunt wooden sword; mounts are forbidden for both teams.
+        const standardise = (u, color) => {
+            if(!u) return;
+            u.color = color; u.defense = 8; u.dmgType = 'blunt'; u.hasShield = false;
+            u.type = 'infantry'; u.mounted = false; u.radius = 7;
+        };
+        if(player) {
+            standardise(player, match.player.color);
+            player.attack = 10 + Game.attr('str');
+            player.speed = this.footSpeed();
+            this.arrows = 0;
+        }
+        standardise(captain, match.enemy.color);
+        const addFighter = (f, team, color, idx) => {
+            let lv = Math.max(1, f.lv || state.player.stats.level);
+            let u = {
+                id: `tourney_${team ? 'ally' : 'enemy'}_${idx}`, name:f.name, isPlayerTeam:team,
+                hp:50 + lv * 6, maxHp:50 + lv * 6, attack:10 + lv,
+                defense:8, speed:70, radius:7, type:'infantry', mounted:false,
+                dmgType:'blunt', hasShield:false, color, atkCd:Math.random() * 0.6,
+                x:team ? 110 + Math.random() * 90 : this.canvas.width - 200 + Math.random() * 90,
+                y:70 + Math.random() * Math.max(1, this.canvas.height - 140), level:lv
+            };
+            standardise(u, color);
+            this.units.push(u);
+        };
+        (match.allies || []).forEach((f, i) => addFighter(f, true, match.player.color, i));
+        (match.enemies || []).forEach((f, i) => addFighter(f, false, match.enemy.color, i));
         document.getElementById('battle-log-left').innerHTML =
-            `<b>${T`🏆 Turnuva:</b> ${T(foe.name)} · Sv. ${foe.lv} — ${T(foe.round)}`}`;
+            `<b>${T('🏆 Turnuva:')} ${T(foe.round)} · ${match.size}×${match.size}</b><br>
+             <span style="color:${match.player.color}">● ${T(match.player.name)}</span>
+             <span style="color:var(--text-muted)"> — </span>
+             <span style="color:${match.enemy.color}">● ${T(match.enemy.name)}</span><br>
+             <span style="color:var(--text-muted)">${T('Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.')}</span>`;
     },
 
-    start(enemyName, enemyCount, bossLevel = null, faction = null, siegePlan = null, auto = false) {
+    start(enemyName, enemyCount, bossLevel = null, faction = null, siegePlan = null, auto = false, enemyBand = null) {
         Input.keys = {}; // Clear keys
         this.canvas = document.getElementById('battle-canvas');
         this.ctx = Game.battleCtx();   // single gate to the shared canvas (#54)
@@ -94,7 +135,10 @@ const Battle = {
         this.corpses = [];
         this.knockedOut = false;
         this.autoLoss = null;
+        // The siege wall is baked into `ground`. Clear that canvas between every battle:
+        // otherwise a normal battle at the same resolution reuses the previous siege field.
         this.grass = null;
+        this.ground = null;
         this.currentCommand = 'charge';
         // Commands aren't ready at the start of battle: each one becomes available
         // as an "opportunity" at its own random moment. The horn call comes from inside the battle, not a menu.
@@ -177,7 +221,8 @@ const Battle = {
         }
 
         let weaponAtk = state.player.equipment.weapon ? state.player.equipment.weapon.attack : 0;
-        let armorDef = state.player.equipment.armor ? state.player.equipment.armor.defense : 0;
+        let armorDef = ['shield','armor','helmet','gloves','boots']
+            .reduce((n, slot) => n + ((state.player.equipment[slot] || {}).defense || 0), 0);
 
         // Mount: if there's a horse the player enters as cavalry — the engine already knows cavalry (and being unhorsed)
         let mounted = !!state.player.equipment.horse;
@@ -224,7 +269,10 @@ const Battle = {
 
         // Enemies (Bands vs Faction Lords vs Boss)
         let npc = state.npcParties.find(n => n.id === state.player.currentEncounterNpcId);
-        let bandKey = (npc && npc.band) || (Object.keys(BAND_KINDS).find(k => BAND_KINDS[k].name === enemyName));
+        // The button that announced the encounter is authoritative. Falling back to the
+        // global encounter id could select a stale wolf party while the modal said bandits.
+        let bandKey = enemyBand || (npc && npc.band)
+                    || (Object.keys(BAND_KINDS).find(k => BAND_KINDS[k].name === enemyName));
         let band = BAND_KINDS[bandKey];
         let isBandit = !!band;
         for(let i=0; i<enemyCount; i++) {
@@ -345,7 +393,9 @@ const Battle = {
         document.getElementById('battle-log-right').innerHTML = '';
 
         setTimeout(() => {
-            if(this.active) {
+            // Arena, tournament and honour duels have an opponent, not an army commander.
+            // This also suppresses the three named red command pings in those modes.
+            if(this.active && !this.isArena && !this.isTourney && !this.isDuel) {
                 let names = [T("Antonius"), T("John"), T("Ragnar"), T("Kel Mahmut"), T("Bozkurt"), T("Topal Rıza"), T("Deli Yürek"), T("Kemikkıran"), T("Kanlı Hasan"), T("Gaius"), T("Bjorn"), T("Dilsiz Suikastçi"), T("Kör Hafız"), T("Barbaros"), T("Turgut")];
                 let n1 = names[Math.floor(Math.random()*names.length)];
                 let n2 = names[Math.floor(Math.random()*names.length)];
@@ -458,8 +508,7 @@ const Battle = {
     playerWeaponProf() { return this.prof(this.playerWeaponType()); },
     playerHasBow() { return this.playerWeaponType() === 'bow'; },
     playerDmgType() { let w = state.player.equipment.weapon; return (w && w.dmgType) || 'cut'; },
-    // A shield occupies the armor slot: block or armor — the player's choice
-    playerHasShield() { let a = state.player.equipment.armor; return !!a && a.id === 'shield'; },
+    playerHasShield() { return !!state.player.equipment.shield; },
 
     // Bow: the quiver is limited, movement and being mounted both hurt accuracy
     playerShoot(p) {
@@ -563,7 +612,7 @@ const Battle = {
     dealMelee(src, tgt, raw) {
         let bf = this.blockFactor(tgt, src.x, src.y);
         if(bf === 0) return this.blockedFx(tgt, src.x, src.y);
-        let dmg = this.afterArmor(src.dmgType, raw * bf, tgt.defense, tgt);
+        let dmg = this.afterArmor(src.dmgType, raw * bf * this.DAMAGE_PACE, tgt.defense, tgt);
         tgt.hp -= dmg;
         // Attributes grow through play: strength if the player lands the hit, vitality if the player takes it.
         if(src.id === 'player') Game.trainAttr('str', 0.15);
@@ -697,7 +746,7 @@ const Battle = {
                 if(d < u.radius + 2) {
                     let bf = this.blockFactor(u, proj.x - proj.vx, proj.y - proj.vy);
                     if(bf === 0) { this.blockedFx(u, proj.x - proj.vx, proj.y - proj.vy); hit = true; break; }
-                    let dmg = this.afterArmor(proj.dmgType, proj.damage * bf, u.defense, u);
+                    let dmg = this.afterArmor(proj.dmgType, proj.damage * bf * this.DAMAGE_PACE, u.defense, u);
                     u.hp -= dmg;
                     hit = true;
                     u.hitFlash = 0.15;
@@ -2004,7 +2053,7 @@ const Battle = {
 
             // Troops disband, prisoners are freed from their chains
             state.player.party = [];
-            state.player.prisoners.filter(p => p.noble).forEach(p => Game.respawnLordParty(p));
+            state.player.prisoners.filter(p => p.noble).forEach(p => Game.scheduleLordRespawn(p.lordId, 4));
             state.player.prisoners = [];
             state.player.stats.hp = Math.max(5, Math.floor(state.player.stats.maxHp * 0.3));
 
@@ -2060,7 +2109,7 @@ const Battle = {
         else {
             alert(wasSiege ? T('Kuşatmadan çekildin. Birliğin dağıldı.') : T('Teslim oldun! Birliğini kaybettin.'));
             state.player.party = [];
-            state.player.prisoners.filter(p => p.noble).forEach(p => Game.respawnLordParty(p));
+            state.player.prisoners.filter(p => p.noble).forEach(p => Game.scheduleLordRespawn(p.lordId, 4));
             state.player.prisoners = [];
             state.player.stats.hp = Math.max(5, Math.floor(state.player.stats.maxHp * 0.3));
         }
@@ -2100,6 +2149,10 @@ const TournamentMinigame = {
         this.canvas = document.getElementById('battle-canvas');
         this.ctx = Game.battleCtx();   // single gate to the shared canvas (#54)
         Game.showScreen('battle');
+        // Chicken chasing and other click challenges have no troops to command. The command
+        // pad is static battle markup, so a previous real fight could leave it visible here.
+        let tc = document.getElementById('tcmds');
+        if(tc) tc.style.display = 'none';
         this.canvas.width = this.canvas.parentElement.clientWidth;
         this.canvas.height = this.canvas.parentElement.clientHeight;
         this.active = true;
@@ -2243,13 +2296,11 @@ const TournamentMinigame = {
         }
         if(won) {
             state.player.money += 500; state.player.renown += 20;
-            state.player.tourneyWins = (state.player.tourneyWins || 0) + 1;   // hedef zinciri sayar (#53/1.4)
-            state.pendingDedication = true;
             alert(T('Turnuvayı kazandın! +500 Dinar, +20 Nam') + betTxt + T('\n\nArenada zaferini bir leydiye ithaf edebilirsin — salona git.'));
         } else {
             alert(T`${this.round}. turda elendin! Skor: ${this.score}/${this.goal}` + betTxt);
         }
-        Quests.emit('tournament_end', { won, score: this.score });
+        Game.tournamentFinished(won, { score: this.score });
         Game.updateTopBar();
     }
 };

@@ -3,6 +3,105 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.10 — Bekleyen Yol (2026-09-13)
+
+- **Kampta düşman baskını yok.** Bekleme sırasında harita dünyası hareket etmeyi sürdürse de düşman
+  çarpışması/pususu kampı kesmiyor; seçilen süre bitene kadar güvenle zaman geçiyor. Düşmanlar ayrıca
+  kamp çevresindeki güvenli mesafenin içine giremiyor; uyanır uyanmaz savaş açılmıyor.
+
+- **Dost şehir ve kalelerde beklenebiliyor.** Savaşta olmadığın şehir/kale menüsünde artık
+  `⏳ Burada Bekle` var; aynı kamp süre seçenekleriyle haritaya dönüp zamanı geçiriyor.
+
+- **Kamptan hareket emri verilemiyor.** Bekleme sürerken haritaya tıklama, hedef sürükleme ve doğrudan
+  rota atama yok sayılıyor; kamp yalnız süre dolunca ya da karşılaşma kesince bitiyor.
+
+- **Beklerken kamptasın.** Haritada zaman geçirirken oyuncu birliği atlı/ayaklı birlik yerine
+  çadır sembolüyle gösteriliyor; isim etiketinde de kamp işareti var.
+
+- **Erken oyunda haydut baskısı yumuşadı.** İlk iki gün yeni haydut takviyesi çıkmıyor; çeteler
+  ilk gün en fazla 8 kişiyle başlıyor ve 16. güne kadar normal büyüklüklerine açılıyor. İnler de
+  oyuncunun güvenli doğuş yarıçapındaysa yeni çete çıkaramıyor; dibinde yeni grup belirmiyor.
+
+- **Günler biraz daha yavaş geçiyor.** Normal dünya zamanı saniye başına 1 yerine 0,75 oyun saati
+  ilerliyor. Kamp ve NPC hareketi de aynı temel oranı kullandığı için zaman ile harita tutarlı kalıyor.
+
+- **Lordlar kıyıda takılmıyor.** Harita dışına düşen devriye/kaçış hedefleri hareketten önce
+  kıyı çizgisinin içine çekiliyor; erişilemeyen hedefe yürüyüp kenarda sonsuza dek kalmıyorlar.
+
+- **Erzak daha yavaş tükeniyor.** Asker başına günlük tüketim 0,5'ten 0,4'e, oyuncunun payı
+  1'den 0,75'e indirildi. Günlük tüketim, erzak günü göstergesi ve açlık hesabı aynı oranı kullanıyor.
+
+- **Lord orduları artık zıplamıyor.** Günlük güç hedefi ordu mevcudunu bir anda yeniden yazmıyor;
+  eksik ya da fazla asker sayısı günde en çok üç kişiyle hedefe yaklaşıyor. Yeni doğan ve yeniden
+  çıkan lordlar da aynı hedef büyüklükten başlıyor.
+
+- **Hasat nöbeti daha adil.** Görevin iki çapulcu dalgası artık 8–19 yerine 5–12 kişiden oluşuyor.
+- **Kampta dünya da hızlanıyor.** Beklerken saat dört kat akıyorsa lordlar, kervanlar ve haydutlar da
+  haritada dört kat yol alıyor; geçen dünya zamanı ile parti hareketi artık birbirini tutuyor.
+- **Esiri onurla salma hedefi anında işliyor.** Kan davasındaki son lordu fidyesiz bıraktığında
+  “Kan bedeli” hedefi geçmiş husumeti kaydedip aynı anda tamamlanıyor.
+
+- **On iki yeni görev eklendi.** Mühürlü ferman taşıma, üç duraklı sınır teftişi, tahıl vergisi,
+  şölen fıçıları, esir kafilesi, üç çete avı, kıdemli muhafız yetiştirme, düşman kapılarını keşif,
+  diplomatik nabız yoklama, üç şehirlik pazar defteri, tuz yolu ve savaş sandığı görevleri lordların
+  mizacına ve lonca ustalarına göre teklif havuzuna katıldı.
+
+- **Turnuva yerleri artık gizli.** Açık turnuvalar dünya haritasında kupa işaretiyle gösterilmiyor,
+  han söylentileri şehirlerini ele vermiyor ve turnuva görevleri haritaya hedef noktası koymuyor.
+  Turnuva ancak düzenlendiği şehre girildiğinde fark ediliyor.
+
+- **Harita buluşmaları niyeti biliyor.** Dost veya nötr lordla tesadüfi çarpışma sohbet açmıyor;
+  oyuncu lordu ya da lord oyuncuyu kimliğiyle hedeflediyse buluşmada diyalog açılıyor. Düşman lordların
+  yolu kesmesi ve haydut saldırıları aynen sürüyor.
+- **Lord orduları biraz zayıfladı.** Kral, vezir ve normal lord kuvvetleri başlangıçta, günlük
+  yenilenmede ve mağlubiyet sonrası dönüşte %10 daha az askerle geliyor; eski kayıtlardaki normal
+  lordlar da bir sonraki günlük güncellemede yeni 32 kişilik üst sınıra iniyor.
+- **Hediye ve iltifatın tepkisi artık kaybolmuyor.** Sonuç modalı salon menüsü tarafından aynı
+  karede ezilmiyor; “çok sevdi / hoşuna gitti / kibarca karşıladı / hoşlanmadı” tepkisi ile
+  ilişki veya ilginin önceki ve yeni değeri, oyuncu Devam'a basana kadar ekranda kalıyor. Aynı
+  güvenli sonuç ekranı şiir okuma ve turnuva zaferi ithafına da uygulandı.
+- **Turnuvalar renkli takım savaşları oldu.** Warband düzenine yaklaşan turnuvada çeyrek final
+  4’e 4, yarı final 2’ye 2, final 1’e 1 oynanıyor; iki tarafın takım adı ve yüksek kontrastlı
+  rengi hem tur ekranında hem savaş alanındaki dövüşçülerde aynı görünüyor. Kişisel ekipman içeri
+  girmiyor: herkeste aynı tahta kılıç ve dolgulu zırh var, at iki tarafa da yasak.
+- **Yazılan konuşmada ilk basış onaydır.** Lordun cümlesi yazılırken kayan bir seçeneğe dokunmak
+  artık o seçeneği çalıştırmıyor: ilk basış metni tamamlıyor, ikinci basış bilinçli seçimi yapıyor.
+  Konuşma alanı da uzun cümlelerde tuşları daha az oynatacak kadar büyütüldü.
+- **Yol olayı dokunmayı çalmıyor.** Haritaya basılıyken açılan rastgele olay, aynı parmağın
+  bırakılmasını bir seçenek tıklaması saymıyor; kısa dokunma kilidinden sonra seçim normal çalışıyor.
+- **Turnuva hedefi zafer anında tamamlanıyor.** “Turnuva şampiyonu” hedefi artık ertesi günün
+  dünya güncellemesini beklemiyor. Yeni takım turnuvası ve eski arena yolu aynı sonuç hook'una
+  bağlandı; sayaç, hedef ve turnuva görevi tek noktadan ve yalnız gerçek zaferde çalışıyor.
+- **“Sisteki Nokta” görevi kaldırıldı.** Gizli koordinat arayıp sıcak/soğuk bildirimi bekleten
+  görev artık hiçbir görev verenden çıkmıyor; tanımı ve kullanılmayan çevirileri de temizlendi.
+- **Yol kenarında geçen saatler gerçekten geçiyor.** Yaralıyla ilgilenirken, fırtınayı beklerken
+  ya da iz sürerken peşindeki düşmanlar da yürür; yetişirlerse sonuç penceresinden sonra önünü keserler.
+- **Diyalog zemini artık kapatma düğmesi değil.** Özellikle hareket hâlindeyken açılan yol olayları,
+  haritaya giden eski dokunuşla yanlışlıkla kapanmıyor; kararlar yalnız görünür düğmelerle veriliyor.
+- **Haritaya dönünce kamera oyuncuyu buluyor.** Menüden veya savaştan çıkarken eski kaydırma ofseti
+  taşınmıyor; yarım kalmış dokunma ve yakınlaştırma hâli de temizlenmeye devam ediyor.
+- **İltifatın üç günlük arası var.** Aynı leydiye durmadan aynı iltifatı basarak ilgi kasılamıyor.
+- **Oynanan savaşlar yaklaşık üçte bir uzadı.** Hasar temposu düşürüldü; zırh, birlik oranları ve
+  otomatik çözüm dengesi değişmedi.
+- **Tek kişilik karşılaşmalar ordu taklidi yapmıyor.** Arena, turnuva ve şeref düellosunda düşman
+  komutanı konuşması ile isimli kırmızı komuta halkaları çıkmıyor. Tavuk avında da emir tuşları yok.
+- **Karşılaşmada söylenen düşman, sahaya çıkan düşman.** Eski bir karşılaşma kimliği bellekte
+  kaldığında "haydut çetesi" başlığının altından kurt sürüsü çıkabiliyordu; ilan edilen birlik türü
+  artık savaş motoruna doğrudan taşınıyor.
+- **Teçhizat artık yedi parçalı.** Silah, kalkan, gövde zırhı ve atın yanına başlık, eldiven ve
+  çizme yuvaları geldi. Deri/plaka zırhlar, üç miğfer, iki eldiven ve iki çizme pazar ile keşif
+  ganimetine eklendi; kalkan artık gövde zırhını çıkarmadan kuşanılıyor ve bütün parçaların
+  savunması savaşta birlikte hesaplanıyor.
+- **Erzak sofrası genişledi.** Tütsülenmiş balık, kuru meyve, tereyağı ve bal eklendi; her birinin
+  fiyatı ve raf ömrü ayrı. Tüketim, seçkin askerlerin kaliteli yemek ihtiyacı, bozulma ve moraldeki
+  yemek çeşitliliği yeni erzakların hepsini tanıyor.
+- **Lordlar yol güvenliğine karışıyor.** Yakınındaki çapulcu, haydut veya kurt sürüsünün üstüne
+  yürüyüp haritada savaşıyor; iki taraf gerçek asker kaybı veriyor, dağılan lord daha sonra kendi
+  yurdunda yeniden toplanıyor. Yenilen çetenin sağ kalanları üç gün saklanıp toparlanıyor. Günlük
+  çatışma sayısı birle sınırlı: dünya hareketlenirken haritadaki toplam çete sayısı kabaca aynı kalıyor.
+- **Müzikler dış lisans yükü taşımıyor.** Harita ve savaş parçaları, oyunun Web Audio motorunun
+  çalışma anında besteleyip sentezlediği özgün/prosedürel eserlerdir; haricî kayıt kullanılmaz.
+
 ## 1.09 — Leydi Avrilia (2026-09-13)
 
 - **Leydi Nelda'nın adı Leydi Avrilia oldu.** Swadia'nın dindar leydisi, şafak duasını

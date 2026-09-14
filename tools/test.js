@@ -101,6 +101,15 @@ test('getPartyCapacity: fractional attribute source is floored (#43)', () => {
     assert.strictEqual(Game.getPartyCapacity(), 17);   // floor(1.9286*3) = 5
 });
 
+test('getPartyCapacity: marriage adds a household retinue allowance', () => {
+    const p = reset();
+    p.spouse = null;
+    assert.strictEqual(Game.getPartyCapacity(), 12);
+    p.spouse = 'lady_test';
+    assert.strictEqual(Game.getPartyCapacity(), 17);
+    p.spouse = null;
+});
+
 test('prisonerValue: type multiplier, noble ransom', () => {
     assert.strictEqual(Game.prisonerValue({ level: 10, type: 'infantry' }), 145);
     assert.strictEqual(Game.prisonerValue({ level: 10, type: 'archer' }), 174);
@@ -135,18 +144,18 @@ test('foodStock: day count accounts for spoilage too', () => {
     p.inventory = [{ id: 'wheat', qty: 60 }];
     const fs = Game.foodStock();
     assert.strictEqual(fs.low, 60);
-    assert.strictEqual(fs.need, 6);                   // 10 troops × FOOD_MAN 0.5 + the player themself 1
+    assert.strictEqual(fs.need, 5);                   // 10 troops × FOOD_MAN 0.4 + the player themself 0.75
     assert.strictEqual(fs.kinds, 1);
     assert.strictEqual(fs.spoil, 1);                  // 60 wheat / 60-day shelf life
-    assert.strictEqual(fs.days, 8);                   // 60 / (6 + 1)
+    assert.strictEqual(fs.days, 10);                  // 60 / (5 + 1)
 });
 test('foodStock: elite troops want meat, variety is counted', () => {
     const p = reset();
     p.party = [troop(30), troop(30)];
     p.inventory = [{ id: 'wheat', qty: 10 }, { id: 'meat', qty: 10 }];
     const fs = Game.foodStock();
-    assert.strictEqual(fs.need, 3);                   // 2 × 0.75 + player 1, rounded up
-    assert.strictEqual(fs.needHigh, 1);               // half a meat per lvl 30+ troop
+    assert.strictEqual(fs.need, 2);                   // 2 × 0.6 + player 0.75, rounded up
+    assert.strictEqual(fs.needHigh, 1);               // 0.4 meat per lvl 30+ troop
     assert.strictEqual(fs.high, 10);
     assert.strictEqual(fs.kinds, 2);
 });
@@ -154,6 +163,42 @@ test('foodStock: empty inventory is 0 days, never infinite', () => {
     const p = reset();
     p.party = [troop(10)];
     assert.strictEqual(Game.foodStock().days, 0);
+});
+
+test('foodStock: every added ration joins consumption, quality and variety', () => {
+    const p = reset();
+    p.inventory = ['wheat','bread','meat','cheese','fish','fruit','butter','honey']
+        .map(id => ({ ...g.ITEMS[id], qty: 1 }));
+    const fs = Game.foodStock();
+    assert.strictEqual(fs.total, 8);
+    assert.strictEqual(fs.kinds, 8);
+    assert.strictEqual(fs.low, 3);
+    assert.strictEqual(fs.high, 5);
+    assert.strictEqual(Game.takeFood(8), 8);
+    assert.strictEqual(Game.foodStock().total, 0);
+});
+
+test('foodStock: expensive preserved food supplies multiple daily portions', () => {
+    const p = reset();
+    p.inventory = [{ id:'bread', qty:10 }, { id:'honey', qty:10 }];
+    const fs = Game.foodStock();
+    assert.strictEqual(fs.total, 20, 'physical packs should remain visible as packs');
+    assert.strictEqual(fs.nutrition, 40, 'honey should provide three portions per pack');
+    assert.ok(fs.days >= 20, 'expensive preserved food did not last substantially longer');
+});
+
+test('equipment: seven slots stack defense and shield no longer replaces armour', () => {
+    const p = reset();
+    p.stats.eff.vit = 10;
+    p.equipment = {
+        weapon: null, horse: null,
+        shield: { id:'shield', defense:10 }, armor: { id:'mail', defense:25 },
+        helmet: { id:'nasal', defense:8 }, gloves: { id:'gauntlets', defense:6 },
+        boots: { id:'greaves', defense:7 }
+    };
+    Game.updateStatsFromEquip();
+    assert.strictEqual(p.stats.maxHp, 106);
+    assert.ok(Battle.playerHasShield());
 });
 
 // Frame gate: refresh rate → passed fps. Rule is "the largest whole divisor
@@ -282,6 +327,67 @@ test('modal: an encounter window can\'t be dismissed by the user, only by its ow
     state.player.currentEncounterNpcId = null;
 });
 
+test('modal: a choice pressed while dialogue is typing only finishes the text', () => {
+    let prevented = 0, stopped = 0, completed = 0;
+    const el = { textContent: '' };
+    Game._type = { el, text: 'Bitmiş konuşma', timer: null, then: () => completed++ };
+    const guarded = Game.finishTypedChoice({
+        target: { closest: selector => selector === '#modal-body button' ? {} : null },
+        preventDefault: () => prevented++,
+        stopImmediatePropagation: () => stopped++
+    });
+    assert.ok(guarded, 'a moving dialogue allowed its choice to run');
+    assert.strictEqual(prevented, 1, 'the choice click was not cancelled');
+    assert.strictEqual(stopped, 1, 'the choice click reached its inline action');
+    assert.strictEqual(el.textContent, 'Bitmiş konuşma', 'the first press did not finish the sentence');
+    assert.strictEqual(completed, 1, 'the typewriter completion callback did not run');
+});
+
+test('battle: the real-time damage pace lengthens played fights', () => {
+    const src = { id:'a', x:0, y:0, dmgType:'cut', isPlayerTeam:true };
+    const tgt = { id:'b', x:1, y:0, hp:100, defense:0, isPlayerTeam:false, hitFlash:0 };
+    Battle.bloodStains = []; Battle.sparks = []; Battle.floatingTexts = [];
+    Battle.dealMelee(src, tgt, 20);
+    assert.strictEqual(tgt.hp, 85, '20 raw damage was not paced to 15');
+});
+
+test('courtship: a lady only accepts one compliment every three days', () => {
+    const id = 'isolla';
+    state.time.day = 20; state.affection[id] = 50; state.complimentDay = {};
+    const liked = 'glory';   // Isolla is ambitious: glory is her explicit liked subject
+    g.Nobles.compliment(id, liked);
+    const once = state.affection[id];
+    const result = g._sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(result.includes('Çok sevdi') && result.includes('50 → 55'),
+        'the compliment result did not show whether it landed or the affection change');
+    g.Nobles.compliment(id, liked);
+    assert.strictEqual(state.affection[id], once, 'a second compliment landed on the same day');
+    state.time.day += 3;
+    g.Nobles.compliment(id, liked);
+    assert.notStrictEqual(state.affection[id], once, 'the compliment did not reopen after three days');
+});
+
+test('relations: a gift result stays visible with the reaction and before/after value', () => {
+    const id = g.LORDS.find(l => l.personality === 'martial').id;
+    state.time.day = 30; state.giftDay = {}; state.relations[id] = 10;
+    state.player.inventory = [{ id:'sword', name:'Kılıç', type:'weapon', icon:'⚔️', qty:1 }];
+    g.Nobles.giveGift(id, 0);
+    const result = g._sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(result.includes('Çok sevdi') && result.includes('10 → 18'),
+        'the gift result was overwritten before its reaction could be read');
+    assert.ok(result.includes('Nobles.talk'), 'the result has no explicit continue button');
+});
+
+test('courtship: a poem result stays visible with a clear affection reaction', () => {
+    const id = 'isolla';
+    state.affection[id] = 20; state.poemsRead = {};
+    g.Nobles.recitePoem(id, 'poem_butter');
+    const result = g._sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(result.includes('Çok sevdi') && result.includes('20 → 32'),
+        'the poem reaction was overwritten before its affection result could be read');
+    assert.ok(result.includes('Nobles.courtMenu'), 'the poem result has no explicit continue button');
+});
+
 // --- Battle speed balance ---
 // The four links of the speed chain used to behave differently for the
 // player and the AI; the biggest risk while fixing that was bringing back the
@@ -326,6 +432,20 @@ test('bandits do not scale with the calendar (#99)', () => {
     assert.strictEqual(late.lvl, early.lvl, 'a looter on day 730 is the looter of day 1');
     assert.strictEqual(late.hp, early.hp, 'and carries the same HP: ' + early.hp + ' vs ' + late.hp);
     gw.state.time.day = 1;
+});
+
+test('battle terrain: a siege wall cannot persist into the next field battle', () => {
+    const plan = { name:'Test siege', defBonus:0.2, gaps:1 };
+    gw.Battle.start('Garnizon', 8, null, '', plan);
+    gw.Battle.buildGround();
+    const siegeGround = gw.Battle.ground;
+    assert.ok(gw.Battle.siege && siegeGround, 'siege field was not built');
+    gw.Battle.start('Çapulcular', 8);
+    assert.strictEqual(gw.Battle.siege, null, 'normal battle retained siege state');
+    assert.strictEqual(gw.Battle.ground, null, 'normal battle reused the siege terrain cache');
+    gw.Battle.buildGround();
+    assert.notStrictEqual(gw.Battle.ground, siegeGround, 'new field terrain was not regenerated');
+    gw.Battle.active = false;
 });
 
 test('no party, no orders (#114)', () => {
@@ -415,17 +535,30 @@ test('tournament: eight enter, one is crowned, and the ladder pays per round (#1
     assert.strictEqual(t.wins, 0, 'a first-round loss counted as a win');
     assert.ok(gw.state.tourneyChampions[city.id], 'the city did not remember the winner');
 
+    const teamSizes = [4, 2, 1];
+    teamSizes.forEach((size, round) => {
+        const teams = gw.Game.TOURNEY_TEAMS[round];
+        assert.strictEqual(teams.length, 2, `round ${round} has no two-team colour pairing`);
+        assert.notStrictEqual(teams[0].color, teams[1].color, `round ${round} teams share a colour`);
+        assert.strictEqual(new Set(teams.map(x => x.color)).size, 2, `round ${round} colours are not distinguishable`);
+        assert.strictEqual([4, 2, 1][round], size);
+    });
+
     // Win all three and the prizes arrive as you climb, not only at the end.
     gw.state.tourney = null;
     gw.state.activeTournaments[city.id] = true;
     gw.Game.joinTournament(city);
     gw.Game.startTournament();
+    gw.state.player.ambition = { id: 'champion', day: gw.state.time.day };
+    gw.state.player.ambitionsDone = (gw.state.player.ambitionsDone || []).filter(id => id !== 'champion');
     const m0 = gw.state.player.money, r0 = gw.state.player.renown, w0 = gw.state.player.tourneyWins || 0;
     for(let i = 0; i < 3; i++) gw.Game.tourneyRoundDone(true);
     assert.ok(gw.state.tourney.champion.you, 'the player won every round and was still not crowned');
-    assert.strictEqual(gw.state.player.money - m0, 700, 'the prize ladder did not add up to 50+150+500');
-    assert.strictEqual(gw.state.player.renown - r0, 20, 'the championship paid no renown');
+    assert.strictEqual(gw.state.player.money - m0, 1200, 'the prize ladder and ambition rewards did not arrive');
+    assert.strictEqual(gw.state.player.renown - r0, 30, 'the championship and ambition paid the wrong renown');
     assert.strictEqual((gw.state.player.tourneyWins || 0) - w0, 1, 'the ambition counter did not tick');
+    assert.ok(!gw.state.player.ambition && gw.state.player.ambitionsDone.includes('champion'),
+        'winning the tournament did not immediately complete the selected ambition');
     gw.state.tourney = null;
 
     // The board is topped up, not rolled once: a player crossing the map should keep running
@@ -581,6 +714,79 @@ test('encounter: the announced roster is the roster that takes the field (#116)'
     assert.strictEqual(onField(false), foes, `announced ${foes} enemies, ${onField(false)} took the field`);
     assert.strictEqual(onField(true), mine, `announced ${mine} of your own, ${onField(true)} took the field`);
     assert.strictEqual(mine, 3, 'the wounded were counted into the announcement again');
+});
+
+test('band spawning: early bands stay small and a nearby lair cannot produce a party in the player\'s lap', () => {
+    const g = H.world({ seed: 37 });
+    const { Game, state } = g;
+    state.time.day = 1;
+    const early = Game.spawnBand('bandit');
+    assert.ok(early.size <= 8, `day-one band spawned with ${early.size} troops`);
+    const closeLair = { id:'near_lair', band:'bandit', x:state.player.x, y:state.player.y };
+    const fromNearLair = Game.spawnBand('bandit', closeLair);
+    assert.ok(Game.dist(fromNearLair, state.player) >= Game.SPAWN_SAFE,
+        'a band spawned inside the player safety radius');
+    state.npcParties = state.npcParties.filter(n => n.type !== 'bandit');
+    const before = Game.bandCount();
+    Game.bandRefillTick(6);
+    assert.strictEqual(Game.bandCount(), before, 'the refill grace period spawned a day-one band');
+});
+
+test('tournament: a 4v4 round spawns two complete, colour-coded teams', () => {
+    const gt = H.world({ seed: 122 });
+    const { Battle, Game } = gt;
+    const pair = Game.TOURNEY_TEAMS[0];
+    const fighter = (name, lv) => ({ name, lv });
+    const foe = fighter('Rakip Kaptan', 5);
+    foe.round = Game.TOURNEY_ROUNDS[0];
+    foe.teamFight = {
+        size:4, player:pair[0], enemy:pair[1],
+        allies:[fighter('M1', 3), fighter('M2', 4), fighter('M3', 5)],
+        enemies:[fighter('K1', 3), fighter('K2', 4), fighter('K3', 5)]
+    };
+    Battle.startTourneyFight(foe);
+    const blue = Battle.units.filter(u => u.isPlayerTeam);
+    const red = Battle.units.filter(u => !u.isPlayerTeam);
+    assert.strictEqual(blue.length, 4, 'the player tournament team is not 4 fighters');
+    assert.strictEqual(red.length, 4, 'the opposing tournament team is not 4 fighters');
+    assert.ok(blue.every(u => u.color === pair[0].color), 'player teammates do not share their team colour');
+    assert.ok(red.every(u => u.color === pair[1].color), 'opponents do not share their team colour');
+    assert.ok(Battle.units.every(u => u.defense === 8 && u.dmgType === 'blunt' && !u.hasShield),
+        'personal weapons or armour leaked into the tournament issue');
+    assert.ok(Battle.units.every(u => !u.mounted && u.type === 'infantry'),
+        'a horse entered an otherwise foot-only tournament round');
+    assert.strictEqual(Battle.arrows, 0, 'the player carried a personal bow into the tournament');
+    Battle.active = false;
+});
+
+test('tournament: the shared result hook completes the ambition immediately and only on a win', () => {
+    const gh = H.world({ seed: 123 });
+    const { Game, state } = gh;
+    state.player.ambition = { id:'champion', day:state.time.day };
+    state.player.ambitionsDone = [];
+    const wins = state.player.tourneyWins || 0;
+    Game.tournamentFinished(false, { score:0 });
+    assert.strictEqual(state.player.tourneyWins || 0, wins, 'a tournament loss incremented the win hook');
+    assert.strictEqual(state.player.ambition.id, 'champion', 'a loss completed the champion ambition');
+    Game.tournamentFinished(true, { score:3 });
+    assert.strictEqual(state.player.tourneyWins, wins + 1, 'the win hook did not increment the tournament counter');
+    assert.ok(!state.player.ambition && state.player.ambitionsDone.includes('champion'),
+        'the shared result hook deferred ambition completion until day end');
+});
+
+test('encounter: the announced band kind wins over a stale global encounter id', () => {
+    const gw = H.world({ seed: 15 });
+    const { Game, state, Battle } = gw;
+    state.player.party = [];
+    const wolf = Game.spawnBand('wolf');
+    state.player.currentEncounterNpcId = wolf.id; // stale state from a different encounter
+    Battle.endBattle = () => { Battle.active = false; };
+    Battle.start('Çapulcular', 6, null, '', null, false, 'bandit');
+    const foes = Battle.units.filter(u => !u.isPlayerTeam).concat(Battle.reserves.e);
+    assert.ok(foes.length === 6);
+    assert.ok(foes.every(u => !u.beast && !/Kurt/.test(u.name)),
+        'a bandit announcement produced wolves');
+    Battle.active = false;
 });
 
 test('speed: morale doesn\'t scale troop speed (the enemy has no morale)', () => {
@@ -769,7 +975,6 @@ function questSuite() {
 
     const drivers = {
         butter_blockade: q => Quests.emit('bought_item', { locId: q.data.locId, itemId: 'cheese', qty: q.data.need }),
-        fog_dot: q => { state.player.x = q.data.x; state.player.y = q.data.y; Quests.dailyTick(); },
         sergeant_exam: q => {
             state.player.party = Array.from({ length: q.data.need }, (_, i) =>
                 ({ id: 'v' + i, name: 'Svadya Şövalyesi', level: 21, type: 'cavalry' }));
@@ -803,8 +1008,21 @@ function questSuite() {
         guild_supply: q => { give(q.data.item, q.data.need); enter(q.data.locId); },
         // Drives the real path (Game.clearLair emits the event); on day 1 the lair's
         // purse is still empty, so the quest reward is the only money paid.
-        clear_lair: q => Game.clearLair(q.data.lairId)
+        clear_lair: q => Game.clearLair(q.data.lairId),
+        royal_courier: q => enter(q.data.locId),
+        border_inspection: q => q.data.stops.forEach(enter),
+        grain_levy: q => { Quests.emit('bought_item', { itemId:'wheat', qty:q.data.need, locId:q.data.locId }); enter(q.data.locId); },
+        ale_for_feast: q => { give('ale', q.data.need); enter(q.data.locId); },
+        ransom_column: q => { for(let i=0;i<q.data.need;i++) state.player.prisoners.push({ id:'r'+i, level:5 }); enter(q.data.locId); },
+        bandit_bounty: q => { for(let i=0;i<q.data.need;i++) Quests.emit('battle_won', { npcId:'band'+i }); },
+        veteran_guard: q => { state.player.party = Array.from({length:q.data.need}, (_,i) => ({id:'vg'+i,level:q.data.level})); enter(q.data.locId); },
+        enemy_scout: q => q.data.stops.forEach(enter),
+        diplomatic_round: q => q.data.lords.forEach(lordId => Quests.emit('talked_to', { lordId })),
+        market_sampler: q => { LOCATIONS.filter(l=>l.type==='city').slice(0,q.data.need).forEach(l => Quests.emit('bought_item',{itemId:'wheat',qty:1,locId:l.id})); enter(q.data.home); },
+        salt_run: q => { Quests.emit('bought_item',{itemId:'salt',qty:q.data.need,locId:q.data.home}); enter(q.data.home); },
+        war_chest: q => { state.player.money = q.data.need; enter(q.data.locId); }
     };
+    assert.ok(!QUESTS.fog_dot, 'retired hidden-location quest is still in the offer pool');
 
     // First eligible giver for a quest: personality + the world's `can` precondition
     function giverFor(id) {
@@ -842,6 +1060,97 @@ function questSuite() {
     });
 }
 questSuite();
+
+test('wait: world parties receive the same fourfold camping acceleration as the clock', () => {
+    const g = H.world({ seed: 33 });
+    const { Game, state } = g;
+    state.player.wait = null;
+    assert.strictEqual(Game.npcWorldDelta(0.5), 0.5 * Game.TIME_FLOW);
+    state.player.wait = { until: 99 };
+    assert.strictEqual(Game.npcWorldDelta(0.5), 0.5 * Game.TIME_FLOW * Game.WAIT_SCALE);
+});
+
+test('wait: map orders cannot cancel a running camp', () => {
+    const g = H.world({ seed: 38 });
+    const { Game, state } = g;
+    state.player.status = 'waiting';
+    state.player.wait = { until: 99 };
+    Game.setTarget({ x:state.player.x + 500, y:state.player.y + 500 });
+    assert.strictEqual(state.player.status, 'waiting');
+    assert.strictEqual(state.player.targetLocation, null, 'a map order escaped the camp lock');
+});
+
+test('wait: a running camp is protected from map encounters', () => {
+    const g = H.world({ seed: 40 });
+    const { Game, state } = g;
+    const band = Game.createNPC('Çapulcular', 'bandit', 8, '#800');
+    state.player.wait = { until: 99 }; state.player.status = 'waiting';
+    assert.ok(Game.campProtected());
+    Game.triggerEncounter(band);
+    assert.strictEqual(state.player.wait.until, 99, 'an encounter interrupted the protected camp');
+    assert.strictEqual(state.player.currentEncounterNpcId, null, 'a protected camp opened an encounter');
+});
+
+test('wait: hostile parties hold outside the camp perimeter and cannot stack for an instant wake-up fight', () => {
+    const g = H.world({ seed: 41 });
+    const { Game, state } = g;
+    state.time.day = 20;
+    state.player.party = [];
+    state.player.wait = { until: 99 }; state.player.status = 'waiting';
+    const band = Game.createNPC('Çapulcular', 'bandit', 20, '#800');
+    band.x = state.player.x + 220; band.y = state.player.y;
+    band.targetX = state.player.x; band.targetY = state.player.y;
+    state.npcParties = [band];
+    Game.updateNPCs(10);
+    assert.ok(Game.dist(band, state.player) >= Game.CAMP_SAFE_RADIUS - 1,
+        'a hostile party crossed the protected camp perimeter');
+});
+
+test('wait: friendly cities and castles offer a place to pass time, enemy settlements do not', () => {
+    const g = H.world({ seed: 39 });
+    const { Game, LOCATIONS } = g;
+    const city = LOCATIONS.find(l => l.type === 'city');
+    const castle = LOCATIONS.find(l => l.type === 'castle');
+    const village = LOCATIONS.find(l => l.type === 'village');
+    assert.ok(Game.canWaitAtSettlement(city) && Game.canWaitAtSettlement(castle));
+    assert.ok(!Game.canWaitAtSettlement(village), 'villages incorrectly offer settlement waiting');
+    Game.declareWar(Game.playerFaction(), city.faction);
+    assert.ok(!Game.canWaitAtSettlement(city), 'an enemy city incorrectly offers settlement waiting');
+});
+
+test('ambition: honourably releasing the last feuding lord completes blood money immediately', () => {
+    const g = H.world({ seed: 34 });
+    const { Game, state, LORDS } = g;
+    const lord = LORDS[0];
+    state.player.ambition = { id:'feud', day:state.time.day };
+    state.player.ambitionsDone = [];
+    state.player.hadGrudge = false;
+    state.grudges[lord.id] = state.time.day;
+    state.player.prisoners = [{ id:'held_lord', name:lord.name, noble:true, lordId:lord.id,
+                                faction:lord.faction, ransom:1000 }];
+    Game.releaseLord('held_lord');
+    assert.ok(!state.player.ambition && state.player.ambitionsDone.includes('feud'),
+        'releasing the feud prisoner did not complete the selected goal');
+});
+
+test('lord prisoners: released nobles return only after recovery with a small retinue', () => {
+    const g = H.world({ seed: 37 });
+    const { Game, state, LORDS } = g;
+    const lord = LORDS[0];
+    state.npcParties = state.npcParties.filter(n => n.lordId !== lord.id);
+    state.player.prisoners = [{ id:'held_lord', name:lord.name, noble:true, lordId:lord.id,
+                                faction:lord.faction, ransom:1000 }];
+    Game.releaseLord('held_lord');
+    assert.ok(!state.npcParties.some(n => n.lordId === lord.id), 'released lord returned immediately');
+    const due = state.lordRespawn[lord.id];
+    assert.ok(due >= state.time.day + Game.LORD_RETURN_DAYS, 'lord recovery delay was not scheduled');
+    state.time.day = due;
+    Game.dailyUpdate();
+    const returned = state.npcParties.find(n => n.lordId === lord.id);
+    assert.ok(returned, 'lord did not return after recovery');
+    assert.ok(returned.size <= Math.ceil(Game.lordForceTarget(lord.rank, returned.level) * Game.LORD_RETURNING_FORCE),
+        'lord returned with a full army');
+});
 
 // --- Ambush: only what you can see can ambush you ---
 // The fixed 240-unit ambush range was wider than the starting character's
@@ -952,6 +1261,18 @@ function roadSuite() {
         }));
     });
 
+    test('road: a pursuer keeps moving during hours lost to an event', () => {
+        state.time.day = 10; state.time.hour = 6;
+        state.player.x = 4500; state.player.y = 4500; state.player.party = [];
+        let n = Game.createNPC('Takipçi', 'bandit', 8, '#800');
+        n.x = 4600; n.y = 4500; n.targetX = n.x; n.targetY = n.y; n.speed = 60;
+        state.npcParties = [n]; state.encounterCooldown = 0;
+        let before = Game.dist(n, state.player);
+        Game.roadDelay(1);
+        assert.ok(Game.dist(n, state.player) < before, 'the pursuer stood still while an hour passed');
+        assert.strictEqual(state.time.hour, 7);
+    });
+
     test('road: the roll depends on distance, not on days', () => {
         state.player.prisoner = null; state.encounterCooldown = 0;
         state.roadWalked = 0;
@@ -1011,9 +1332,165 @@ test('band population tracks a target that rises over 60 days', () => {
     assert.ok(worst <= 4, `refill can't keep up: population fell ${worst} short of target`);
 });
 
+test('road: the touch that opens an event cannot also choose an answer', () => {
+    const g = H.world({ seed: 41 });
+    const { Game } = g;
+    let ran = 0, stopped = 0;
+    Game._roadEv = { ctx: {}, ev: { choices: [{ run: () => { ran++; return 'ok'; } }] } };
+    Game._roadChoiceLockUntil = Date.now() + 650;
+    Game.roadChoice(0, { detail: 1, preventDefault() {}, stopPropagation() { stopped++; } });
+    assert.strictEqual(ran, 0, 'the opening touch leaked through to a road-event choice');
+    assert.strictEqual(stopped, 1, 'the leaked click was allowed to propagate');
+    Game._roadChoiceLockUntil = 0;
+    Game.roadChoice(0);
+    assert.strictEqual(ran, 1, 'the choice stayed locked after the opening touch had ended');
+});
+
+test('world battle: a lord hunts and disperses a nearby outlaw band', () => {
+    const g = H.world({ seed: 24 });
+    const lord = g.state.npcParties.find(n => n.lordId);
+    const band = g.state.npcParties.find(n => n.type === 'bandit');
+    lord.x = lord.targetX = 4500; lord.y = lord.targetY = 4500; lord.size = 80; lord.level = 5;
+    band.x = band.targetX = 4600; band.y = band.targetY = 4500; band.size = 6; band.band = 'bandit';
+    g.state.npcParties = [lord, band];
+    g.Game.updateNPCs(0.1);
+    assert.strictEqual(lord.bandTargetId, band.id, 'the lord ignored a nearby outlaw patrol target');
+    assert.strictEqual(g.Game.lordBanditTick(), 1, 'the touching parties did not fight');
+    assert.ok(g.state.npcParties.some(n => n.id === band.id && n.size < 4),
+        'the routed outlaw took no losses or vanished instead of scattering');
+    assert.ok(g.state.npcParties.some(n => n.id === lord.id && n.size < 80), 'the winning lord took no losses');
+});
+
+test('lord balance: every spawn and daily force target is reduced by ten percent', () => {
+    const gl = H.world({ seed: 25 });
+    const { Game, state } = gl;
+    assert.strictEqual(Game.lordForce(100), 90);
+    assert.strictEqual(Game.lordForce(35), 32);
+    const king = state.npcParties.find(n => n.type === 'king');
+    const regular = state.npcParties.find(n => n.lordId && n.faction === king.faction
+        && n.type !== 'king' && n.type !== 'vizier');
+    assert.strictEqual(king.size, Game.lordForceTarget('king', king.level), 'a new king did not spawn at its daily target');
+    assert.strictEqual(regular.size, 32, 'a new lord still spawned at the old strength');
+    regular.size = 35; // old-save cap
+    state.npcParties = [king, regular];
+    Game.LAIR_COUNT = 0;
+    state.sites = state.sites.filter(s => s.kind !== 'lair');
+    Game.dailyUpdate();
+    assert.strictEqual(regular.size, 32, 'a regular lord did not drift toward the intended cap');
+    assert.strictEqual(king.size, Game.lordForceTarget('king', king.level), 'daily king strength bypassed the multiplier');
+});
+
+test('lord forces: daily recovery changes a wounded army gradually, never in random-sized jumps', () => {
+    const g = H.world({ seed: 35 });
+    const { Game, state } = g;
+    const lord = state.npcParties.find(n => n.lordId && n.type !== 'king' && n.type !== 'vizier');
+    lord.size = 12;
+    state.npcParties = [lord];
+    Game.LAIR_COUNT = 0; state.sites = state.sites.filter(s => s.kind !== 'lair');
+    let before = lord.size;
+    for(let i = 0; i < 5; i++) {
+        Game.dailyUpdate();
+        assert.ok(lord.size - before >= 0 && lord.size - before <= Game.LORD_REINFORCE_PER_DAY,
+            `lord force jumped from ${before} to ${lord.size}`);
+        before = lord.size;
+    }
+});
+
+test('map movement: an off-coast lord destination is pulled back inside instead of sticking at the edge', () => {
+    const g = H.world({ seed: 36 });
+    const { Game, state } = g;
+    const lord = state.npcParties.find(n => n.lordId);
+    lord.x = 4500; lord.y = 4500;
+    lord.targetX = 20000; lord.targetY = -10000;
+    state.npcParties = [lord];
+    Game.updateNPCs(0.01);
+    const dx = lord.targetX - 4500, dy = lord.targetY - 4500;
+    assert.ok(Math.hypot(dx, dy) <= Game.getMapRadius(lord.targetX, lord.targetY) - 49,
+        'lord kept an unreachable target beyond the coast');
+});
+
+test('map encounter: a friendly lord cannot force a conversation by bumping into the player', () => {
+    const gm = H.world({ seed: 26 });
+    const { Game, Nobles, state } = gm;
+    const lord = state.npcParties.find(n => n.lordId);
+    state.relations[lord.lordId] = 0;
+    assert.ok(!Game.npcCanInitiateEncounter(lord), 'a friendly lord can still open unsolicited map dialogue');
+    state.player.targetLocation = { id:lord.id, isNpc:true };
+    assert.ok(Game.npcCanInitiateEncounter(lord), 'meeting a lord deliberately targeted by the player opens no dialogue');
+    state.player.targetLocation = null;
+    lord.playerTargetId = 'player';
+    assert.ok(Game.npcCanInitiateEncounter(lord), 'a lord deliberately targeting the player opens no dialogue');
+    lord.playerTargetId = null;
+    state.relations[lord.lordId] = -50;
+    assert.ok(Game.npcCanInitiateEncounter(lord), 'a hostile lord can no longer intercept the player');
+    state.relations[lord.lordId] = 0;
+    assert.ok(Nobles.lord(lord.lordId), 'the lord is no longer available for player-initiated talk');
+});
+
+test('map labels: a lord actively pursuing the player is marked hostile outside a formal war', () => {
+    const g = H.world({ seed: 38 });
+    const { Game, state } = g;
+    const lord = state.npcParties.find(n => n.lordId);
+    state.relations[lord.lordId] = -50;
+    assert.ok(!Game.atWar(Game.playerFaction(), lord.faction), 'test lord unexpectedly starts at war');
+    lord.playerTargetId = 'player';
+    assert.ok(Game.mapPartyIsFoe(lord), 'an actively pursuing hostile lord has no red-label state');
+    lord.playerTargetId = null;
+    assert.ok(!Game.mapPartyIsFoe(lord), 'a non-pursuing non-war lord remains marked as a foe');
+});
+
 // --- Bandit lairs (#68) ---
 // Three claims in one run: a lair erodes the region around it, pays out its
 // purse and is removed from the map when cleared, and no lairless world spawns new bands.
+test('peace: a treaty immediately cancels an enemy lord pursuit', () => {
+    const g = H.world({ seed: 39 });
+    const { Game, state, FACTIONS } = g;
+    const lord = state.npcParties.find(n => n.lordId);
+    const mine = Object.keys(FACTIONS).find(f => f !== lord.faction);
+    state.player.vassalOf = mine;
+    Game.declareWar(mine, lord.faction);
+    lord.playerTargetId = 'player';
+    Game.makePeace(mine, lord.faction);
+    assert.strictEqual(lord.playerTargetId, null, 'lord kept pursuing after the treaty');
+});
+
+test('marriage: a married player cannot replace their spouse with a second wedding', () => {
+    const g = H.world({ seed: 40 });
+    const { Nobles, state } = g;
+    const [first, second] = Nobles.courtables();
+    Nobles.marry(first.id, 'test wedding');
+    Nobles.marry(second.id, 'second test wedding');
+    assert.strictEqual(state.player.spouse, first.id, 'a second wedding replaced the spouse');
+    assert.strictEqual(state.player.party.filter(t => t.isSpouse).length, 1, 'more than one spouse joined the party');
+});
+
+test('marriage: spouse council gives one useful daily action, not a blank dialogue', () => {
+    const g = H.world({ seed: 42 });
+    const { Nobles, state, Game } = g;
+    const spouse = Nobles.courtables()[0];
+    state.player.spouse = spouse.id;
+    state.player.proficiencies.leadership = { level:1, xp:0, next:100, focus:1 };
+    Nobles.spouseAction(spouse.id, 'counsel');
+    assert.strictEqual(state.player.proficiencies.leadership.xp, 52.5, 'spouse council gave no leadership benefit');
+    Nobles.spouseAction(spouse.id, 'counsel');
+    assert.strictEqual(state.player.proficiencies.leadership.xp, 52.5, 'spouse action could be farmed repeatedly in one day');
+    assert.strictEqual(Game.getPartyCapacity(), 17, 'marriage benefit disappeared while speaking to spouse');
+});
+
+test('peace: a treaty lifts the player siege against the new partner', () => {
+    const g = H.world({ seed: 41 });
+    const { Game, state, FACTIONS, LOCATIONS } = g;
+    const target = LOCATIONS.find(l => l.type !== 'village');
+    const mine = Object.keys(FACTIONS).find(f => f !== target.faction);
+    state.player.vassalOf = mine;
+    state.player.siege = { locId:target.id, plan:'ladder', daysLeft:2, weaken:0 };
+    state.player.status = 'besieging';
+    Game.declareWar(mine, target.faction);
+    Game.makePeace(mine, target.faction);
+    assert.strictEqual(state.player.siege, null, 'peace left a siege camp active');
+    assert.strictEqual(state.player.status, 'idle', 'peace left the player in besieging status');
+});
+
 test('bandit lair: erodes the region, pays out when cleared, and is a band source', () => {
     const g = H.world({ seed: 6 });
     const lairs = g.Game.lairs();
@@ -1102,6 +1579,13 @@ test('rumour: every generator produces a story, and a lie only moves the place',
         const target = cities.find(c => c.faction === f2);
         state.campaigns[f1] = { marshalId: 'x', marshalName: 'Mareşal Bahadır',
                                 targetLocId: target.id, day: state.time.day };
+    }
+    // The siege generator has the same conditional nature as war/campaign. A changed patrol
+    // route can legitimately leave day 40 between sieges, so establish its own precondition.
+    if(!state.npcParties.some(n => n.lordId && n.siegeLocId)) {
+        const army = state.npcParties.find(n => n.lordId);
+        const target = cities.find(c => c.faction !== army.faction) || cities[0];
+        army.siegeLocId = target.id;
     }
     Game.RUMORS.forEach((r, i) => assert.ok(cities.some(c => r.run(c, truth)),
         `generator ${i} found nothing to say in any town of a 40-day-old world`));
@@ -1339,6 +1823,17 @@ test('a ghost finger cannot lock the map out of taking orders (#100)', () => {
     Game.onMapDown(at(4, true)); Game.onMapDown(at(5, false));
     assert.strictEqual(Game._ptr.size, 2, 'two real fingers stay two fingers');
     Game._ptr.clear();
+});
+
+test('returning from a menu centers the map on the player', () => {
+    const map = g._sandbox.document.getElementById('map-view');
+    map.classList.add('active');
+    Game.showScreen('party');
+    map.classList.remove('active'); // the tiny DOM fake has no live class selector
+    Game.camera.offsetX = 700; Game.camera.offsetY = -400;
+    Game.showScreen('map');
+    assert.strictEqual(Game.camera.offsetX, 0);
+    assert.strictEqual(Game.camera.offsetY, 0);
 });
 
 test('a panned camera holds its world position while the player walks', () => {

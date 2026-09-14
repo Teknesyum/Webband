@@ -424,7 +424,7 @@ const Nobles = {
                     <span style="opacity:0.7">${T`(nam + ilişki + kapıya getirdiğin ordu)`}</span>
                     ${Game.infamyTier() ? `<br><span style="color:var(--danger)">${T`${Game.infamyLabel()} diye biliniyorsun — köy yakan adamın sözü bu salonda ${Game.infamyTier() > 1 ? T('hiç') : 'zor'} geçer.`}</span>` : ''}
                 </div>
-                <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:3em"></p>
+                <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:4.5em"></p>
                 ${banter}
             </div>
         </div>
@@ -730,7 +730,7 @@ const Nobles = {
                 ${this.portraitCss(n, 110)}
                 <div style="flex:1">
                     <h3 style="margin:0;color:${FACTIONS[n.faction].color}">${T(n.name)}</h3>
-                    <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:3.2em"></p>
+                    <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:4.5em"></p>
                     ${note ? `<div style="font-size:var(--fs-sm);color:var(--text-muted)">${note}</div>` : ''}
                 </div></div>
             <button class="btn" style="margin-top:1rem" onclick="Nobles.talk('${id}')">${T`Geri`}</button>`, '620px');
@@ -822,7 +822,7 @@ const Nobles = {
                 <div style="flex:1">
                     <h3 style="margin:0;color:${FACTIONS[n.faction].color}">${T(n.name)}</h3>
                     <p style="font-style:italic;color:var(--text-muted)">${T`Sen: "Senin soyağacın bir tereyağı fıçısına sığar ${T(n.name)}."`}</p>
-                    <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:3em"></p>
+                    <p id="lord-line" style="font-style:italic;color:#eee;line-height:1.5;min-height:4.5em"></p>
                     <div style="font-size:var(--fs-sm);color:var(--text-muted)">${T`−15 ilişki, +2 nam. Rakip krallıkların lordları bunu duyunca keyiflendi (+5).`}</div>
                 </div></div>
             <button class="btn" style="margin-top:1rem" onclick="Game.closeModal()">${T`Ayrıl`}</button>`, '620px');
@@ -830,6 +830,13 @@ const Nobles = {
     },
 
     // ---------- Gift ----------
+    reaction(gain) {
+        if(gain >= 5) return '💖 Çok sevdi';
+        if(gain >= 2) return '😊 Hoşuna gitti';
+        if(gain > 0) return '😐 Kibarca karşıladı';
+        return '💔 Hoşlanmadı';
+    },
+
     giftMenu(id) {
         let n = this.lord(id);
         let inv = state.player.inventory.filter(i => i.type !== 'special');
@@ -864,14 +871,20 @@ const Nobles = {
             gain = 1; line = T`"...Sağ ol." Hediyeyi yandaki masaya bıraktı, bir daha bakmadı.`;
         }
 
+        let before = this.rel(id);
         item.qty--;
         if(item.qty <= 0) state.player.inventory.splice(idx, 1);
         state.giftDay = state.giftDay || {};
         state.giftDay[id] = state.time.day;
         this.addRel(id, gain);
-
-        alert(T`${T(n.name)}: ${line}\n\n+${gain} ilişki`);
-        this.talk(id);
+        let after = this.rel(id), reaction = T(this.reaction(gain));
+        Game.showModal(`<h3>${T`🎁 ${T(n.name)}'a Hediye`}</h3>
+            <p style="font-style:italic;line-height:1.6">${line}</p>
+            <div style="padding:0.8rem;border-left:4px solid ${gain >= 2 ? 'var(--success)' : '#d7a84b'};background:rgba(0,0,0,0.25)">
+                <b style="font-size:1.1rem">${reaction}</b><br>
+                ${T`İlişki: ${before} → ${after} (${gain > 0 ? '+' : ''}${gain})`}
+            </div>
+            <button class="btn primary" style="margin-top:1rem" onclick="Nobles.talk('${id}')">${T`Devam`}</button>`);
     },
 
     // ---------- "Ask someone's whereabouts" ----------
@@ -971,6 +984,41 @@ const Nobles = {
     },
 
     // ---------- COURTSHIP ----------
+    spouseMenu(ladyId) {
+        let L = this.lady(ladyId);
+        if(!L || state.player.spouse !== ladyId) return;
+        let used = (state.spouseTalkDay || -99) === state.time.day;
+        let disabled = used ? ' disabled style="opacity:0.4"' : '';
+        Game.showModal(`<div style="display:flex;gap:1.5rem;align-items:center">${this.portraitCss(L,140)}
+            <div><h3 style="margin:0">${T(L.name)}</h3><p style="font-style:italic">"Eve ne zaman döneceksin? Ama önce otur; konuşacaklarımız var."</p>
+            <p style="font-size:var(--fs-sm);color:var(--text-muted)">Eşin günlük 50 dinar getirir, +5 birlik kapasitesi sağlar ve savaşta yanında süvari olarak dövüşür.</p></div></div>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem">
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','talk')">💬 Dertleş (+5 moral)</button>
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','counsel')">🗺️ Savaş meclisi (+35 liderlik XP)</button>
+            <button class="btn"${disabled} onclick="Nobles.spouseAction('${ladyId}','court')">🏛️ Saray desteği (hanedana +2 ilişki)</button>
+            <button class="btn" onclick="Game.closeModal()">${T`Kapat`}</button></div>
+            ${used ? '<p style="color:var(--text-muted);font-size:var(--fs-sm);margin-top:0.7rem">Bugün zaten birlikte vakit geçirdiniz.</p>' : ''}`);
+    },
+
+    spouseAction(ladyId, action) {
+        let L = this.lady(ladyId);
+        if(!L || state.player.spouse !== ladyId || state.spouseTalkDay === state.time.day) return;
+        state.spouseTalkDay = state.time.day;
+        let result;
+        if(action === 'counsel') {
+            Game.addProficiencyXp('leadership', 35);
+            result = 'Harita ve erzak üstünde uzun uzun konuştunuz. Birliğin komutası daha berrak geliyor. (+35 liderlik XP)';
+        } else if(action === 'court') {
+            LORDS.filter(l => l.faction === L.faction).forEach(l => this.addRel(l.id, 2));
+            result = 'Eşin kendi hanesine mektup yazdı; sarayda adın daha sıcak anılacak. (hanedana +2 ilişki)';
+        } else {
+            Game.addMorale(5);
+            result = 'Yolun yükünü paylaştınız. Askerler de komutanlarının yüzünün güldüğünü gördü. (+5 moral)';
+        }
+        Game.updateTopBar();
+        Game.showModal(`<h3>${T(L.name)}</h3><p>${result}</p><button class="btn primary" onclick="Nobles.spouseMenu('${ladyId}')">Geri</button>`);
+    },
+
     courtMenu(ladyId) {
         let L = this.lady(ladyId);
         let a = this.aff(ladyId);
@@ -978,11 +1026,7 @@ const Nobles = {
         let g = this.lord(L.guardianId);
         let rival = state.rivals[ladyId];
 
-        if(state.player.spouse === ladyId) {
-            return Game.showModal(`<div style="display:flex;gap:1.5rem;align-items:center">${this.portraitCss(L,140)}
-                <div><h3 style="margin:0">${T(L.name)}</h3><p style="font-style:italic">${T`"Eve ne zaman döneceksin?"`}</p></div></div>
-                <button class="btn" style="margin-top:1rem" onclick="Game.closeModal()">${T`Kapat`}</button>`);
-        }
+        if(state.player.spouse === ladyId) return this.spouseMenu(ladyId);
 
         let html = `<div style="display:flex;gap:1.5rem;align-items:flex-start">
             ${this.portraitCss(L, 140)}
@@ -1011,7 +1055,11 @@ const Nobles = {
             ? `<button class="btn" onclick="Nobles.visitLady('${ladyId}')">${T`💬 Sohbet et (+3)`}</button>`
             : `<button class="btn" disabled style="opacity:0.4">${T`💬 Sohbet et (${3-(today-visited)} gün sonra)`}</button>`;
 
-        html += `<button class="btn" onclick="Nobles.complimentMenu('${ladyId}')">${T`🌹 İltifat et`}</button>`;
+        state.complimentDay = state.complimentDay || {};
+        let complimentWait = 3 - (today - (state.complimentDay[ladyId] ?? -99));
+        html += complimentWait <= 0
+            ? `<button class="btn" onclick="Nobles.complimentMenu('${ladyId}')">${T`🌹 İltifat et`}</button>`
+            : `<button class="btn" disabled style="opacity:0.4">${T`🌹 İltifat et (${complimentWait} gün sonra)`}</button>`;
 
         if(state.player.poems.length)
             html += `<button class="btn" onclick="Nobles.poemMenu('${ladyId}')">${T`📜 Şiir oku`}</button>`;
@@ -1062,6 +1110,8 @@ const Nobles = {
     },
 
     compliment(ladyId, cid) {
+        state.complimentDay = state.complimentDay || {};
+        if(state.time.day - (state.complimentDay[ladyId] ?? -99) < 3) return this.courtMenu(ladyId);
         let L = this.lady(ladyId), t = LADY_TRAITS[L.trait];
         let c = COMPLIMENTS.find(x => x.id === cid);
         let gain, reply;
@@ -1072,9 +1122,18 @@ const Nobles = {
         } else {
             gain = 1;  reply = T`Kibarca başını salladı. Söylediğin bir kulağından girip diğerinden çıktı.`;
         }
+        let before = this.aff(ladyId);
+        state.complimentDay[ladyId] = state.time.day;
         this.addAff(ladyId, gain);
-        alert(`Sen: ${c.line}\n\n${reply}\n\n${gain > 0 ? '+' : ''}${gain} ilgi`);
-        this.courtMenu(ladyId);
+        let after = this.aff(ladyId), reaction = T(this.reaction(gain));
+        Game.showModal(`<h3>${T`🌹 ${T(L.name)}'a İltifat`}</h3>
+            <p style="font-style:italic;line-height:1.6">${T`Sen: ${T(c.line)}`}</p>
+            <p style="line-height:1.6">${reply}</p>
+            <div style="padding:0.8rem;border-left:4px solid ${gain >= 2 ? 'var(--success)' : gain < 0 ? 'var(--danger)' : '#d7a84b'};background:rgba(0,0,0,0.25)">
+                <b style="font-size:1.1rem">${reaction}</b><br>
+                ${T`İlgi: ${before} → ${after} (${gain > 0 ? '+' : ''}${gain})`}
+            </div>
+            <button class="btn primary" style="margin-top:1rem" onclick="Nobles.courtMenu('${ladyId}')">${T`Devam`}</button>`);
     },
 
     poemMenu(ladyId) {
@@ -1099,24 +1158,42 @@ const Nobles = {
         if(state.poemsRead[ladyId].includes(pid)) return;
         state.poemsRead[ladyId].push(pid);
         let p = POEMS.find(x => x.id === pid);
+        if(!p) return;
+        let L = this.lady(ladyId), before = this.aff(ladyId), gain = 12;
         this.addAff(ladyId, 12);
-        alert(T`${T(p.text)}\n\n${T(this.lady(ladyId).name)} uzun bir süre sustu.\n\n+12 ilgi`);
-        this.courtMenu(ladyId);
+        let after = this.aff(ladyId);
+        Game.showModal(`<h3>${T`📜 ${T(L.name)}'a Şiir`}</h3>
+            <p style="font-style:italic;line-height:1.7;white-space:pre-line">${T(p.text)}</p>
+            <p>${T(L.name)} ${T('uzun bir süre sustu; şiir onu gerçekten etkiledi.')}</p>
+            <div style="padding:0.8rem;border-left:4px solid var(--success);background:rgba(0,0,0,0.25)">
+                <b style="font-size:1.1rem">${T(this.reaction(gain))}</b><br>
+                ${T`İlgi: ${before} → ${after} (${gain > 0 ? '+' : ''}${gain})`}
+            </div>
+            <button class="btn primary" style="margin-top:1rem" onclick="Nobles.courtMenu('${ladyId}')">${T`Devam`}</button>`);
     },
 
     dedicate(ladyId) {
         if(!state.pendingDedication) return;
         state.pendingDedication = false;
         state.dedicatedTo = state.dedicatedTo || [];
+        let before = this.aff(ladyId), gain, line;
         if(state.dedicatedTo.includes(ladyId)) {
-            alert(T('Ona zaten bir zafer ithaf etmiştin. İkincisi aynı etkiyi yapmaz.'));
-            this.addAff(ladyId, 4);
+            gain = 4;
+            line = T('Ona zaten bir zafer ithaf etmiştin. İkincisi aynı etkiyi yapmadı.');
         } else {
             state.dedicatedTo.push(ladyId);
-            this.addAff(ladyId, 18);
-            alert(T`Arenanın ortasında durdun ve zaferini ${T(this.lady(ladyId).name)}'ya ithaf ettin.\nBütün salon ona döndü. Yüzü kızardı ama gözünü kaçırmadı.\n\n+18 ilgi`);
+            gain = 18;
+            line = T`Arenanın ortasında durdun ve zaferini ${T(this.lady(ladyId).name)}'ya ithaf ettin.<br>Bütün salon ona döndü. Yüzü kızardı ama gözünü kaçırmadı.`;
         }
-        this.courtMenu(ladyId);
+        this.addAff(ladyId, gain);
+        let after = this.aff(ladyId);
+        Game.showModal(`<h3>${T`🏆 Zafer İthafı`}</h3>
+            <p style="line-height:1.7">${line}</p>
+            <div style="padding:0.8rem;border-left:4px solid var(--success);background:rgba(0,0,0,0.25)">
+                <b style="font-size:1.1rem">${T(this.reaction(gain))}</b><br>
+                ${T`İlgi: ${before} → ${after} (${gain > 0 ? '+' : ''}${gain})`}
+            </div>
+            <button class="btn primary" style="margin-top:1rem" onclick="Nobles.courtMenu('${ladyId}')">${T`Devam`}</button>`);
     },
 
     // ---------- Rival suitor ----------
@@ -1207,6 +1284,7 @@ const Nobles = {
     MIN_REL: 25,
 
     askForHand(ladyId) {
+        if(state.betrothed || state.pendingWedding) return;
         let L = this.lady(ladyId);
         let g = this.lord(L.guardianId);
         let a = this.aff(ladyId);
@@ -1339,6 +1417,7 @@ const Nobles = {
     },
 
     betroth(ladyId, msg) {
+        if(state.player.spouse || state.betrothed || state.pendingWedding) return;
         state.betrothed = ladyId;
         state.dowryOffer = null;
         let L = this.lady(ladyId);
@@ -1356,6 +1435,7 @@ const Nobles = {
     },
 
     marry(ladyId, msg) {
+        if(state.player.spouse) return;
         let L = this.lady(ladyId);
         state.player.spouse = ladyId;
         state.betrothed = null;
@@ -1363,6 +1443,7 @@ const Nobles = {
         delete state.rivals[ladyId];
         state.player.rightToRule += 15;
         LORDS.filter(l => l.faction === L.faction).forEach(l => this.addRel(l.id, 20));
+        state.player.party = state.player.party.filter(t => !t.isSpouse);
         state.player.party.push({
             id: 'spouse_' + ladyId, name: L.name + T(' (Eş)'), level: 10, xp: 0, xpNext: 999,
             type: 'noble', isSpouse: true

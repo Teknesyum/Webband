@@ -1187,7 +1187,7 @@ A quest definition has four hooks; three aren't mandatory:
 | `setup(q, giver)` | Sets up `q.data`. Can **assume** the precondition — `can` already filtered |
 | `can(giver)` | Does the world currently make this quest possible; if not, it isn't even offered (`dawn_raid` needs a war) |
 | `desc(q)` | **What** to do + progress. Same text on the quest screen and the offer window |
-| `where(q)` | **Where** — the id of the settlement to go to. Single source: both the 📍 line on the quest card and the 📜 stamp on the map (`Quests.targets()` → `renderMap`) read from this, so the two can never diverge. A deliberately hidden target (a chest's location in `fog_dot`) returns the center of the search ring instead |
+| `where(q)` | **Where** — the id of the settlement to go to. Single source: both the 📍 line on the quest card and the 📜 stamp on the map (`Quests.targets()` → `renderMap`) read from this, so the two can never diverge |
 
 `Quests.taskHtml(q)` merges these two into a single box and writes "~N days away right now"
 via `daysTo(where)`; both the offer window and the quest list call it. Generating a quest
@@ -1199,7 +1199,6 @@ Quests aren't a copy of Warband's quest list; they target **WebBand's own mechan
 | Quest | Which mechanic |
 |---|---|
 | Butter Blockade | Buying 15 cheese from the market in a specific town |
-| Dot in the Fog | Hidden-point hunt with fog + a hot/cold hint (500/1200 units) |
 | Sergeant's Trial | Promotion tree — reaching the lord's gate with 5 troops at level 20+ |
 | Hungry Army | Daily food consumption — carrying 20 food while your own army eats into it |
 | Brother in Chains | **Two solutions**: beat the band, or deliberately get captured and escape via the escape-plan mechanic (extra reward) |

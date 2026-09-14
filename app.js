@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.09', date: '2026-09-13', name: 'Leydi Avrilia' };  // the version name is not translated
+const VERSION = { no: '1.10', date: '2026-09-13', name: 'Bekleyen Yol' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -275,8 +275,12 @@ const ITEMS = {
     // Cheap food spoils fast, pricier food keeps — so stockpiling is a real choice.
     wheat:  { id:'wheat',  name:'Tahıl',         type:'food',  quality:'low', basePrice:4,  icon:'🌾', spoil:60 },
     bread:  { id:'bread',  name:'Ekmek',         type:'food',  quality:'low', basePrice:6,  icon:'🍞', spoil:20 },
-    meat:   { id:'meat',   name:'Kurutulmuş Et', type:'food',  quality:'high',basePrice:20, icon:'🥩', spoil:30 },
+    meat:   { id:'meat',   name:'Kurutulmuş Et', type:'food',  quality:'high',basePrice:20, icon:'🥩', spoil:30, foodValue:2 },
     cheese: { id:'cheese', name:'Peynir',        type:'food',  quality:'high',basePrice:16,  icon:'🧀', spoil:40 },
+    fish:   { id:'fish',   name:'Tütsülenmiş Balık', type:'food', quality:'high', basePrice:14, icon:'🐟', spoil:24 },
+    fruit:  { id:'fruit',  name:'Kuru Meyve',    type:'food',  quality:'low', basePrice:9,  icon:'🍎', spoil:45 },
+    butter: { id:'butter', name:'Tereyağı',      type:'food',  quality:'high',basePrice:18, icon:'🧈', spoil:14 },
+    honey:  { id:'honey',  name:'Bal',           type:'food',  quality:'high',basePrice:24, icon:'🍯', spoil:90 },
     iron:   { id:'iron',   name:'Demir',         type:'trade', basePrice:150, icon:'⛏️' },
     velvet: { id:'velvet', name:'Kadife',        type:'trade', basePrice:400, icon:'🧵' },
     ale:    { id:'ale',    name:'Bira',          type:'trade', basePrice:50,  icon:'🍺' },
@@ -286,8 +290,17 @@ const ITEMS = {
     mace:   { id:'mace',   name:'Topuz',         type:'weapon', weaponType:'oneHanded', dmgType:'blunt',  basePrice:220, attack:16, icon:'🔨' },
     lance:  { id:'lance',  name:'Mızrak',        type:'weapon', weaponType:'polearm',   dmgType:'pierce', basePrice:200, attack:12, icon:'🔱' },
     bow:    { id:'bow',    name:'Yay',           type:'weapon', weaponType:'bow',       dmgType:'pierce', basePrice:220, attack:10, icon:'🏹' },
-    shield: { id:'shield', name:'Kalkan',        type:'armor',  basePrice:150, defense:10, icon:'🛡️' },
+    shield: { id:'shield', name:'Kalkan',        type:'shield', basePrice:150, defense:10, icon:'🛡️' },
     mail:   { id:'mail',   name:'Zincir Zırh',   type:'armor',  basePrice:500, defense:25, icon:'🦺' },
+    leather:{ id:'leather',name:'Deri Zırh',     type:'armor',  basePrice:280, defense:14, icon:'🥋' },
+    plate:  { id:'plate',  name:'Plaka Zırh',    type:'armor',  basePrice:900, defense:38, icon:'🦺' },
+    cap:    { id:'cap',    name:'Deri Başlık',   type:'helmet', basePrice:90,  defense:3,  icon:'🧢' },
+    nasal:  { id:'nasal',  name:'Burunluklu Miğfer', type:'helmet', basePrice:260, defense:8, icon:'⛑️' },
+    greathelm:{ id:'greathelm', name:'Büyük Miğfer', type:'helmet', basePrice:520, defense:14, icon:'🪖' },
+    gloves: { id:'gloves', name:'Deri Eldiven',  type:'gloves', basePrice:80,  defense:2,  icon:'🧤' },
+    gauntlets:{ id:'gauntlets', name:'Çelik Eldiven', type:'gloves', basePrice:300, defense:6, icon:'🧤' },
+    shoes:  { id:'shoes',  name:'Yol Çizmesi',   type:'boots',  basePrice:75,  defense:2,  icon:'🥾' },
+    greaves:{ id:'greaves',name:'Çelik Baldırlık',type:'boots', basePrice:340, defense:7,  icon:'🥾' },
     horse:  { id:'horse',  name:'Savaş Atı',     type:'horse',  basePrice:600, icon:'🐴' },
     boss_map: { id:'boss_map', name:'Boss Haritası', type:'special', basePrice:5000, icon:'🗺️' },
     lvl51_token: { id:'lvl51_token', name:'Savaş Tanrısı Nişanı', type:'special', basePrice:10000, icon:'🏅' }
@@ -429,7 +442,7 @@ const state = {
         partyCapacity: 50,
         party: [],
         inventory: [{...ITEMS.bread, qty:1}],   // a single loaf: the food problem starts on day one (#75)
-        equipment: { weapon: null, armor: null, horse: null },
+        equipment: { weapon: null, shield: null, armor: null, helmet: null, gloves: null, boots: null, horse: null },
         x: 4500, y: 4500,
         targetLocation: null,
         status: 'idle',
@@ -719,9 +732,10 @@ const Game = {
         ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev =>
             document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
         this.initTouchUI();
+        // A dialog is a decision, not a lightbox. A road event can open under the finger
+        // that was panning the map; the backdrop must never silently discard it.
         document.getElementById('modal-overlay').addEventListener('click', e => {
-            // Don't let the encounter (fight/surrender) modal close by clicking outside it
-            if(e.target.id === 'modal-overlay') this.dismissModal();
+            if(e.target.id === 'modal-overlay') e.preventDefault();
         });
         window.addEventListener('resize', () => this.resizeCanvases());
 
@@ -901,13 +915,15 @@ const Game = {
             return { html: `${T`Devrilmiş bir taşın altında toprağa gömülü küçük bir kese buldun.<br><b>+${n} dinar`}</b>.` };
         }},
         gear: { run(s) {
-            let ids = ['sword','axe','mace','lance','bow','shield','mail'];
+            let ids = ['sword','axe','mace','lance','bow','shield','mail','leather','plate',
+                       'cap','nasal','greathelm','gloves','gauntlets','shoes','greaves'];
             let id = ids[Math.floor(Math.random() * ids.length)];
             Game.addItem(id, 1);
             return { html: `${T`Paslı bir sandığın dibinde işe yarar tek şey kalmış: <b>${ITEMS[id].icon} ${T(ITEMS[id].name)}</b>.<br>Envanterine girdi.`}` };
         }},
         food: { run(s) {
-            let id = ['wheat','cheese','meat'][Math.floor(Math.random() * 3)], n = 3 + Math.floor(Math.random() * 6);
+            let foods = Object.values(ITEMS).filter(i => i.type === 'food');
+            let id = foods[Math.floor(Math.random() * foods.length)].id, n = 3 + Math.floor(Math.random() * 6);
             Game.addItem(id, n);
             return { html: `${T`Ambarın bir köşesi farelerden kurtulmuş.`}<br><b>+${n} ${T(ITEMS[id].name)}</b>.` };
         }},
@@ -1031,7 +1047,7 @@ const Game = {
     },
     // A band comes out of its lair. No band spawns in a lair-free region — that's the payoff of clearing it.
     spawnFromLair() {
-        let l = this.lairs();
+        let l = this.lairs().filter(x => this.dist(x, state.player) >= this.SPAWN_SAFE);
         if(!l.length) return null;
         let lair = l[Math.floor(Math.random() * l.length)];
         return this.spawnBand(lair.band, lair);
@@ -1248,7 +1264,11 @@ const Game = {
     // battle (BAND_KINDS.battle -> unit generation inside Battle.start)
     spawnBand(kind, lair) {
         let k = BAND_KINDS[kind];
-        let size = k.min + Math.floor(Math.random() * (k.max - k.min + 1));
+        // The first days are for building a party, not being met by a full grown band.
+        // The cap rises slowly and reaches each band's normal maximum by day 16.
+        let earlyMax = Math.min(k.max, 8 + Math.floor(state.time.day / 2));
+        let low = Math.min(k.min, earlyMax);
+        let size = low + Math.floor(Math.random() * (earlyMax - low + 1));
         let npc = this.createNPC(k.name, 'bandit', size, k.color, null, 1);
         npc.band = kind;
         // A band comes out of its lair: place it around the lair, and if that's too
@@ -1416,12 +1436,90 @@ const Game = {
         state.npcParties = state.npcParties.filter(n => n.size > 0 || n.lordId);
     },
 
+    // Lords patrol their roads instead of peacefully walking through outlaw parties. At most
+    // one clash resolves per day: the six-hour refill can replace those losses without the
+    // band population oscillating between an empty map and a sudden swarm.
+    LORD_BAND_BATTLES: 1,
+    lordBanditTick() {
+        let lords = state.npcParties.filter(n => n.lordId && n.size > 0);
+        let bands = state.npcParties.filter(n => n.type === 'bandit' && n.size > 0
+                                              && (n.patrolSafeUntil || 0) <= state.time.day);
+        let used = new Set(), fought = 0;
+        for(let lord of lords) {
+            if(fought >= this.LORD_BAND_BATTLES) break;
+            let band = bands.filter(b => !used.has(b.id) && this.dist(lord, b) < 420)
+                            .sort((a, b) => this.dist(lord, a) - this.dist(lord, b))[0];
+            if(!band) continue;
+            used.add(band.id); fought++;
+            // World battles must not consume the shared random stream: diplomacy, quests and
+            // tournament rolls are seeded from it in simulations. A stable id/day roll gives
+            // battle variation without changing every unrelated future event.
+            let roll = salt => {
+                let s = `${lord.id}|${band.id}|${state.time.day}|${salt}`, h = 2166136261;
+                for(let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+                return (h >>> 0) / 4294967296;
+            };
+            let lordPower = lord.size * (1 + (lord.level || 1) * 0.04) * (0.85 + roll(1) * 0.3);
+            let bandPower = band.size * ((BAND_KINDS[band.band] || {}).beast ? 1.2 : 1)
+                          * (0.85 + roll(2) * 0.3);
+            if(lordPower >= bandPower) {
+                lord.size = Math.max(5, Math.round(lord.size * (0.88 + roll(3) * 0.08)));
+                band.size = Math.round(band.size * (0.15 + roll(4) * 0.25));
+                if(band.size < 4) {
+                    // Routed survivors scatter rather than despawn. This keeps the number of
+                    // map parties stable; the same band needs a few days to regroup before a
+                    // lord can farm it again.
+                    band.size = Math.max(1, band.size);
+                    band.patrolSafeUntil = state.time.day + 3;
+                    this.news(T`🛡️ ${T(lord.name)}, ${T(band.name)} çetesini dağıttı.`);
+                }
+            } else {
+                band.size = Math.max(3, Math.round(band.size * (0.78 + roll(5) * 0.12)));
+                lord.size = Math.round(lord.size * (0.20 + roll(6) * 0.25));
+                if(lord.size < 8) {
+                    lord.size = 0;
+                    this.scheduleLordRespawn(lord.lordId, 4 + Math.floor(roll(7) * 6));
+                    this.news(T`☠️ ${T(band.name)}, ${T(lord.name)} ordusunu bozguna uğrattı.`);
+                }
+            }
+        }
+        state.npcParties = state.npcParties.filter(n => n.size > 0);
+        return fought;
+    },
+
     // The continent is 9000 units, your view is ~500: you see ~1% of the map at any moment.
     // With 13 bands roaming, a player was seeing 0.3 bands a day — once every three days, and
     // hunting for a *specific* band was hopeless. So the population is held at a target rather
     // than left to drift; what that target should be is `bandTarget()`.
     BAND_REFILL_HOURS: 6,    // below target, one new band sets out this often
+    BAND_REFILL_GRACE_DAYS: 2,
     bandCount() { return state.npcParties.filter(n => n.type === 'bandit' && n.size > 0).length; },
+    LORD_FORCE_MULT: 0.90,
+    lordForce(n) { return Math.max(1, Math.round(n * this.LORD_FORCE_MULT)); },
+    lordLevel(rank, day = state.time.day) {
+        return rank === 'king' ? Math.min(20, 1 + Math.floor(day / 4.5))
+             : rank === 'vizier' ? Math.min(10, 1 + Math.floor(day / 9)) : 1;
+    },
+    lordForceTarget(rank, level) {
+        return this.lordForce(rank === 'king' ? 50 + level * 3
+                            : rank === 'vizier' ? 30 + level * 2 : 35);
+    },
+    // Replacements take time. Directly assigning the daily target made an army that had
+    // just lost a fight jump from 25 to 87 men overnight (or a fresh king drop by forty).
+    LORD_REINFORCE_PER_DAY: 3,
+    LORD_RETURN_DAYS: 6,
+    LORD_RETURNING_FORCE: 0.35,
+    scheduleLordRespawn(lordId, days = this.LORD_RETURN_DAYS) {
+        if(!lordId) return;
+        let due = state.time.day + days;
+        state.lordRespawn[lordId] = Math.max(state.lordRespawn[lordId] || 0, due);
+    },
+    adjustLordForce(npc, target) {
+        let gap = target - npc.size;
+        if(!gap) return;
+        let step = Math.min(Math.abs(gap), this.LORD_REINFORCE_PER_DAY);
+        npc.size += Math.sign(gap) * step;
+    },
     bandTarget() {
         // The target used to be derived from sight range, which runs the curve backwards
         // (#126): sight is at its smallest on day one, so the formula pinned itself to the
@@ -1438,6 +1536,7 @@ const Game = {
     // came to look deserted after the opening fight. Stateless on purpose — the absolute hour
     // decides, so nothing new has to enter the save.
     bandRefillTick(absHour) {
+        if(state.time.day < this.BAND_REFILL_GRACE_DAYS) return;
         if(absHour % this.BAND_REFILL_HOURS !== 0) return;
         if(this.bandCount() >= this.bandTarget()) return;
         this.spawnFromLair();   // no lair, no band (#68)
@@ -1450,9 +1549,11 @@ const Game = {
         for(let i = 0; i < this.bandTarget(); i++) this.spawnFromLair();
         // Every noble has their own party roaming the map
         LORDS.forEach(l => {
-            let size = l.rank === 'king' ? 100 : l.rank === 'vizier' ? 50 : 35;
+            let level = this.lordLevel(l.rank);
+            let size = this.lordForceTarget(l.rank, level);
             let npc = this.createNPC(l.name, l.rank, size, FACTIONS[l.faction].color, l.faction, 1);
             npc.lordId = l.id;
+            npc.level = level;
             let home = LOCATIONS.find(x => x.id === l.homeLocId);
             if(home) { npc.x = home.x; npc.y = home.y; npc.targetX = home.x; npc.targetY = home.y; }
             state.npcParties.push(npc);
@@ -1942,7 +2043,8 @@ const Game = {
         // Since attributes are effective (fractional), capacity came out fractional too
         // ("15/15.785700000000002"). The fraction is truncated at the source so the
         // comparison, the info-card readout, and the badge all see the same whole number (#43).
-        return 12 + Math.floor((cha - 10) * 3) + (leadership - 1) * 4 + Math.floor((state.player.renown || 0) / 40);
+        return 12 + Math.floor((cha - 10) * 3) + (leadership - 1) * 4 + Math.floor((state.player.renown || 0) / 40)
+            + (state.player.spouse ? 5 : 0);
     },
 
     // Unpaid wages cost 1 morale every hour and the debt accumulates. It's paid off
@@ -2066,7 +2168,7 @@ const Game = {
             return { hp: 55, speed: c.troopType === 'cavalry' ? 90 : 68, attack: 14, defense: 6,
                      type: c.troopType || 'infantry', icon: c.icon || '🎖️' };
         }
-        if(t.isSpouse) return { hp: 45, speed: 70, attack: 10, defense: 4, type: 'infantry', icon: '💍' };
+        if(t.isSpouse) return { hp: 60, speed: 90, attack: 14, defense: 8, type: 'cavalry', icon: '💍' };
         return TROOP_TYPES[t.name] || { hp: 30, speed: 60, attack: 8, defense: 0, type: 'infantry', icon: '🪖' };
     },
 
@@ -2106,7 +2208,8 @@ const Game = {
         else state.player.ambition = { id, day: state.time.day };
         if(typeof Quests !== 'undefined') Quests.render();
     },
-    // Daily tick: if the selected goal's condition is met, give the reward and open the chain
+    // Daily fallback plus immediate event hooks: if the selected goal's condition is met,
+    // give the reward and open the chain. Tournament wins call this in the result hook itself.
     ambitionTick() {
         if(this.grudgeList().length) state.player.hadGrudge = true;   // "kan bedeli" kapanabilsin (kayda girer)
         let a = this.ambition();
@@ -2407,9 +2510,12 @@ const Game = {
 
         if (timeFlows) {
             // Time flows at ×WAIT_SCALE while camped (#53/1.1)
-            this.advanceTime(dt * this.timeScale() * (state.player.wait ? this.WAIT_SCALE : 1));
+            this.advanceTime(dt * this.TIME_FLOW * this.timeScale() * (state.player.wait ? this.WAIT_SCALE : 1));
             this.waitTick();
-            this.updateNPCs(dt);
+            // Camping accelerates the clock, so world parties must cover the matching
+            // amount of ground as well. Otherwise an eight-hour wait advances wages and
+            // daylight by eight hours while every lord and band only walks for two.
+            this.updateNPCs(this.npcWorldDelta(dt));
             if(state.encounterCooldown > 0) state.encounterCooldown -= dt;
         }
 
@@ -2471,13 +2577,13 @@ const Game = {
             }
         }
 
-        if(timeFlows) this.checkAmbush(dt);
+        if(timeFlows && !this.campProtected()) this.checkAmbush(dt);
 
-        // NPC -> player collision
-        if(timeFlows && state.encounterCooldown <= 0) {
+        // NPC -> player collision. Friendly nobles may cross the player's path, but a conversation
+        // only starts when the player deliberately targets them; hostile parties still intercept.
+        if(timeFlows && !this.campProtected() && state.encounterCooldown <= 0) {
             for(let npc of state.npcParties) {
-                // Bumping into a friendly noble is an encounter too — not a battle, a chat
-                if(!npc.lordId && !npc.trade && !this.isHostile(npc)) continue;
+                if(!this.npcCanInitiateEncounter(npc)) continue;
                 let d = this.dist(npc, state.player);
                 if(d < 24) {
                     state.player.status = 'idle';
@@ -2487,6 +2593,34 @@ const Game = {
                 }
             }
         }
+    },
+
+    // Positions are clamped after movement, but a destination can be outside the
+    // coastline too (a lord's wide patrol arc, or a fleeing party). Leaving that
+    // destination untouched pins the party to the edge forever: it can never reach
+    // an unreachable point and therefore never rolls a new route.
+    clampTargetToMap(npc) {
+        let point = { x:npc.targetX, y:npc.targetY };
+        this.clampToMap(point);
+        npc.targetX = point.x; npc.targetY = point.y;
+    },
+
+    npcCanInitiateEncounter(npc) {
+        let hostile = this.isHostile(npc);
+        if(npc.lordId && !hostile) return this.partiesTargetEachOther(npc);
+        return !!(hostile || npc.trade);
+    },
+
+    mapPartyIsFoe(npc) {
+        return npc.type === 'bandit' || this.atWar(this.playerFaction(), npc.faction)
+            || npc.playerTargetId === 'player';
+    },
+
+    campProtected() { return !!state.player.wait; },
+
+    partiesTargetEachOther(npc) {
+        let mine = state.player.targetLocation;
+        return !!((mine && mine.isNpc && mine.id === npc.id) || npc.playerTargetId === 'player');
     },
 
     // Ambush in the forest: a band/pack hidden among the trees jumps you as you approach.
@@ -2525,10 +2659,12 @@ const Game = {
     },
 
     // ---- CAMP: WAIT (#53 item 1.1) ----
-    // A single primitive: the player stops, time flows at ×4, the world keeps ticking, and
-    // any encounter (triggerEncounter) cuts the wait short. Resting, volunteer refresh,
+    // A single primitive: the player stops, time flows at ×4, and the world keeps ticking.
+    // The camp is protected: roaming enemies cannot cut it short. Resting, volunteer refresh,
     // waiting for a tournament/feast, waiting for a caravan — all of it is a customer of this.
     WAIT_SCALE: 4,
+    CAMP_SAFE_RADIUS: 120,
+    npcWorldDelta(dt) { return dt * this.TIME_FLOW * this.timeScale() * (state.player.wait ? this.WAIT_SCALE : 1); },
     // Waiting has a cost: wages, food, spoilage already tick hourly
     WAIT_CHOICES: [[1, '1 saat'], [8, '8 saat'], [24, '1 gün'], [72, '3 gün']],   // raw; translated at display
     askWait() {
@@ -2545,6 +2681,10 @@ const Game = {
                 `<button class="btn" onclick="Game.startWait(${h})">${T(lbl)}</button>`).join('')
             + `<button class="btn" onclick="Game.startWait(${this.hoursUntilDawn()})">${T`Sabahı bekle`}</button>
                <button class="btn" onclick="Game.closeModal()">${T`Vazgeç`}</button></div>`, 420);
+    },
+    canWaitAtSettlement(loc) {
+        return !!loc && (loc.type === 'city' || loc.type === 'castle')
+            && !this.atWar(this.playerFaction(), loc.faction);
     },
     hoursUntilDawn() { let h = state.time.hour; return h < 6 ? Math.ceil(6 - h) : Math.ceil(30 - h); },
     startWait(hours) {
@@ -2615,7 +2755,7 @@ const Game = {
             alert(T`Kaçamadın, yolunu kestiler! (Kaçış şansı %${Math.round(chance*100)})`);
             // The announced count, not today's: `npc.size` may have moved since the modal (#116)
             Battle.start(npc ? npc.name : 'Kurt Sürüsü', state.encounterSize || (npc ? npc.size : 6),
-                         null, (npc && npc.faction) || '');
+                         null, (npc && npc.faction) || '', null, false, (npc && npc.band) || null);
         }
     },
     // "Send your troops": let the engine itself resolve the battle without opening the arena (#30)
@@ -2623,7 +2763,7 @@ const Game = {
         let npc = state.npcParties.find(n => n.id === npcId);
         if(!npc) return this.closeModal();
         this.closeModal();
-        Battle.start(npc.name, state.encounterSize || npc.size, null, npc.faction || '', null, true);
+        Battle.start(npc.name, state.encounterSize || npc.size, null, npc.faction || '', null, true, npc.band || null);
     },
 
     isHostile(npc) {
@@ -2679,13 +2819,17 @@ const Game = {
             // the very fight the quest promises, and Hasat Nöbeti became a chase (#94).
             if(npc.questWave) {
                 npc.targetX = state.player.x; npc.targetY = state.player.y;
+                npc.playerTargetId = 'player';
             } else if(notices && (might > ps ? hostile : true)) {
                 if(might > ps) {
                     npc.targetX = state.player.x; npc.targetY = state.player.y;
+                    npc.playerTargetId = 'player';
                 } else {
                     npc.targetX = npc.x - dxP * 2; npc.targetY = npc.y - dyP * 2;
+                    npc.playerTargetId = null;
                 }
             } else {
+                npc.playerTargetId = null;
                 let dtx = npc.targetX - npc.x, dty = npc.targetY - npc.y;
                 if(Math.sqrt(dtx*dtx + dty*dty) < 15) {
                     if(npc.trade) return this.traderArrive(npc);   // the convoy arrived at its stop
@@ -2745,6 +2889,34 @@ const Game = {
                 }
             }
 
+            // A nearby lord patrols toward outlaws. Actual losses are resolved once per day
+            // by lordBanditTick; movement remains visible continuously on the campaign map.
+            let patrolCampaign = npc.lordId && state.campaigns[npc.faction];
+            let campaignTarget = patrolCampaign && LOCATIONS.find(l => l.id === patrolCampaign.targetLocId);
+            if(campaignTarget && !npc.siegeLocId) {
+                npc.bandTargetId = null;
+                npc.targetX = campaignTarget.x;
+                npc.targetY = campaignTarget.y;
+            } else if(npc.lordId && !hostile && !npc.siegeLocId) {
+                npc.bandScanCd = (npc.bandScanCd || 0) - dt;
+                let outlaw = state.npcParties.find(b => b.id === npc.bandTargetId && b.type === 'bandit' && b.size > 0
+                                                    && (b.patrolSafeUntil || 0) <= state.time.day);
+                if(!outlaw && npc.bandScanCd <= 0) {
+                    let best = 900;
+                    state.npcParties.forEach(b => {
+                        if(b.type !== 'bandit' || b.size <= 0 || (b.patrolSafeUntil || 0) > state.time.day) return;
+                        let d2 = this.dist(b, npc);
+                        if(d2 < best) { best = d2; outlaw = b; }
+                    });
+                    npc.bandScanCd = 1;
+                    npc.bandTargetId = outlaw ? outlaw.id : null;
+                }
+                if(outlaw && this.dist(outlaw, npc) < 1100) {
+                    npc.targetX = outlaw.x;
+                    npc.targetY = outlaw.y;
+                }
+            }
+
             // Wolves burst out from among the trees: a pack in the forest senses you and
             // charges. The charge range depends on sight — it used to be a fixed 700, meaning
             // the pack closed in at ×2 speed while you could only see it from 125 units away,
@@ -2759,6 +2931,17 @@ const Game = {
                 npc.charging = true;
             }
 
+            // A camp is a protected time-skip, not a way to let a pursuer overlap the
+            // player and trigger on the first frame after waking. Hostile parties can keep
+            // moving on the campaign map, but hold outside the camp's safety perimeter.
+            if(this.campProtected() && hostile) {
+                let awayX = npc.x - state.player.x, awayY = npc.y - state.player.y;
+                let away = Math.hypot(awayX, awayY) || 1;
+                npc.targetX = state.player.x + awayX / away * this.CAMP_SAFE_RADIUS;
+                npc.targetY = state.player.y + awayY / away * this.CAMP_SAFE_RADIUS;
+            }
+
+            this.clampTargetToMap(npc);
             let dx = npc.targetX - npc.x, dy = npc.targetY - npc.y;
             let d = Math.sqrt(dx*dx+dy*dy);
             if(d > 3) {
@@ -2829,8 +3012,9 @@ const Game = {
     },
 
     triggerEncounter(npc, ambush) {
-        // The camp breaks: you can't keep sleeping while someone's closing in on you (#53/1.1)
-        if(state.player.wait) this.stopWait();
+        // A wait is an explicit protected time-skip. This guard also covers encounter callers
+        // outside the normal collision loop (ambushes, raids and delayed road consequences).
+        if(this.campProtected()) return;
         state.encounterCooldown = 2;
         state.ambush = false;   // every encounter resets the flag; reopens the ambush branch
         state.player.currentEncounterNpcId = npc.id;
@@ -2889,7 +3073,7 @@ const Game = {
                 : T`${this.npcName(npc)} seninle savaşmaya değmeyeceğini düşünüyor.`}</p>
             <div style="display:flex;gap:1rem;margin-top:1rem;">
             <button class="btn primary" onclick="Game.closeModal(); state.encounterCooldown = 5;">${T`Uzaklaş`}</button>
-            <button class="btn" style="border-color:#cc0000;color:#cc0000" onclick="Game.closeModal(); Battle.start('${npc.name.replace(/'/g,"\\'")}', ${npc.size}, null, '${npc.faction || ''}')">${T`⚔️ Yine De Savaş!`}</button>
+            <button class="btn" style="border-color:#cc0000;color:#cc0000" onclick="Game.closeModal(); Battle.start('${npc.name.replace(/'/g,"\\'")}', ${npc.size}, null, '${npc.faction || ''}', null, false, '${npc.band || ''}')">${T`⚔️ Yine De Savaş!`}</button>
             </div>`;
         } else {
             // No fleeing during a raid ambush — you got caught red-handed. In an ambush,
@@ -2910,7 +3094,7 @@ const Game = {
                 ? `${T`Sarıldın: kaçmak yarı şansla mümkün, kaçış şansın`} <b>%${flee}</b>.`
                 : `${T`Kaçabilirsin ama hız farkı belirler: kaçış şansın`} <b>%${flee}</b>.`}</p>
             <div style="display:flex;gap:0.6rem;margin-top:1rem;flex-wrap:wrap;justify-content:center">
-            <button class="btn primary" onclick="Game.closeModal(); Battle.start('${npc.name.replace(/'/g,"\\'")}', ${npc.size}, null, '${npc.faction || ''}')">${T`⚔️ Savaş!`}</button>
+            <button class="btn primary" onclick="Game.closeModal(); Battle.start('${npc.name.replace(/'/g,"\\'")}', ${npc.size}, null, '${npc.faction || ''}', null, false, '${npc.band || ''}')">${T`⚔️ Savaş!`}</button>
             ${canAuto ? `<button class="btn" style="border-color:#8fd6ff;color:#8fd6ff" onclick="Game.autoBattle('${npc.id}')" title="Sen inmezsin, adamların halleder — kayıp daha yüksektir">${T`🎖️ Askerlerini Gönder`}</button>` : ''}
             ${canFlee ? `<button class="btn" style="border-color:#cc8800;color:#cc8800" onclick="Game.fleeEncounter('${npc.id}')">${T`🏃 Kaçmayı Dene (%${flee})`}</button>` : ''}
             ${bk.beast ? '' :
@@ -2933,7 +3117,7 @@ const Game = {
 
         // All troops are lost, prisoners go free
         state.player.party = [];
-        state.player.prisoners.filter(p => p.noble).forEach(p => this.respawnLordParty(p));
+        state.player.prisoners.filter(p => p.noble).forEach(p => this.scheduleLordRespawn(p.lordId, 4));
         state.player.prisoners = [];
         state.player.stats.hp = Math.max(5, Math.floor(state.player.stats.maxHp * 0.3));
 
@@ -3024,7 +3208,9 @@ const Game = {
 
     dist(a, b) { return Math.sqrt(Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2)); },
 
-    // A day used to pass in ~12s; the default was halved, the player can change it from the badge
+    // One real second advances 0.75 game-hours at normal speed. The badge can still speed up
+    // or slow down this baseline, but travel no longer burns through whole days in a few seconds.
+    TIME_FLOW: 0.75,
     timeScale() { return state.timeScale || 1; },
     cycleTimeScale() {
         let steps = [0.5, 1, 2];
@@ -3181,7 +3367,7 @@ const Game = {
         let left = n, got = 0;
         for(let i = 0; i < state.player.inventory.length && left > 0; i++) {
             let it = state.player.inventory[i];
-            if(!['wheat','bread','meat','cheese'].includes(it.id)) continue;
+            if((ITEMS[it.id] || {}).type !== 'food') continue;
             let take = Math.min(it.qty, left);
             it.qty -= take; left -= take; got += take;
             if(it.qty <= 0) { state.player.inventory.splice(i, 1); i--; }
@@ -3285,7 +3471,7 @@ const Game = {
           text: () => T`Devrilmiş bir arabanın yanında bir kervancı ateşler içinde yatıyor. Yoldaşları çoktan gitmiş.`,
           choices: [
             { label: () => T`⚕️ Cerrahını başına yolla (3 saat)`, run() {
-                Game.advanceTime(3); Game.addProficiencyXp('surgery', 60);
+                Game.roadDelay(3); Game.addProficiencyXp('surgery', 60);
                 state.player.renown += 2;
                 return T`Adam akşama doğru gözlerini açtı. Bu hikâye yolun ilerisinde senden önce varacak.<br><b>Cerrahlık +60 tecrübe</b>, itibar <b>+2</b>, şeref <b>+${Game.addHonor('roadKind')}</b>.<br><i>3 saat kaybettin.</i>`;
             }},
@@ -3352,7 +3538,7 @@ const Game = {
           text: () => T`Ufuktan gelen kara bulut yolu bir anda kapattı. Dolu taneleri miğferlerde çınlıyor.`,
           choices: [
             { label: () => T`⛺ Sığınak ara, bekle (4 saat)`, run() {
-                Game.advanceTime(4); Game.addProficiencyXp('pathfinding', 30);
+                Game.roadDelay(4); Game.addProficiencyXp('pathfinding', 30);
                 return T`Kaya dibinde kuru bir oyuk buldun. Fırtına geçene kadar kimse ıslanmadı.<br><b>Yol Bulma +30 tecrübe</b>.<br><i>4 saat kaybettin.</i>`;
             }},
             { label: () => T`🌧️ Doluda yürümeye devam et`, run() {
@@ -3412,13 +3598,13 @@ const Game = {
           text: () => T`Ağaçların arasında yeni ölmüş bir kurt. Postu temiz, leşi henüz soğumamış — yani onu öldüren şey de yakında.`,
           choices: [
             { label: () => T`🔪 Postunu yüz (2 saat)`, run() {
-                Game.advanceTime(2);
+                Game.roadDelay(2);
                 let n = 50 + Math.floor(Math.random() * 60);
                 state.player.money += n; Game.addProficiencyXp('looting', 25);
                 return T`Post kürkçüye gider.<br><b>+${n} dinar</b>, <b>Yağmacılık +25 tecrübe</b>.<br><i>2 saat kaybettin.</i>`;
             }},
             { label: () => T`👀 Kimin öldürdüğünü ara (2 saat)`, run() {
-                Game.advanceTime(2); Game.addProficiencyXp('spotting', 50);
+                Game.roadDelay(2); Game.addProficiencyXp('spotting', 50);
                 return T`İzler bir sürünün geceyi nerede geçirdiğini söyledi. Artık ormanda gözün daha keskin.<br><b>Gözcülük +50 tecrübe</b>.<br><i>2 saat kaybettin.</i>`;
             }},
             { label: () => T`🚶 Burada durmak akıllıca değil`, run() {
@@ -3435,7 +3621,7 @@ const Game = {
                 return T`<b>${T(a.name)}</b> ve <b>${T(b.name)}</b> gruba katıldı. Eski askerlerin bu işe iyi bakmadı.<br>Moral <b>−3</b>.`;
             }},
             { label: () => T`⛓️ Bağla, en yakın kaleye teslim et (−4 saat)`, run() {
-                Game.advanceTime(4);
+                Game.roadDelay(4);
                 let n = 60 + Math.floor(Math.random() * 60);
                 state.player.money += n; state.player.renown += 1;
                 return T`Firari teslim etmenin bir bedeli vardır, alanın da.<br><b>+${n} dinar</b>, itibar <b>+1</b>, şeref <b>+${Game.addHonor('roadKind')}</b>.<br><i>4 saat kaybettin.</i>`;
@@ -3476,7 +3662,7 @@ const Game = {
                          then: () => Game.triggerEncounter(npc) };
             }},
             { label: () => T`🌑 Ateşi arkanda bırak`, run() {
-                Game.advanceTime(1);
+                Game.roadDelay(1);
                 return T`Geniş bir kavis çizdin. Kim olduklarını hiç öğrenmeyeceksin.<br><i>1 saat kaybettin.</i>`;
             }}
           ]},
@@ -3508,7 +3694,7 @@ const Game = {
                 return T`İki top kadife, şehirde bunun iki katı eder — şehre varabilirsen.<br><b>−140 dinar</b>, <b>+2 kadife</b>, <b>Ticaret +40 tecrübe</b>.`;
             }},
             { label: () => T`🛡️ Şehre kadar yanında götür (−3 saat)`, run() {
-                Game.advanceTime(3);
+                Game.roadDelay(3);
                 let n = 100 + Math.floor(Math.random() * 80);
                 state.player.money += n; state.player.renown += 1;
                 return T`Adam sağ vardı ve bunu herkese anlattı.<br><b>+${n} dinar</b>, itibar <b>+1</b>, şeref <b>+${Game.addHonor('roadKind')}</b>.<br><i>3 saat kaybettin.</i>`;
@@ -3536,7 +3722,7 @@ const Game = {
           text: () => T`Yol kenarındaki hanın önünde oturan yaşlı bir asker adamlarını süzdü: "Bunlar mızrağı yanlış tutuyor. Bir gün ver, düzeltirim."`,
           choices: [
             { label: () => T`🎯 Tut, bir gün eğitsin (−100 dinar, 8 saat)`, run() {
-                Game.spend(100); Game.advanceTime(8);
+                Game.spend(100); Game.roadDelay(8);
                 Game.addProficiencyXp('trainer', 80);
                 state.player.party.forEach(t => { t.xp = (t.xp || 0) + 2; });
                 return T`Akşama kadar bağırdı. Sabah duruşları gerçekten değişmişti.<br><b>−100 dinar</b>, <b>Eğitmenlik +80 tecrübe</b>, her askere <b>+2 tecrübe</b>.<br><i>8 saat kaybettin.</i>`;
@@ -3554,7 +3740,7 @@ const Game = {
           text: () => T`Yolun tozunda taze at izleri: çok sayıda, hepsi aynı yöne. Bir saat önce buradan geçmişler.`,
           choices: [
             { label: () => T`🐾 İzi sür (2 saat)`, run() {
-                Game.advanceTime(2); Game.addProficiencyXp('spotting', 40);
+                Game.roadDelay(2); Game.addProficiencyXp('spotting', 40);
                 if(Math.random() < 0.5) {
                     let n = 90 + Math.floor(Math.random() * 110);
                     state.player.money += n;
@@ -3563,7 +3749,7 @@ const Game = {
                 return T`İzler bir dereye girip kayboldu. Kaybedilen tek şey iki saat oldu.<br><b>Gözcülük +40 tecrübe</b>.<br><i>2 saat kaybettin.</i>`;
             }},
             { label: () => T`🧭 Ters yöne sap, karşılaşma`, run() {
-                Game.advanceTime(1); state.encounterCooldown = Math.max(state.encounterCooldown, 8);
+                Game.roadDelay(1); state.encounterCooldown = Math.max(state.encounterCooldown, 8);
                 return T`Kimin geçtiğini öğrenmedin ama kimseyle de karşılaşmadın.<br><i>1 saat kaybettin.</i>`;
             }}
           ]},
@@ -3572,7 +3758,7 @@ const Game = {
           text: () => T`Nehir kabarmış; bilinen geçit boğaza kadar geliyor. Aşağıda daha sığ bir yer olduğunu söylüyorlar.`,
           choices: [
             { label: () => T`🧭 Sığ geçidi ara (3 saat)`, run() {
-                Game.advanceTime(3); Game.addProficiencyXp('pathfinding', 45);
+                Game.roadDelay(3); Game.addProficiencyXp('pathfinding', 45);
                 return T`İki dirsek aşağıda çakıllı bir geçit buldun; kimsenin ayağı ıslanmadı.<br><b>Yol Bulma +45 tecrübe</b>.<br><i>3 saat kaybettin.</i>`;
             }},
             { label: () => T`🌊 Buradan geç`, run() {
@@ -3619,22 +3805,67 @@ const Game = {
         let ev = this.pickEvent(this.ROAD_EVENTS, ctx);
         if(!ev) return null;
         this._roadEv = { ev, ctx };
+        // A road event can appear between a map pointer-down and pointer-up. Without a short
+        // guard, that same touch is retargeted to whichever choice materialised under the finger.
+        // Keyboard activation has detail=0 and remains immediate.
+        this._roadChoiceLockUntil = Date.now() + 650;
         state.player.status = 'idle';   // the walk pauses in front of the decision
         this.showModal(`<h3>${ev.icon} ${T`Yolda`}</h3>
             <p style="font-style:italic;color:var(--text-muted)">${ev.text(ctx)}</p>
             <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem">
                 ${ev.choices.map((ch, i) =>
-                    `<button class="btn" style="text-align:left" onclick="Game.roadChoice(${i})">${ch.label(ctx)}</button>`).join('')}
+                    `<button class="btn" style="text-align:left" onclick="Game.roadChoice(${i}, event)">${ch.label(ctx)}</button>`).join('')}
             </div>`);
         return ev.id;
     },
+    // One result hook for every tournament implementation. Keeping the win counter, ambition
+    // and quest event together prevents one arena path from waiting until the daily fallback.
+    tournamentFinished(won, details = {}) {
+        if(won) {
+            state.player.tourneyWins = (state.player.tourneyWins || 0) + 1;
+            state.pendingDedication = true;
+            this.ambitionTick();
+        }
+        Quests.emit('tournament_end', Object.assign({ won: !!won }, details));
+    },
 
-    roadChoice(i) {
+    // Time spent on a roadside choice belongs to the moving world too. Advancing roaming
+    // parties in small slices lets an existing pursuer genuinely catch the waiting player.
+    roadDelay(hours) {
+        let left = Math.max(0, hours || 0);
+        while(left > 0) {
+            let step = Math.min(0.25, left);
+            this.advanceTime(step);
+            this.updateNPCs(step);
+            left -= step;
+        }
+        let caught = state.npcParties
+            .filter(n => this.isHostile(n) && this.dist(n, state.player) < 45)
+            .sort((a, b) => this.dist(a, state.player) - this.dist(b, state.player))[0];
+        if(caught) this._roadDelayEncounter = caught.id;
+    },
+
+    roadChoice(i, inputEvent = null) {
+        if(inputEvent && inputEvent.detail !== 0 && Date.now() < (this._roadChoiceLockUntil || 0)) {
+            inputEvent.preventDefault();
+            inputEvent.stopPropagation();
+            return;
+        }
         let e = this._roadEv;
         if(!e) return this.closeModal();
         this._roadEv = null;
         let r = e.ev.choices[i].run(e.ctx);
         if(typeof r === 'string') r = { html: r };
+        let caughtId = this._roadDelayEncounter;
+        this._roadDelayEncounter = null;
+        if(caughtId) {
+            let after = r.then;
+            r.then = () => {
+                if(after) after();
+                let pursuer = state.npcParties.find(n => n.id === caughtId);
+                if(pursuer && !state.player.currentEncounterNpcId) Game.triggerEncounter(pursuer);
+            };
+        }
         this.updateTopBar();
         this._afterModal = r.then || null;
         this.showModal(`<h3>${e.ev.icon} ${T`Yolda`}</h3><p>${r.html}</p>
@@ -3687,16 +3918,21 @@ const Game = {
             this.spoilFood();
 
             // Food consumption
-            let lowQualityFoods = ['wheat', 'bread'];
-            let highQualityFoods = ['meat', 'cheese'];
+            let lowQualityFoods = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'low').map(i => i.id);
+            let highQualityFoods = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'high').map(i => i.id);
         
             let consumeFood = (typeArr, amount) => {
                 let req = amount;
                 for(let i=0; i<state.player.inventory.length && req>0; i++) {
                     let it = state.player.inventory[i];
                     if(typeArr.includes(it.id)) {
-                        let take = Math.min(it.qty, req);
-                        it.qty -= take; req -= take;
+                        let value = this.foodValue(it.id);
+                        let available = Math.max(0, it.qty * value - (it.foodUsed || 0));
+                        let take = Math.min(available, req);
+                        it.foodUsed = (it.foodUsed || 0) + take;
+                        req -= take;
+                        let spent = Math.floor((it.foodUsed + 1e-9) / value);
+                        if(spent) { it.qty -= spent; it.foodUsed -= spent * value; }
                         if(it.qty <= 0) { state.player.inventory.splice(i,1); i--; }
                     }
                 }
@@ -3785,12 +4021,9 @@ const Game = {
         // NPCs grow stronger over time (first 3 months)
         let day = state.time.day;
         state.npcParties.forEach(npc => {
-            if(npc.type === 'king') {
-                npc.level = Math.min(20, 1 + Math.floor(day / 4.5)); // max 20 over 90 days
-                npc.size = 50 + npc.level * 3;
-            } else if(npc.type === 'vizier') {
-                npc.level = Math.min(10, 1 + Math.floor(day / 9)); // max 10 over 90 days
-                npc.size = 30 + npc.level * 2;
+            if(npc.type === 'king' || npc.type === 'vizier' || npc.lordId) {
+                npc.level = this.lordLevel(npc.type, day);
+                this.adjustLordForce(npc, this.lordForceTarget(npc.type, npc.level));
             }
         });
 
@@ -3823,6 +4056,7 @@ const Game = {
         this.campaignTick();    // marshal selection, campaign target, calling the player
         this.envoyTick();       // a companion sent as envoy comes back with an answer (#69)
         this.banditTick();      // bandits hit caravans on the road
+        this.lordBanditTick();  // lords clear nearby outlaw parties; refill holds their population steady
         this.siegeTick();       // siege camp: preparation, starvation, relief army (#25)
 
         Nobles.dailyTick();
@@ -4102,10 +4336,17 @@ const Game = {
     centerOnPlayer() {
         this.camera.offsetX = 0;
         this.camera.offsetY = 0;
+        // Re-anchor the next update too; otherwise a position change that happened inside a
+        // menu is immediately subtracted from the freshly cleared offset.
+        this._camPx = state.player.x;
+        this._camPy = state.player.y;
     },
 
     showScreen(screenId) {
+        let wasMap = document.getElementById('map-view').classList.contains('active');
         this.resetMapInteractionState();   // the map starts every screen from a clean input state (#96)
+        // Returning from a menu/battle with an old free-pan offset made the player appear lost.
+        if(screenId === 'map' && !wasMap) this.centerOnPlayer();
         document.querySelectorAll('.menu-btn').forEach(b => b.classList.toggle('active', b.dataset.view === screenId));
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         let view = document.getElementById(screenId + '-view');
@@ -4647,9 +4888,6 @@ const Game = {
             ctx.fillStyle = fc.color; ctx.fill();
             ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2 * ik; ctx.stroke();
 
-            if(loc.type === 'city' && state.activeTournaments[loc.id]) {
-                this.emoji(ctx, '🏆', loc.x - big*0.55, loc.y - 15, 36*ik);
-            }
             if(questMarks[loc.id]) this.emoji(ctx, '📜', loc.x - big*0.55, loc.y - 15 - 34*ik, 36*ik);
 
             this.mapLabel(ctx, T(loc.name), loc.x, loc.y - big*0.82 - 14, '#f2e4bb', fc.color);
@@ -4758,7 +4996,7 @@ const Game = {
             // `npc.type === 'bandit'` covers every roaming band -- bandit, wolf, forest and
             // mountain all come out of `spawnBand` with that type; `npc.band` does not, because
             // caravans and villagers carry a `BAND_KINDS` entry of their own.
-            let foe = npc.type === 'bandit' || this.atWar(pf, npc.faction);
+            let foe = this.mapPartyIsFoe(npc);
             let friend = !foe && !!npc.faction && (npc.faction === pf || this.allied(pf, npc.faction));
             let txtCol = foe ? '#ff6b5a' : friend ? '#7fd4ff' : '#d8d2c4';
             this.mapLabel(ctx, `${foe ? '⚔ ' : ''}${shortName} (${npc.size})`, npc.x, npc.y + 50, txtCol, nCol);
@@ -4779,16 +5017,22 @@ const Game = {
             ctx.strokeStyle = 'rgba(255,204,0,0.9)';
             ctx.lineWidth = 4; ctx.stroke();
 
-            // If we have a horse, we appear mounted on the map (like in Warband)
-            this.drawPartyIcon(ctx, state.player.x, state.player.y + 28, {
-                mounted: !!state.player.equipment.horse,
-                size: state.player.party.length + 1,
-                color: this.bannerColor(),
-                scale: 1.35 * this.partyIconScale(state.player.party.length + 1) * this.iconScale(),
-                bob: state.player.status === 'moving' ? -Math.abs(Math.sin(performance.now()/150)) * 6 : 0
-            });
+            if(state.player.wait) {
+                // The party is stationary while time accelerates: the map should say camp,
+                // not show a rider apparently standing in the middle of nowhere.
+                this.emoji(ctx, '⛺', state.player.x, state.player.y + 28, 54 * this.iconScale());
+            } else {
+                // If we have a horse, we appear mounted on the map (like in Warband)
+                this.drawPartyIcon(ctx, state.player.x, state.player.y + 28, {
+                    mounted: !!state.player.equipment.horse,
+                    size: state.player.party.length + 1,
+                    color: this.bannerColor(),
+                    scale: 1.35 * this.partyIconScale(state.player.party.length + 1) * this.iconScale(),
+                    bob: state.player.status === 'moving' ? -Math.abs(Math.sin(performance.now()/150)) * 6 : 0
+                });
+            }
 
-            this.mapLabel(ctx, `${state.player.name} (${state.player.party.length + 1})`,
+            this.mapLabel(ctx, `${state.player.wait ? '⛺ ' : ''}${state.player.name} (${state.player.party.length + 1})`,
                           state.player.x, state.player.y - 72, '#ffcc00', '#ffcc00');
         }
 
@@ -5136,6 +5380,7 @@ const Game = {
 
     startTargetDrag(e) {
         if(e.button !== 0 || Battle.active || TournamentMinigame.active) return;
+        if(state.player.wait) return;
         if(state.player.status !== 'moving' || !state.player.targetLocation) return;
         let m = this.mapPos(e);
         if(this.dist(state.player.targetLocation, m) > this.targetGrabRadius()) return;
@@ -5164,6 +5409,7 @@ const Game = {
 
     endTargetDrag(e) {
         if(!this.dragTarget) return;
+        if(state.player.wait) { this.dragTarget = null; this.mapCanvas.style.cursor = ''; return; }
         let moved = this.dragTarget.moved;
         this.dragTarget = null;
         this.mapCanvas.style.cursor = '';
@@ -5174,6 +5420,7 @@ const Game = {
 
     // Click and drag use the same target selection: locks onto a settlement/NPC if one is nearby.
     setTarget(m) {
+        if(state.player.wait) return;
         for(let loc of LOCATIONS) {
             if(this.dist(loc, m) < 36) { state.player.targetLocation = loc; state.player.status = 'moving'; return; }
         }
@@ -5193,7 +5440,7 @@ const Game = {
     handleMapClick(e) {
         if(Battle.active || TournamentMinigame.active) return;   // map input is ignored while a battle is open (#42)
         // Raiding, like captivity, holds you in place: you can't walk while emptying the storehouse (#49)
-        if(state.player.status === 'raiding' || state.player.status === 'prisoner') return;
+        if(state.player.status === 'raiding' || state.player.status === 'prisoner' || state.player.wait) return;
         if(this.suppressClick) { this.suppressClick = false; return; }
         this.setTarget(this.mapPos(e));   // the settlement / NPC / empty-area distinction is in setTarget
     },
@@ -5275,6 +5522,9 @@ const Game = {
                         () => this.tributeVillage(loc));
                 }
             }
+        }
+        if(this.canWaitAtSettlement(loc)) {
+            this.addBtn(ac, T('⏳ Burada Bekle'), () => this.askWait());
         }
         if(!isEnemy && !state.player.vassalOf && (loc.type==='city'||loc.type==='castle')) {
             this.addBtn(ac, T('⚔️ Kuşat! (Kendi Krallığını Kur)'), () => this.besiegeLocation(loc, true));
@@ -5941,15 +6191,27 @@ const Game = {
             el.textContent = text.slice(0, i);
             if(i >= text.length) Game.skipType();
         }, 1000 / (cps / step)) };
-        // The click that opened the modal may still be propagating — the listener is set on the next tick
+        // The click that opened the modal may still be propagating — the listener is set on the next tick.
+        // Capture phase matters: while text is moving the first press on a choice only finishes
+        // the sentence. Its inline action never runs; the player's second press is confirmation.
         setTimeout(() => {
             if(!Game._type) return;
-            document.addEventListener('click', Game._typeSkip = () => Game.skipType());
+            document.addEventListener('click', Game._typeSkip = e => Game.finishTypedChoice(e), true);
         }, 0);
+    },
+    finishTypedChoice(e) {
+        if(!this._type) return false;
+        let choice = e && e.target && e.target.closest && e.target.closest('#modal-body button');
+        if(choice) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
+        this.skipType();
+        return !!choice;
     },
     skipType() {
         let t = this._type;
-        if(this._typeSkip) { document.removeEventListener('click', this._typeSkip); this._typeSkip = null; }
+        if(this._typeSkip) { document.removeEventListener('click', this._typeSkip, true); this._typeSkip = null; }
         if(!t) return;
         clearInterval(t.timer);
         this._type = null;
@@ -7823,14 +8085,12 @@ const Game = {
                 yüzde <b>${Math.round(best.gap * 100)}</b> kâr ediyor. Bunu sana ben söylemedim."` };
         }},
         { tier: 3, run(here, L) {
-            let cid = Object.keys(state.activeTournaments)[0];
             let feast = state.feast && LOCATIONS.find(l => l.id === state.feast.locId);
-            let town = feast || LOCATIONS.find(l => l.id === cid);
-            if(!town) return null;
-            let at = L(town);
-            return { html: feast
-                ? T`"<b>${T(at.name)}</b>'da şölen var, soylular oraya akıyor. Namın varsa kapıdan çevirmezler."`
-                : T`"<b>${T(at.name)}</b>'da turnuva kuruluyor. Kılıcına güveniyorsan kese doldurursun."`,
+            if(!feast) return Object.keys(state.activeTournaments).length
+                ? { html: T`"Turnuva mevsimi gelmiş. Birkaç şehirde meydan kurulmuş diyorlar ama nerede olduğunu bilen yok."` }
+                : null;
+            let at = L(feast);
+            return { html: T`"<b>${T(at.name)}</b>'da şölen var, soylular oraya akıyor. Namın varsa kapıdan çevirmezler."`,
                      mark: { x: at.x, y: at.y, radius: 150, name: T(at.name) } };
         }},
         { tier: 3, run(here, L) {
@@ -7951,6 +8211,11 @@ const Game = {
     TOURNEY_OPEN: 3,                                      // how many cities hold one at the same time
     TOURNEY_PRIZE: [50, 150, 500],                        // for winning round 1 / round 2 / the final
     TOURNEY_ROUNDS: ['Çeyrek Final', 'Yarı Final', 'Final'],
+    TOURNEY_TEAMS: [
+        [{ name:'Mavi Takım', color:'#2497ff' }, { name:'Kırmızı Takım', color:'#ff3b4f' }],
+        [{ name:'Yeşil Takım', color:'#35d06f' }, { name:'Mor Takım', color:'#b45cff' }],
+        [{ name:'Altın Takım', color:'#ffd43b' }, { name:'Turkuaz Takım', color:'#19d3c5' }]
+    ],
     // Regulars of the circuit: they follow the tournaments from city to city, so unlike the
     // local lords they can turn up anywhere.
     TOURNEY_REGULARS: ['Tek Kollu Baturhan', 'Şişman Ansen', 'Kumlu Derviş', 'Sessiz Ymira',
@@ -8035,15 +8300,10 @@ const Game = {
             if(!t.paid) {
                 t.paid = true;
                 state.player.money += pay;
-                if(t.champion.you) {
-                    state.player.tourneyWins = (state.player.tourneyWins || 0) + 1;   // ambition chain (#53/1.4)
-                    state.pendingDedication = true;   // a win can still be dedicated to a lady in the hall
-                }
                 (state.tourneyChampions || (state.tourneyChampions = {}))[t.locId] =
                     { name: t.champion.name, day: state.time.day };
-                // The quests that watch the tournament now count rounds survived, not targets hit:
-                // the bracket has no score. `score` rides along for anything still reading the old name.
-                Quests.emit('tournament_end', { won: !!t.champion.you, wins: t.wins, score: t.wins });
+                // The bracket has no hit score; rounds survived ride as both names for old consumers.
+                this.tournamentFinished(!!t.champion.you, { wins: t.wins, score: t.wins });
                 this.updateTopBar();
             }
             let won = this.TOURNEY_PRIZE.slice(0, t.wins).reduce((a, b) => a + b, 0);
@@ -8058,8 +8318,13 @@ const Game = {
             btn = `<button class="btn primary" onclick="Game.tourneyClose()">${T`Meydandan Ayrıl`}</button>`;
         } else {
             let foe = t.rounds[t.round][t.rounds[t.round].findIndex(f => f.you) ^ 1];
+            let teams = this.TOURNEY_TEAMS[t.round], size = [4, 2, 1][t.round];
             msg = `<p>${T`Sıradaki: <b>${T(this.TOURNEY_ROUNDS[t.round])}</b> — karşında <b>${T(foe.name)}</b> (Sv. ${foe.lv}).`}
-                   <span style="color:var(--text-muted)">${T`Canın: ${Math.round(state.player.stats.hp)}/${Math.round(state.player.stats.maxHp)}`}</span></p>`;
+                   <span style="color:var(--text-muted)">${T`Canın: ${Math.round(state.player.stats.hp)}/${Math.round(state.player.stats.maxHp)}`}</span><br>
+                   <b style="color:${teams[0].color}">● ${T(teams[0].name)}</b> ${T`${size} kişi`}
+                   <span style="color:var(--text-muted)"> — </span>
+                   <b style="color:${teams[1].color}">● ${T(teams[1].name)}</b> ${T`${size} kişi`}<br>
+                   <span style="color:var(--text-muted)">${T('Standart turnuva seti: tahta kılıç, dolgulu zırh, at yok.')}</span></p>`;
             btn = `<button class="btn primary" onclick="Game.tourneyFight()">${T`⚔️ Meydana Çık`}</button>`;
         }
         this.showModal(`<h3>${T`🏆 ${T((LOCATIONS.find(l => l.id === t.locId) || {}).name || 'Turnuva')} Turnuvası`}</h3>
@@ -8073,6 +8338,13 @@ const Game = {
         if(i < 0) return;
         let foe = cur[i ^ 1];
         foe.round = this.TOURNEY_ROUNDS[t.round];   // raw name; the battle log translates it
+        let size = [4, 2, 1][t.round], pool = t.rounds[0].filter(f => !f.you && f !== foe)
+            .slice().sort(() => Math.random() - 0.5);
+        foe.teamFight = {
+            size,
+            player: this.TOURNEY_TEAMS[t.round][0], enemy: this.TOURNEY_TEAMS[t.round][1],
+            allies: pool.slice(0, size - 1), enemies: pool.slice(size - 1, (size - 1) * 2)
+        };
         this.closeModal();
         Battle.startTourneyFight(foe);
     },
@@ -8179,6 +8451,18 @@ const Game = {
         if(!this.atWar(a, b)) return;
         delete state.wars[this.warKey(a, b)];
         let mine = this.playerFaction() === a || this.playerFaction() === b;
+        if(mine) {
+            let other = this.playerFaction() === a ? b : a;
+            let siege = state.player.siege;
+            let besieged = siege && LOCATIONS.find(l => l.id === siege.locId);
+            if(besieged && besieged.faction === other) this.liftSiege(true);
+            state.npcParties.filter(n => n.faction === other && n.playerTargetId === 'player').forEach(n => {
+                n.playerTargetId = null;
+                let lord = n.lordId && Nobles.lord(n.lordId);
+                let home = lord && LOCATIONS.find(l => l.id === lord.homeLocId);
+                if(home) { n.targetX = home.x; n.targetY = home.y; }
+            });
+        }
         this.news(T`🕊️ ${this.factionName(a)} ile ${this.factionName(b)} barış imzaladı.`, mine);
     },
     // ---- ALLIANCE ----
@@ -8524,7 +8808,7 @@ const Game = {
         });
         // A scattered party is removed from the map, it regroups at home a few days later
         state.npcParties.filter(n => n.size <= 0 && n.lordId).forEach(n => {
-            state.lordRespawn[n.lordId] = state.time.day + 4 + Math.floor(Math.random() * 6);
+            this.scheduleLordRespawn(n.lordId, 4 + Math.floor(Math.random() * 6));
         });
         state.npcParties = state.npcParties.filter(n => !(n.lordId && n.size <= 0));
     },
@@ -9773,7 +10057,8 @@ const Game = {
     // the whole unit fights weaker.
     moraleTarget(paid, hungry) {
         let p = state.player;
-        let foods = ['wheat','bread','meat','cheese'].filter(id => p.inventory.some(i => i.id === id && i.qty > 0)).length;
+        let foods = Object.values(ITEMS).filter(i => i.type === 'food' &&
+            p.inventory.some(x => x.id === i.id && x.qty > 0)).length;
         let over = Math.max(0, p.party.length - this.getPartyCapacity());
         let lead = (p.proficiencies.leadership || { level: 1 }).level;
         let parts = {
@@ -9830,10 +10115,18 @@ const Game = {
     },
 
     // How many units will be lost to spoilage today (shown in the tooltip).
+    // Expensive preserved food contains several daily portions. `foodUsed` keeps a partly
+    // eaten pack until all of its portions have actually been consumed.
+    foodValue(id) {
+        return (ITEMS[id] || {}).foodValue || ({ cheese:2, fish:2, butter:2, honey:3 }[id] || 1);
+    },
+    foodNutrition(it) {
+        return Math.max(0, it.qty * this.foodValue(it.id) - (it.foodUsed || 0));
+    },
     spoilRate() {
         return state.player.inventory.reduce((a, it) => {
             let sp = (ITEMS[it.id] || {}).spoil;
-            return a + (sp ? it.qty / sp : 0);
+            return a + (sp ? this.foodNutrition(it) / sp : 0);
         }, 0);
     },
 
@@ -9842,33 +10135,38 @@ const Game = {
     foodStock() {
         let inv = state.player.inventory;
         let sum = q => inv.filter(i => q.includes(i.id)).reduce((a, i) => a + i.qty, 0);
-        let low = sum(['wheat','bread']), high = sum(['meat','cheese']);
+        let lowIds = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'low').map(i => i.id);
+        let highIds = Object.values(ITEMS).filter(i => i.type === 'food' && i.quality === 'high').map(i => i.id);
+        let low = sum(lowIds), high = sum(highIds);
+        let nutrition = inv.filter(i => (ITEMS[i.id] || {}).type === 'food')
+            .reduce((a, i) => a + this.foodNutrition(i), 0);
         let up = this.upkeep();
         let need = Math.ceil(up.foodLow);
         // Spoilage eats into the stock too; "how many days it lasts" would be too optimistic without it.
         let drain = need + this.spoilRate();
         return {
-            low, high, total: low + high,
+            low, high, total: low + high, nutrition,
             need, needHigh: Math.ceil(up.foodHigh), spoil: this.spoilRate(),
             // Correct even with mixed stock: high quality covers both its own share and the general one
-            days: drain > 0 ? Math.floor((low + high) / drain) : Infinity,
-            kinds: ['wheat','bread','meat','cheese'].filter(id => inv.some(i => i.id === id && i.qty > 0)).length
+            days: drain > 0 ? Math.floor(nutrition / drain) : Infinity,
+            kinds: [...lowIds, ...highIds].filter(id => inv.some(i => i.id === id && i.qty > 0)).length
         };
     },
 
     // Daily expense: wages + food. dailyUpdate and the top-bar tooltip use the same math.
-    // A troop eats half a unit a day, the player a full unit (we count the player's own stomach too).
+    // A troop eats 0.4 units a day, the player 0.75 (we count the player's own stomach too).
     // It used to be 1 per head: a 20-person army ate 21 units a day (~84 dinars),
     // meaning the food bill ran twice the wage bill. This is the single knob — consumption,
     // the "days left" badge, the hunger penalty, and the tooltip breakdown all read from upkeep().
-    FOOD_MAN: 0.5,
+    FOOD_MAN: 0.4,
+    FOOD_PLAYER: 0.75,
 
     upkeep() {
         // The player's own belly is fed too (#75). It used to be only the party was counted:
         // a player traveling alone ate no food at all, and the top bar read "∞ days".
         // This one line stays here because consumption, "days left", the hunger penalty,
         // and the tooltip breakdown all read from this single function.
-        let wage = 0, foodLow = 1, foodHigh = 0;
+        let wage = 0, foodLow = this.FOOD_PLAYER, foodHigh = 0;
         state.player.party.forEach(t => {
             wage += this.troopWage(t);                              // companion 20, lvl51 free
             if(t.isCompanion) { foodLow += this.FOOD_MAN; return; }
@@ -9992,9 +10290,11 @@ const Game = {
     respawnLordParty(pr) {
         let lord = Nobles.lord(pr.lordId);
         if(!lord || state.npcParties.some(n => n.lordId === lord.id)) return;
-        let size = lord.rank === 'king' ? 60 : lord.rank === 'vizier' ? 30 : 20;
+        let level = this.lordLevel(lord.rank);
+        let size = Math.max(5, Math.ceil(this.lordForceTarget(lord.rank, level) * this.LORD_RETURNING_FORCE));
         let npc = this.createNPC(lord.name, lord.rank, size, FACTIONS[lord.faction].color, lord.faction, 1);
         npc.lordId = lord.id;
+        npc.level = level;
         let home = LOCATIONS.find(x => x.id === lord.homeLocId);
         if(home) { npc.x = home.x; npc.y = home.y; npc.targetX = home.x; npc.targetY = home.y; }
         state.npcParties.push(npc);
@@ -10008,7 +10308,7 @@ const Game = {
         this.addHonor('ransom'); this.addGrudge(pr.lordId);   // a noble sold for money doesn't forget (#53)
         Nobles.addRel(pr.lordId, -20);
         LORDS.filter(l => l.faction === pr.faction && l.id !== pr.lordId).forEach(l => Nobles.addRel(l.id, -4));
-        this.respawnLordParty(pr);
+        this.scheduleLordRespawn(pr.lordId);
         this.addProficiencyXp('prisonerMgmt', 40);
         this.updateTopBar();
         this.renderPartyScreen();
@@ -10022,8 +10322,13 @@ const Game = {
         Nobles.addRel(pr.lordId, 25);
         LORDS.filter(l => l.faction === pr.faction && l.id !== pr.lordId).forEach(l => Nobles.addRel(l.id, 6));
         state.player.renown += 3;
+        // Record that there really was a feud before removing it. The ambition's daily
+        // fallback cannot infer this afterwards, so releasing the last grudging lord used
+        // to leave "Kan bedeli" permanently unfinished.
+        if(this.hasGrudge(pr.lordId)) state.player.hadGrudge = true;
         this.addHonor('release'); delete state.grudges[pr.lordId];   // an honorable act wipes the debt (#53)
-        this.respawnLordParty(pr);
+        this.scheduleLordRespawn(pr.lordId);
+        this.ambitionTick();
         this.updateTopBar();
         this.renderPartyScreen();
         alert(T`${T(pr.name)}'i fidyesiz salıverdin. Bu şerefli davranış dilden dile dolaşacak. (+3 nam)`);
@@ -10106,7 +10411,11 @@ const Game = {
         <div style="flex:1;">
             <h3 style="color:var(--primary)">${T`Kuşanılan`}</h3>
             ${this._eqSlot(T('Silah'),'weapon',e.weapon)}
+            ${this._eqSlot(T('Kalkan'),'shield',e.shield)}
             ${this._eqSlot(T('Zırh'),'armor',e.armor)}
+            ${this._eqSlot(T('Başlık'),'helmet',e.helmet)}
+            ${this._eqSlot(T('Eldiven'),'gloves',e.gloves)}
+            ${this._eqSlot(T('Çizme'),'boots',e.boots)}
             ${this._eqSlot(T('At'),'horse',e.horse)}
         </div>
         <div style="flex:2;">
@@ -10115,7 +10424,7 @@ const Game = {
         else {
             html += '<div style="display:flex;gap:0.8rem;flex-wrap:wrap;">';
             state.player.inventory.forEach((item,i) => {
-                let canEquip = item.type==='weapon'||item.type==='armor'||item.type==='horse';
+                let canEquip = ['weapon','shield','armor','helmet','gloves','boots','horse'].includes(item.type);
                 let isUse = item.type === 'special' && item.id === 'boss_map';
                 html += `<div style="padding:0.8rem;background:rgba(0,0,0,0.3);border:1px solid var(--panel-border);border-radius:6px;width:120px;text-align:center;">
                 <div style="font-size:1.5rem">${item.icon||'📦'}</div>
@@ -10196,7 +10505,9 @@ const Game = {
     updateStatsFromEquip() {
         let s = state.player.stats;
         let e = state.player.equipment;
-        s.maxHp = 50 + (s.level - 1) * 10 + Math.round((this.attr('vit') - 10) * 5) + (e.armor ? (e.armor.defense||0) : 0);
+        let defense = ['shield','armor','helmet','gloves','boots']
+            .reduce((n, slot) => n + ((e[slot] || {}).defense || 0), 0);
+        s.maxHp = 50 + (s.level - 1) * 10 + Math.round((this.attr('vit') - 10) * 5) + defense;
         if(s.hp > s.maxHp) s.hp = s.maxHp;
     },
 
@@ -10302,6 +10613,13 @@ const Save = {
             d.state.meta = { v: 2, createdAt: d.savedAt || Date.now(), playtime: 0, gocEdildi: true };
             d.v = 2;
         }
+        // Shields used to occupy the body-armour slot. Preserve both the shield and the new
+        // dedicated slot when an older save is opened.
+        let eq = (((d || {}).state || {}).player || {}).equipment;
+        if(eq && eq.armor && eq.armor.id === 'shield' && !eq.shield) {
+            eq.shield = eq.armor;
+            eq.armor = null;
+        }
         return d;
     },
 
@@ -10336,6 +10654,14 @@ const Save = {
     apply(d) {
         if(d.playerKingdom) FACTIONS['player_kingdom'] = d.playerKingdom;
         this.mergeInto(state, d.state);
+
+        // Quest definitions may be retired between releases. Strip them from old saves and
+        // cached offers before any quest UI tries to dereference a definition that no longer exists.
+        state.player.quests = (state.player.quests || []).filter(q => QUESTS[q.id]);
+        Object.keys(state.questOffers || {}).forEach(id => {
+            if(!state.questOffers[id] || !QUESTS[state.questOffers[id].id]) delete state.questOffers[id];
+        });
+        if(state.pendingQuest && !QUESTS[state.pendingQuest.id]) state.pendingQuest = null;
 
         let legacyLocs = false;
         (d.locations || []).forEach(sl => {
