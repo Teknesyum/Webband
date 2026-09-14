@@ -11,6 +11,12 @@ const Battle = {
     // Keep formations and command opportunities relevant: played battles take roughly
     // one-third longer without changing troop ratios or the auto-resolve model.
     DAMAGE_PACE: 0.75,
+    // Damage alone could not slow a fight down much — a battle is mostly closing distance and
+    // the melt at the end. What reads as "too fast" is the cadence: everyone hacking at once.
+    // SWING_PACE stretches every attack cooldown — the AI's and the player's — so a swing is a
+    // decision again: there is time to raise the shield, step out, or give an order between hits.
+    // Deliberately NOT unit speed: slowing movement makes the field feel like mud.
+    SWING_PACE: 1.6,
 
     // Rival suitor duel: 1-on-1, no group, no loot
     startDuel(lord) {
@@ -129,7 +135,6 @@ const Battle = {
         this.projectiles = [];
         this.bloodStains = [];
         this.floatingTexts = [];
-        this.battlePings = [];
         this.swings = [];
         this.sparks = [];
         this.corpses = [];
@@ -209,6 +214,11 @@ const Battle = {
                 this.terrain.rivers.push({ x: 0, y: ry, w: W, h: 60+Math.random()*40, isVertical: false });
             }
         }
+        // A rock is the only impassable thing on the field. Standing in the water it reads as part of
+        // the river — the player walks into the ford and stops dead against nothing he can see.
+        // The river is the one place a rock may not sit.
+        this.terrain.rocks = this.terrain.rocks.filter(k => !this.terrain.rivers.some(r =>
+            k.x + k.r > r.x && k.x - k.r < r.x + r.w && k.y + k.r > r.y && k.y - k.r < r.y + r.h));
         
         // Siege field: no river/rocks at the wall's foot, cover stays only on the besieging side
         if(this.siege) {
@@ -415,12 +425,6 @@ const Battle = {
                 let q = quotes[Math.floor(Math.random()*quotes.length)];
 
                 this.log(`<span style="color:#ffaa00;font-size:1.1rem;display:block;margin-bottom:5px"><b>${T`Düşman Komutanı:`}</b></span><span style="color:#fff;font-style:italic">"${q}"</span>`, 'right');
-                
-                // Ping animation at the groups' advance points
-                let W = this.canvas.width, H = this.canvas.height;
-                this.battlePings.push({ x: W/3, y: 150, life: 3.0, label: n1 });
-                this.battlePings.push({ x: W/3, y: H-150, life: 3.0, label: n2 });
-                this.battlePings.push({ x: W/2, y: H/2, life: 3.0, label: T('Ana Grup') });
             }
         }, 1000);
 
@@ -496,7 +500,7 @@ const Battle = {
     // Swing recovery: speeds up as proficiency rises (0.75s → 0.45s)
     swingCooldown() {
         let lv = this.playerWeaponProf();
-        return Math.max(0.45, 0.75 - lv * 0.005);
+        return Math.max(0.45, 0.75 - lv * 0.005) * this.SWING_PACE;
     },
 
     prof(id) { let d = state.player.proficiencies[id]; return d ? d.level : 1; },
@@ -513,7 +517,7 @@ const Battle = {
     // Bow: the quiver is limited, movement and being mounted both hurt accuracy
     playerShoot(p) {
         let lv = this.prof('bow');
-        p.swingCd = Math.max(0.5, 1.15 - lv * 0.006);
+        p.swingCd = Math.max(0.5, 1.15 - lv * 0.006) * this.SWING_PACE;
         if(this.arrows <= 0) {
             this.floatingTexts.push({ x: p.x, y: p.y - 20, text: T('ok bitti'), color: '#999', life: 0.6 });
             return;
@@ -793,12 +797,6 @@ const Battle = {
         if(this.bloodStains.length > capBlood) this.bloodStains.splice(0, this.bloodStains.length - capBlood);
         this.units.forEach(u => { if(u.hitFlash > 0) u.hitFlash -= dt; });
 
-        // Battle pings
-        if(this.battlePings) {
-            this.battlePings.forEach(p => p.life -= dt);
-            this.battlePings = this.battlePings.filter(p => p.life > 0);
-        }
-
         // id -> unit table (target lookups run through this)
         this._byId = {};
         this.units.forEach(u => { this._byId[u.id] = u; });
@@ -983,7 +981,7 @@ const Battle = {
                             u.x += u.vx*dt; u.y += u.vy*dt;
                         } else {
                             if(u.atkCd <= 0) {
-                                u.atkCd = 1.4 + Math.random()*0.3;
+                                u.atkCd = (1.4 + Math.random()*0.3) * this.SWING_PACE;
                                 let arrowSpeed = 250;
                                 let tX = closest.x, tY = closest.y;
                                 if(Math.random() > 0.5) { // 50% predictive aim
@@ -1038,7 +1036,7 @@ const Battle = {
                     u.x += dx*r; u.y += dy*r;
                 } else if(finalDist <= meleeRange) {
                     if(u.atkCd <= 0) {
-                        u.atkCd = 0.85 + Math.random()*0.4; // so not everyone swings at the same instant
+                        u.atkCd = (0.85 + Math.random()*0.4) * this.SWING_PACE; // so not everyone swings at the same instant
                         this.dealMelee(u, closest, uAttack);
                     }
                 }
@@ -1073,7 +1071,43 @@ const Battle = {
             }
         });
 
+        this.separate();
         this.checkEnd();
+    },
+
+    // Two armies used to walk straight through each other and pile onto the same pixels: you could
+    // not tell who you were swinging at, and a stack of six men took six times the damage in the
+    // same second. Bodies now push each other apart — the line forms, the flanks matter.
+    // ponytail: O(n²) over the living. At the ~70 units a battle ever holds that is ~2.5k distance
+    // checks a frame, far under budget; bucket by grid if the cap ever rises.
+    separate() {
+        let live = this.units.filter(u => u.hp > 0 && !u.routing);
+        for(let i = 0; i < live.length; i++) {
+            let a = live[i];
+            for(let j = i + 1; j < live.length; j++) {
+                let b = live[j];
+                let dx = b.x - a.x, dy = b.y - a.y;
+                let min = (a.radius + b.radius) * 1.35;   // shoulder room, not just skin contact
+                let d2 = dx*dx + dy*dy;
+                if(d2 >= min*min) continue;
+                let d = Math.sqrt(d2) || 0.01;
+                // A tiny jitter when two units land exactly on top of each other, or the push has no direction.
+                let nx = d2 < 0.0001 ? Math.random() - 0.5 : dx / d;
+                let ny = d2 < 0.0001 ? Math.random() - 0.5 : dy / d;
+                // The overlap is shared, each side giving way in proportion to how easily it is
+                // shoved: a rider gives less ground than a man on foot.
+                let push = min - d;
+                let am = a.mounted ? 0.3 : 1, bm = b.mounted ? 0.3 : 1;
+                let aShare = push * am / (am + bm), bShare = push * bm / (am + bm);
+                a.x -= nx * aShare; a.y -= ny * aShare;
+                b.x += nx * bShare; b.y += ny * bShare;
+            }
+        }
+        let bw2 = this.canvas.width, bh2 = this.canvas.height;
+        live.forEach(u => {
+            u.x = Math.max(12, Math.min(bw2 - 12, u.x));
+            u.y = Math.max(12, Math.min(bh2 - 12, u.y));
+        });
     },
 
     // --- Ground: grass + terrain is drawn once to an offscreen canvas, never regenerated every frame
@@ -1352,22 +1386,6 @@ const Battle = {
             ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
         });
         ctx.globalAlpha = 1;
-
-        // Commander pings
-        if(this.battlePings) {
-            this.battlePings.forEach(p => {
-                let progress = 1 - (p.life / 3.0);
-                let size = 30 + progress * 20;
-                let alpha = p.life > 1.0 ? 1.0 : p.life;
-                ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, Math.PI*2);
-                ctx.strokeStyle = `rgba(255,50,50,${alpha})`; ctx.lineWidth = 3; ctx.stroke();
-                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2);
-                ctx.fillStyle = `rgba(255,50,50,${alpha})`; ctx.fill();
-                ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-                ctx.font = '14px Inter, sans-serif'; ctx.textAlign = 'center';
-                ctx.fillText(p.label, p.x, p.y - size - 10);
-            });
-        }
 
         // Vignette
         if(!this._vignette || this._vignette.w !== W) {

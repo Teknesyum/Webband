@@ -1550,15 +1550,35 @@ move with it — you're tracking a trail, not an address.
     37.6 → 45.3s — an armored unit is noticeably tougher, the fight doesn't lock up.
   - Battle tooltip (HUD, bottom left): mount status, arrows left, block indicator.
   - Every attack cooldown timer is **dt-based** (`u.atkCd`), not `performance.now()` — independent
-    of frame rate. Infantry `0.85–1.25`s, archers `1.4–1.7`s.
+    of frame rate. Base cadence is infantry `0.85–1.25`s, archers `1.4–1.7`s, and every one of
+    them — the player's swing and bow included — is multiplied by **`Battle.SWING_PACE` = 1.6**,
+    so in play it is infantry `1.36–2.0`s, archers `2.24–2.72`s.
+  - **Why cadence and not speed or damage** (#6, #54). Damage is a weak lever on battle length:
+    a 20v20 measured 12.5 s, and halving every hit only reached 14.5 s — most of a battle is
+    closing distance and the rout cascade at the end, not the exchange. Slowing *movement* makes
+    the field feel like mud. Slowing the **swing** is what turns a hack-fest back into a fight,
+    and it pays off exactly where skill lives: with armor on, there is time to raise a shield.
+    **Measured** (12 worlds each): 1v1 duel 12.2 → **16.0 s**; 12v12 at defense 8 15.7 → **18.3 s**;
+    12v12 at defense 18 34.9 → **49.0 s**; 20v20 12.5 → **13.9 s**.
   - Melee damage passes through a single place: `Battle.dealMelee(src, tgt, raw)` — drops
     defense, produces knockback + blood + sparks + floating text, and on a kill calls `logKill`
     + XP.
   - Enemy mix depends on the band (`BAND_KINDS`, table above). **Faction armies** scale
     (`enemyLvl`): +4 hp / +0.5 atk / +0.25 def per tier. **Bandits do not** (#99).
   - **Impassable rocks** (`terrain.rocks`, 2–4 of them): a unit can't enter one, it gets pushed
-    out the same way the boundary check does. Never placed on spawn lanes. *(Arrows pass over a
-    rock — it isn't cover.)*
+    out the same way the boundary check does. Never placed on spawn lanes, and **never inside a
+    river** — the rock is the only impassable thing on the field, and standing in the water it
+    reads as part of the river, so the player walks into the ford and stops dead against nothing
+    he can see (#21). The filter runs after river generation; rivers themselves are cosmetic.
+    *(Arrows pass over a rock — it isn't cover.)*
+  - **Bodies push each other apart** (`Battle.separate`, #55). Until 1.11 there was **no**
+    unit-vs-unit collision at all: two armies walked straight through each other and six men
+    stacked on one pixel took six times the damage in the same second. Each frame, every pair of
+    living, non-routing units closer than `(rA + rB) × 1.35` (shoulder room, not skin contact) is
+    pushed apart along the line between them, the overlap shared by weight — a mounted unit gives
+    `0.3` of the ground a foot soldier gives. Exactly coincident units get a jittered direction.
+    *ponytail*: O(n²) over the living; at the ~70 units a battle ever holds that is ~2.5k distance
+    checks a frame, far under the 16.7 ms budget — bucket by grid if the cap ever rises.
   - Tactical orders **don't sit ready from the start of battle**: each one spawns as an
     "opportunity" at its own random moment (`Battle.cmdSlots`; charge 1–2.5s, pursue 2.5–5s,
     hold 4–7.5s). **No party, no orders** (#114): `cmdSlots` is empty when
@@ -1826,6 +1846,18 @@ A conquered settlement is no longer just a flag change: `loc.owner === 'player'`
   a garrisonless fief falls the first time an enemy lord passes by. `captureSettlement` then
   drops `owner`, **wipes the garrison**, and shows you the news as a modal; storage stays put.
 - `owner` / `garrison` / `storage` are saved (in `Save.save`'s `locations` array).
+- **Asking your liege for land** (#32). Conquest is the only other way in, and a village cannot be
+  besieged, so a sworn vassal who never storms a castle used to have no path to a fief at all. The
+  king's dialogue carries `🏰 Tımar iste` → `Game.askFief`: gates are `peakRenown() ≥ fiefGate()`
+  (`FIEF_GATE` 300, **+200 per fief you already hold**) and relation `≥ FIEF_REL` 20. The list is
+  the unowned settlements of your own faction, nearest first, capped at 6. `Game.takeFief`
+  **re-checks every gate** — the window can sit open while the world moves on — then sets `owner`
+  and drops every other lord of the faction 2 relation: land you get is land they didn't.
+- **The fief list is its own screen** (#48). It used to live only at the bottom of the diplomacy
+  modal, four scrolls past the wars. `Game.fiefListHtml(withTravel)` is one builder feeding two
+  screens: diplomacy (plain) and `Game.showFiefs()` from the ⋯ More menu (with a 🧭 travel button
+  per fief). Management itself stays in the settlement menu — garrison, storage and enterprise all
+  need you standing in the place.
 
 ### Vassals — granting fiefs as king (#40)
 Once you found your own kingdom (`state.player.vassalOf === 'player_kingdom'`,
@@ -1881,10 +1913,12 @@ bracket starts.
 
 **Betting** (at most `Game.ARENA_BET_MAX` = 1000 denars): money is taken on entry, the payout is
 `bet × odds[rounds won]`. The odds are read off the field rather than a fixed table
-(`Game.tourneyOdds`): champion odds are `3 × avgRivalLevel / playerLevel`, clamped to 1.5–12, and
+(`Game.tourneyOdds`): champion odds are `2.4 × avgRivalLevel / playerLevel`, clamped to 1.2–6, and
 the two lower rungs are 12% and 34% of that. So a field of veterans pays, a field of boys does
-not — entering a tournament far above your level is the fastest early money in the game, exactly
-as in Warband, and it is also the likeliest way to lose 1000 denars.
+not — but no longer without limit. **Measured**: the old `3 ×` clamped to 1.5–12 turned the arena
+into an unlimited bank at low level (#53), so the field's own level spread was raised too —
+`tourneyField`'s `spread` is `[-1, 0, 1, 2, 3, 4, 6]` (was `[-4, -2, -1, 0, 2, 3, 5]`), i.e. the
+opening round is no longer a free win and the champion always stands above you.
 
 Winning also opens `state.pendingDedication` (you can dedicate the win to a lady) and counts
 towards `state.player.tourneyWins` (the ambition chain, #53). `Quests.emit('tournament_end',

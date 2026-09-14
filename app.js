@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.10', date: '2026-09-13', name: 'Bekleyen Yol' };  // the version name is not translated
+const VERSION = { no: '1.11', date: '2026-09-14', name: 'Tımar Fermanı' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -3294,7 +3294,7 @@ const Game = {
             state.player.money = Math.max(0, state.player.money - fine);
             return `${T`${T(c.near.name)} yakınında sarhoş bir askerin <b>yanlış adama</b> meydan okuduğu haberi geldi. Tazminatı sen ödedin.<br><b>−${fine} dinar`}</b>.`;
         }},
-        { id: 'thief', bad: 1, when: c => state.player.money > 100, run(c) {
+        { id: 'thief', bad: 1, when: c => c.party >= 2 && state.player.money > 100, run(c) {
             let lost = Math.min(250, Math.round(state.player.money * (0.02 + Math.random() * 0.03)));   // cap: even a rich player should just get annoyed
             state.player.money -= lost;
             return `${T`Sabah kese hafiflemişti. Kimse bir şey görmemiş, herkes birbirine bakıyor.<br><b>−${lost} dinar`}</b>.`;
@@ -6155,6 +6155,11 @@ const Game = {
         mb.querySelectorAll('button').forEach(b => {
             if(!this.btnLabelOk(b.textContent, 'showModal')) b.style.display = 'none';
         });
+        // A window with nothing but text (no volunteers left, no tournament here) used to rely on the
+        // × alone; on a phone that corner is easy to miss, and the player is stuck staring at it (#57).
+        let anyBtn = Array.prototype.some.call(mb.querySelectorAll('button'), b => b.style.display !== 'none');
+        if(this.canDismiss() && !anyBtn)
+            mb.innerHTML += `<button class="btn primary" style="margin-top:1rem" onclick="Game.closeModal()">${T`Kapat`}</button>`;
         // × only shows on a dismissible window; it asks through the same gate as Esc and clicking outside
         let cb = document.getElementById('modal-close');
         if(cb) { cb.classList.toggle('hidden', !this.canDismiss()); cb.title = T('Kapat'); }
@@ -7559,6 +7564,7 @@ const Game = {
         this.showModal(`<h3>${T`⋯ Daha`}</h3>
         <div style="display:flex;flex-direction:column;gap:0.5rem">
             ${it('📜', T('Görevler'), "Game.closeModal(); Game.showScreen('quests')")}
+            ${it('🏰', T('Topraklarım'), 'Game.showFiefs()')}
             ${it('💾', T('Kayıtlar'), 'Save.open()')}
             ${it(sesli ? '🔊' : '🔇', sesli ? T('Ses Açık') : T('Ses Kapalı'), 'Game.toggleMute(); Game.showMoreMenu()')}
             ${it('⚙️', T('Ayarlar'), 'Game.showSettings()')}
@@ -7775,7 +7781,12 @@ const Game = {
     marketMsg(html, ok = true) {
         this.setHtml('market-msg', `<span style="color:${ok ? 'var(--success)' : 'var(--danger)'}">${html}</span>`);
     },
+    // A stale tap (iOS ghost click, a double tap that lands after closeModal) can still fire a
+    // market button once the modal DOM is gone. Without the modal there is no row to flash and no
+    // message to show, so the trade must not happen at all — this is the crash in #49's report.
+    marketOpen() { return !!document.getElementById('market-buy'); },
     buyItem(id, n = 1) {
+        if(!this.marketOpen()) return;
         if(this.marketPrice(id) === null) return alert(T('Bu eşya pazarda yok.'));
         let loc = this._marketLoc, out = false, full = false, cost = 0, can = 0;
         let free = this.cargoCap() - this.cargoLoad();   // room left in the bag (#78)
@@ -7810,6 +7821,7 @@ const Game = {
         this.flash(document.getElementById('mrow-sell-' + id));   // the amount you're holding changed too
     },
     sellItem(id, n = 1) {
+        if(!this.marketOpen()) return;
         let idx = state.player.inventory.findIndex(i => i.id === id);
         if(idx === -1) return;
         let item = state.player.inventory[idx];
@@ -8232,7 +8244,7 @@ const Game = {
         names = names.sort(() => Math.random() - 0.5).slice(0, 7);
         // A bracket where everyone is the player's equal has no shape: the spread runs from an
         // easy first round up to a champion who is genuinely above you.
-        let spread = [-4, -2, -1, 0, 2, 3, 5];
+        let spread = [-1, 0, 1, 2, 3, 4, 6];
         let field = names.map((n, i) => ({ name: n, lv: Math.max(1, lv + spread[i]) }));
         field.push({ name: state.player.name, lv, you: true });
         return field.sort(() => Math.random() - 0.5);
@@ -8284,7 +8296,7 @@ const Game = {
         let t = state.tourney, me = Math.max(1, state.player.stats.level);
         let rivals = t.rounds[0].filter(f => !f.you);
         let avg = rivals.reduce((a, f) => a + f.lv, 0) / Math.max(1, rivals.length);
-        let champ = Math.max(1.5, Math.min(12, 3 * avg / me));
+        let champ = Math.max(1.2, Math.min(6, 2.4 * avg / me));
         return [0, +(champ * 0.12).toFixed(2), +(champ * 0.34).toFixed(2), +champ.toFixed(2)];
     },
 
@@ -8884,14 +8896,7 @@ const Game = {
                     return `<div style="padding:0.3rem 0;border-bottom:1px solid var(--panel-border)">
                         ${T`<b style="color:var(--danger)">${T(l.name)}</b> seni arıyor — <span style="color:var(--text-muted)">${left} gün daha</span>`}</div>`;
                 }).join('') : ''}
-            ${this.myFiefs().length ? `<h3 style="margin-top:1rem">${T`🏰 Tımarların`}</h3>` + this.myFiefs().map(l =>
-                `<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.3rem 0;border-bottom:1px solid var(--panel-border)">
-                    <span style="min-width:150px;font-weight:600">${T(l.name)}</span>
-                    <span style="color:var(--text-muted);min-width:70px">${l.type === 'city' ? T('Şehir') : l.type === 'castle' ? T('Kale') : T('Köy')}</span>
-                    <span style="color:#ffcc00;min-width:110px">${T`+${this.fiefTax(l)} dinar/gün`}</span>
-                    <span style="color:${(l.garrison || []).length ? '#2ecc71' : '#e0463a'}">${T`🛡️ ${(l.garrison || []).length} garnizon`}</span>
-                    ${this.vassals().length && l.type !== 'village' ? `<button class="btn" style="padding:0.1rem 0.5rem;font-size:var(--fs-xs)" onclick="Game.grantFiefMenu('${l.id}')">${T`👑 Vassala ver`}</button>` : ''}
-                </div>`).join('') + `<div style="padding:0.4rem 0;color:var(--text-muted)">Toplam: +${this.fiefIncome().tax} vergi${this.fiefIncome().tribute ? T` · +${this.fiefIncome().tribute} haraç` : ''}${this.fiefIncome().levy ? T` · +${this.fiefIncome().levy} köy haracı` : ''} · −${this.fiefIncome().wage} garnizon maaşı · <b style="color:${this.fiefIncome().net >= 0 ? '#2ecc71' : '#e0463a'}">net ${this.fiefIncome().net >= 0 ? '+' : ''}${this.fiefIncome().net}</b> ${T`dinar/gün`}</div>` : ''}
+            ${this.fiefListHtml()}
             ${this.vassals().length ? `<h3 style="margin-top:1rem">${T`👑 Vassalların`}</h3>` + this.vassals().map(v =>
                 `<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.3rem 0;border-bottom:1px solid var(--panel-border)">
                     <span style="min-width:150px;font-weight:600">${T(v.name)}</span>
@@ -8903,6 +8908,93 @@ const Game = {
             <h3 style="margin-top:1rem">${T`📜 Haberler`}</h3>
             <div style="max-height:220px;overflow:auto;font-size:var(--fs-md)">${log}</div>
             <button class="btn" style="margin-top:1rem" onclick="Game.closeModal()">${T`Kapat`}</button>`, '640px');
+    },
+
+    // The fief list used to live inside the diplomacy window only, four scrolls down past the wars
+    // and the blood feuds, so a landed player never found it (#48). One builder, two screens.
+    fiefListHtml(withTravel = false) {
+        let mine = this.myFiefs();
+        if(!mine.length) return '';
+        let inc = this.fiefIncome();
+        return `<h3 style="margin-top:1rem">${T`🏰 Tımarların`}</h3>` + mine.map(l =>
+            `<div style="display:flex;gap:0.6rem;align-items:baseline;flex-wrap:wrap;padding:0.3rem 0;border-bottom:1px solid var(--panel-border)">
+                <span style="min-width:150px;font-weight:600">${T(l.name)}</span>
+                <span style="color:var(--text-muted);min-width:70px">${l.type === 'city' ? T('Şehir') : l.type === 'castle' ? T('Kale') : T('Köy')}</span>
+                <span style="color:#ffcc00;min-width:110px">${T`+${this.fiefTax(l)} dinar/gün`}</span>
+                <span style="color:${(l.garrison || []).length ? '#2ecc71' : '#e0463a'}">${T`🛡️ ${(l.garrison || []).length} garnizon`}</span>
+                ${withTravel ? `<button class="btn" style="padding:0.1rem 0.5rem;font-size:var(--fs-xs)" onclick="Game.travelToFief('${l.id}')">${T`🧭 Yola çık`}</button>` : ''}
+                ${this.vassals().length && l.type !== 'village' ? `<button class="btn" style="padding:0.1rem 0.5rem;font-size:var(--fs-xs)" onclick="Game.grantFiefMenu('${l.id}')">${T`👑 Vassala ver`}</button>` : ''}
+            </div>`).join('')
+            + `<div style="padding:0.4rem 0;color:var(--text-muted)">${T`Toplam`}: +${inc.tax} ${T`vergi`}${inc.tribute ? T` · +${inc.tribute} haraç` : ''}${inc.levy ? T` · +${inc.levy} köy haracı` : ''} · −${inc.wage} ${T`garnizon maaşı`} · <b style="color:${inc.net >= 0 ? '#2ecc71' : '#e0463a'}">${T`net`} ${inc.net >= 0 ? '+' : ''}${inc.net}</b> ${T`dinar/gün`}</div>`;
+    },
+    // Managing a fief means standing in it: garrison, storage and enterprise all live in the
+    // settlement menu. So the screen's job is to show what you own and point you at it.
+    showFiefs() {
+        let mine = this.myFiefs(), tri = this.tributaries();
+        this.showModal(`<h3>${T`🏰 Topraklarım`}</h3>
+        ${mine.length ? this.fiefListHtml(true)
+            : `<p style="color:var(--text-muted)">${T`Henüz toprağın yok. Bir şehir ya da kale fethedersen çevresindeki köyler de sana geçer;
+               bir krallığa bağlıysan kralından tımar isteyebilirsin (${this.FIEF_GATE} nam).`}</p>`}
+        ${tri.length ? `<h3 style="margin-top:1rem">${T`👑 Haraca bağladığın köyler`}</h3>` + tri.map(l =>
+            `<div style="display:flex;gap:0.6rem;align-items:baseline;padding:0.3rem 0;border-bottom:1px solid var(--panel-border)">
+                <span style="min-width:150px;font-weight:600">${T(l.name)}</span>
+                <span style="color:#ffcc00">${T`+${this.tributeOf(l)} dinar/gün`}</span>
+            </div>`).join('') : ''}
+        <p style="color:var(--text-muted);font-size:var(--fs-sm);margin-top:0.8rem">${T`Garnizon, depo ve işletme tımarın kendi menüsünden yönetilir — oraya git ve şehre/köye gir.`}</p>`, '620px');
+    },
+    travelToFief(locId) {
+        let loc = LOCATIONS.find(l => l.id === locId);
+        if(!loc || state.player.wait) return;
+        this.closeModal();
+        this.showScreen('map');
+        state.player.targetLocation = loc;
+        state.player.status = 'moving';
+    },
+
+    // --- ASKING YOUR LIEGE FOR LAND (#32) ---
+    // Conquest was the only road to a fief, and a village can't be besieged — so a sworn vassal
+    // had no way at all to be granted one. The king hands out land the kingdom already holds and
+    // nobody has been given; each grant you already hold raises the bar for the next.
+    FIEF_GATE: 300,
+    FIEF_REL: 20,
+    fiefGate() { return this.FIEF_GATE + 200 * this.myFiefs().length; },
+    // Unowned settlements of your own kingdom, nearest first — the king gives away the quiet ones.
+    grantableFiefs() {
+        let f = state.player.vassalOf;
+        return LOCATIONS.filter(l => l.faction === f && !l.owner)
+                        .sort((a, b) => this.dist(a, state.player) - this.dist(b, state.player));
+    },
+    askFief(lordId) {
+        let gate = this.fiefGate(), r = Nobles.rel(lordId);
+        let back = `<button class="btn" onclick="Nobles.talk('${lordId}')">${T`Geri`}</button>`;
+        let no = msg => this.showModal(`<h3>${T`🏰 Tımar`}</h3><p>${msg}</p>${back}`);
+        if(this.peakRenown() < gate)
+            return no(T`<i>"Toprak, adı duyulmuş adama verilir."</i><br><br>Gereken nam <b>${gate}</b>, sende <b>${this.peakRenown()}</b>.`);
+        if(r < this.FIEF_REL)
+            return no(T`<i>"Seni yeterince tanımıyorum."</i><br><br>Gereken ilişki <b>${this.FIEF_REL}</b>, aranızdaki <b>${r}</b>.`);
+        let free = this.grantableFiefs();
+        if(!free.length)
+            return no(T`<i>"Dağıtacak toprağım kalmadı."</i> Krallığın elindeki her yerin sahibi var — yenisini fethetmek gerek.`);
+        this.showModal(`<h3>${T`🏰 Tımar`}</h3>
+        <p>${T`Kral haritayı açtı: <i>"Hangisini istiyorsun? Vergisi senin, savunması da senin."</i>`}</p>
+        <div style="display:flex;flex-direction:column;gap:0.4rem">
+        ${free.slice(0, 6).map(l => `<button class="btn" onclick="Game.takeFief('${l.id}','${lordId}')">${T`🏰 ${T(l.name)} (${l.type === 'city' ? T('Şehir') : l.type === 'castle' ? T('Kale') : T('Köy')}) — +${this.fiefTax(l)} dinar/gün`}</button>`).join('')}
+        </div>${back}`, '560px');
+    },
+    takeFief(locId, lordId) {
+        let loc = LOCATIONS.find(l => l.id === locId);
+        // Re-checked here, not just at the menu: the window can sit open while the world moves on.
+        if(!loc || loc.owner || loc.faction !== state.player.vassalOf || this.peakRenown() < this.fiefGate())
+            return this.askFief(lordId);
+        loc.owner = 'player';
+        loc.capturedDay = state.time.day;
+        loc.garrison = loc.garrison || [];
+        // The lords who were hoping for that land take it personally.
+        LORDS.filter(l => l.faction === loc.faction && l.id !== lordId).forEach(l => Nobles.addRel(l.id, -2));
+        this.closeModal();
+        this.news(T`🏰 ${T(loc.name)} ${T(state.player.name)} adına tımar oldu.`);
+        alert(T`${T(loc.name)} artık senin tımarın. Vergisi her gün kesene girecek; garnizonunu da sen kuracaksın.<br><br>
+            Toprağı gözü olan lordlar bu karardan hoşlanmadı (−2 ilişki).`);
     },
 
     garrisonOf(loc) {

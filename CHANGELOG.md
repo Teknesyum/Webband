@@ -3,6 +3,44 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.11 — Tımar Fermanı (2026-09-14)
+
+- **Kralından toprak isteyebiliyorsun.** Bir hanedana bağlıysan kralın konuşmasında `🏰 Tımar iste`
+  var: yeterli nam ve ilişkiyle sana sahipsiz bir köy/kale/şehir veriliyor. İstenen nam her yeni
+  tımarla artıyor, toprağı alınca hanedanın diğer lordları biraz gücenmiş oluyor.
+
+- **Topraklarım ekranı.** Sahip olduğun yerler artık diplomasi penceresinin dibinde saklı değil;
+  `⋯ Daha Fazla` menüsündeki `🏰 Topraklarım` hepsini günlük gelirleriyle listeliyor ve istediğine
+  doğrudan yola çıkarıyor.
+
+- **Ordular birbirinin içinden geçmiyor.** Savaşta askerler artık birbirini itiyor: iki ordu aynı
+  piksele yığılıp tek karede erimiyor, hat kuruluyor ve kanatlar anlam kazanıyor. Atlı, yayanın
+  önünde daha az geri adım atıyor.
+
+- **Nehirde görünmez duvar kalmadı.** Su içine düşen kayalar araziden siliniyor; geçide girip
+  görünmeyen bir şeye toslamak bitti.
+
+- **Turnuva artık kolay para değil.** Sekiz kişilik çizelgede ilk tur bedava geçilmiyor ve
+  şampiyonun oranı en çok ×6; seviye düşükken sınırsız bahis kazancı yok.
+
+- **Pazar penceresi kapandıktan sonra gelen dokunuş alışveriş yapmıyor.** Telefonda çift dokunuşun
+  geriden gelmesi hem oyunu çökertiyordu hem de parayı alıp götürüyordu.
+
+- **Basacak tuşu olmayan pencereye `Kapat` düğmesi geliyor.** Köyde gönüllü kalmadığında ya da
+  benzeri boş bildirimlerde köşedeki × aranmıyor.
+
+- **Savaşlar yavaşladı — vuruş hızından, yürüyüş hızından değil.** Her saldırı bekleme süresi
+  (askerlerinki de senin kılıcın ve yayın da) 1,6 katına çıktı. Piyade artık 1,36–2,0 saniyede,
+  okçular 2,24–2,72 saniyede bir vuruyor. Hareket hızına dokunulmadı; sahada çamurda yürüme
+  hissi yok. Ölçüldü: teke tek düello 12,2 → 16,0 sn, 12'ye 12 zırhlı çarpışma 34,9 → 49,0 sn.
+  Kalkan kaldırmaya, yana çıkmaya ve emir vermeye vakit kalıyor.
+
+- **Savaş haritasındaki kırmızı isim daireleri kalktı.** Düşman komutanı hâlâ konuşuyor ama
+  sahanın ortasına atılan üç kırmızı halka ve isim etiketi çiziliyor değil.
+
+- **Yalnızken kimse kimseye bakmıyor.** "Kese hafiflemiş, herkes birbirine bakıyor" olayı tek
+  başına gezerken çıkmıyor.
+
 ## 1.10 — Bekleyen Yol (2026-09-13)
 
 - **Kampta düşman baskını yok.** Bekleme sırasında harita dünyası hareket etmeyi sürdürse de düşman
