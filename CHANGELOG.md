@@ -29,6 +29,12 @@ başlangıç ekranının sağ alt köşesinde yazar.
 - **Basacak tuşu olmayan pencereye `Kapat` düğmesi geliyor.** Köyde gönüllü kalmadığında ya da
   benzeri boş bildirimlerde köşedeki × aranmıyor.
 
+- **Savaşlar yavaşladı — vuruş hızından, yürüyüş hızından değil.** Her saldırı bekleme süresi
+  (askerlerinki de senin kılıcın ve yayın da) 1,6 katına çıktı. Piyade artık 1,36–2,0 saniyede,
+  okçular 2,24–2,72 saniyede bir vuruyor. Hareket hızına dokunulmadı; sahada çamurda yürüme
+  hissi yok. Ölçüldü: teke tek düello 12,2 → 16,0 sn, 12'ye 12 zırhlı çarpışma 34,9 → 49,0 sn.
+  Kalkan kaldırmaya, yana çıkmaya ve emir vermeye vakit kalıyor.
+
 - **Savaş haritasındaki kırmızı isim daireleri kalktı.** Düşman komutanı hâlâ konuşuyor ama
   sahanın ortasına atılan üç kırmızı halka ve isim etiketi çiziliyor değil.
 

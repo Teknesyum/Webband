@@ -1550,7 +1550,16 @@ move with it — you're tracking a trail, not an address.
     37.6 → 45.3s — an armored unit is noticeably tougher, the fight doesn't lock up.
   - Battle tooltip (HUD, bottom left): mount status, arrows left, block indicator.
   - Every attack cooldown timer is **dt-based** (`u.atkCd`), not `performance.now()` — independent
-    of frame rate. Infantry `0.85–1.25`s, archers `1.4–1.7`s.
+    of frame rate. Base cadence is infantry `0.85–1.25`s, archers `1.4–1.7`s, and every one of
+    them — the player's swing and bow included — is multiplied by **`Battle.SWING_PACE` = 1.6**,
+    so in play it is infantry `1.36–2.0`s, archers `2.24–2.72`s.
+  - **Why cadence and not speed or damage** (#6, #54). Damage is a weak lever on battle length:
+    a 20v20 measured 12.5 s, and halving every hit only reached 14.5 s — most of a battle is
+    closing distance and the rout cascade at the end, not the exchange. Slowing *movement* makes
+    the field feel like mud. Slowing the **swing** is what turns a hack-fest back into a fight,
+    and it pays off exactly where skill lives: with armor on, there is time to raise a shield.
+    **Measured** (12 worlds each): 1v1 duel 12.2 → **16.0 s**; 12v12 at defense 8 15.7 → **18.3 s**;
+    12v12 at defense 18 34.9 → **49.0 s**; 20v20 12.5 → **13.9 s**.
   - Melee damage passes through a single place: `Battle.dealMelee(src, tgt, raw)` — drops
     defense, produces knockback + blood + sparks + floating text, and on a kill calls `logKill`
     + XP.

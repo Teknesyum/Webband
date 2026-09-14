@@ -11,6 +11,12 @@ const Battle = {
     // Keep formations and command opportunities relevant: played battles take roughly
     // one-third longer without changing troop ratios or the auto-resolve model.
     DAMAGE_PACE: 0.75,
+    // Damage alone could not slow a fight down much — a battle is mostly closing distance and
+    // the melt at the end. What reads as "too fast" is the cadence: everyone hacking at once.
+    // SWING_PACE stretches every attack cooldown — the AI's and the player's — so a swing is a
+    // decision again: there is time to raise the shield, step out, or give an order between hits.
+    // Deliberately NOT unit speed: slowing movement makes the field feel like mud.
+    SWING_PACE: 1.6,
 
     // Rival suitor duel: 1-on-1, no group, no loot
     startDuel(lord) {
@@ -494,7 +500,7 @@ const Battle = {
     // Swing recovery: speeds up as proficiency rises (0.75s → 0.45s)
     swingCooldown() {
         let lv = this.playerWeaponProf();
-        return Math.max(0.45, 0.75 - lv * 0.005);
+        return Math.max(0.45, 0.75 - lv * 0.005) * this.SWING_PACE;
     },
 
     prof(id) { let d = state.player.proficiencies[id]; return d ? d.level : 1; },
@@ -511,7 +517,7 @@ const Battle = {
     // Bow: the quiver is limited, movement and being mounted both hurt accuracy
     playerShoot(p) {
         let lv = this.prof('bow');
-        p.swingCd = Math.max(0.5, 1.15 - lv * 0.006);
+        p.swingCd = Math.max(0.5, 1.15 - lv * 0.006) * this.SWING_PACE;
         if(this.arrows <= 0) {
             this.floatingTexts.push({ x: p.x, y: p.y - 20, text: T('ok bitti'), color: '#999', life: 0.6 });
             return;
@@ -975,7 +981,7 @@ const Battle = {
                             u.x += u.vx*dt; u.y += u.vy*dt;
                         } else {
                             if(u.atkCd <= 0) {
-                                u.atkCd = 1.4 + Math.random()*0.3;
+                                u.atkCd = (1.4 + Math.random()*0.3) * this.SWING_PACE;
                                 let arrowSpeed = 250;
                                 let tX = closest.x, tY = closest.y;
                                 if(Math.random() > 0.5) { // 50% predictive aim
@@ -1030,7 +1036,7 @@ const Battle = {
                     u.x += dx*r; u.y += dy*r;
                 } else if(finalDist <= meleeRange) {
                     if(u.atkCd <= 0) {
-                        u.atkCd = 0.85 + Math.random()*0.4; // so not everyone swings at the same instant
+                        u.atkCd = (0.85 + Math.random()*0.4) * this.SWING_PACE; // so not everyone swings at the same instant
                         this.dealMelee(u, closest, uAttack);
                     }
                 }
