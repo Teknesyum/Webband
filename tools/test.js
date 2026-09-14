@@ -109,6 +109,24 @@ test('getPartyCapacity: marriage adds a household retinue allowance', () => {
     assert.strictEqual(Game.getPartyCapacity(), 17);
     p.spouse = null;
 });
+test('fiefs: ledger lists owned land and directs the party to a distant holding', () => {
+    const g = H.world({ seed: 43 });
+    const { Game, state, LOCATIONS } = g;
+    const fief = LOCATIONS.find(l => l.type === 'castle');
+    fief.owner = 'player'; fief.garrison = [];
+    Game.openFiefLedger();
+    assert.ok(g._sandbox.document.getElementById('modal-body').innerHTML.includes(fief.name), 'fief ledger omitted owned land');
+    Game.travelToFief(fief.id);
+    assert.strictEqual(state.player.targetLocation.id, fief.id, 'ledger could not set a route to a fief');
+    assert.strictEqual(state.player.status, 'moving', 'ledger route did not start movement');
+});
+
+test('mobile more menu: fief ledger remains reachable on a narrow screen', () => {
+    const g = H.world({ seed: 44 });
+    g.Game.showMoreMenu();
+    const html = g._sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(html.includes('Game.openFiefLedger()'), 'More menu hid the only mobile route to fiefs');
+});
 
 test('prisonerValue: type multiplier, noble ransom', () => {
     assert.strictEqual(Game.prisonerValue({ level: 10, type: 'infantry' }), 145);
