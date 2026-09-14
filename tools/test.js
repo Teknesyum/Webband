@@ -414,8 +414,81 @@ test('speed: every troop above FOOT_MAX is genuinely mounted (basis of the fores
     });
 });
 
+test('market: a tap that lands after the window is gone buys nothing (#49)', () => {
+    // iOS ghost click / a second tap after closeModal fired buyItem with the market DOM already
+    // destroyed: refreshMarket threw on a null list, and the money was gone either way.
+    const p = reset();
+    p.money = 5000;
+    const open = Game.marketOpen;
+    Game.marketOpen = () => false;
+    try {
+        Game._marketLoc = null;
+        Game.buyItem('wheat', 5);
+        assert.strictEqual(p.money, 5000, 'a closed market still took the money');
+        assert.strictEqual(p.inventory.length, 0, 'a closed market still handed over goods');
+        p.inventory = [{ ...g.ITEMS.wheat, qty: 5 }];
+        Game.sellItem('wheat', 5);
+        assert.strictEqual(p.money, 5000, 'a closed market still paid out a sale');
+        assert.strictEqual(p.inventory[0].qty, 5, 'a closed market still took the goods');
+    } finally { Game.marketOpen = open; reset(); }
+});
+
+test('modal: a window with nothing to press still has a way out (#57)', () => {
+    // "No village lad will come out for you" had no button of its own and leaned on the ×
+    // in the corner; on a phone that is easy to miss and the player is stuck staring at it.
+    const body = g._sandbox.document.getElementById('modal-body');
+    try {
+        state.player.currentEncounterNpcId = null;
+        Game.showModal('<p>Köyden sana tek bir gönüllü çıkmıyor.</p>');
+        assert.ok(/closeModal/.test(body.innerHTML), 'a text-only window offered no way out');
+        // An encounter window is deliberately inescapable — it must not grow one.
+        state.player.currentEncounterNpcId = 'npc1';
+        Game.showModal('<p>Yolunu kestiler.</p>');
+        assert.ok(!/closeModal/.test(body.innerHTML), 'an encounter window grew an escape hatch');
+    } finally {
+        state.player.currentEncounterNpcId = null;
+        Game.closeModal();
+    }
+});
+
+test('camp events: nobody looks at anybody when you ride alone (#56)', () => {
+    // "The purse was lighter in the morning. Nobody saw a thing, everyone is looking at each
+    // other." — with a party of one there is nobody to look at, and nobody to suspect.
+    const ctx = extra => Object.assign({ party: 0, cap: 30, near: null, food: 20, morale: 60,
+                                         money: 5000, honor: 0, night: false, day: 5 }, extra);
+    const thief = Game.DAY_EVENTS.find(e => e.id === 'thief');
+    assert.ok(thief, 'the thief event is gone');
+    state.player.money = 5000;
+    assert.ok(!thief.when(ctx({ party: 0 })), 'a lone rider was robbed by his own men');
+    assert.ok(!thief.when(ctx({ party: 1 })), 'a rider with one man was robbed by a whole camp');
+    assert.ok(thief.when(ctx({ party: 2 })), 'a real camp can no longer be robbed');
+    // The general rule behind it: a line that speaks of the men as a group needs a group.
+    Game.DAY_EVENTS.filter(e => /Askerlerden|herkes birbirine/.test(String(e.run)))
+        .forEach(e => assert.ok(!e.when(ctx({ party: 1 })),
+            `day event "${e.id}" speaks of the men as a group but fires for a lone rider`));
+    reset();
+});
+
 // Battle.start sets up the real arena (canvas, settlement) — these need `world`.
 const gw = H.world({ seed: 1 });
+
+test('tournament: the field is no longer a row of boys, and the book is capped (#53)', () => {
+    const p = gw.state.player;
+    const lv = p.stats.level;
+    p.stats.level = 10;
+    try {
+        const loc = gw.LOCATIONS.find(l => l.type === 'city');
+        const field = gw.Game.tourneyField(loc);
+        assert.strictEqual(field.length, 8, 'the bracket is not eight fighters');
+        const rivals = field.filter(f => !f.you);
+        assert.ok(Math.min(...rivals.map(f => f.lv)) >= 9, 'the bracket still opens with a free round');
+        assert.ok(Math.max(...rivals.map(f => f.lv)) >= 16, 'no champion in the bracket stands above the player');
+        // The same field seen by a level-1 player: the odds used to reach ×12 on a 1000 denar bet.
+        gw.state.tourney = { rounds: [field] };
+        p.stats.level = 1;
+        assert.ok(gw.Game.tourneyOdds()[3] <= 6, 'champion odds still pay more than ×6');
+    } finally { p.stats.level = lv; gw.state.tourney = null; }
+});
 
 test('bandits do not scale with the calendar (#99)', () => {
     // Two years apart, the same band has to be the same band. It used to gain a level every
@@ -446,6 +519,44 @@ test('battle terrain: a siege wall cannot persist into the next field battle', (
     gw.Battle.buildGround();
     assert.notStrictEqual(gw.Battle.ground, siegeGround, 'new field terrain was not regenerated');
     gw.Battle.active = false;
+});
+
+test('battle: bodies push each other apart instead of sharing one pixel (#55)', () => {
+    // Two armies used to walk straight through each other: a stack of six men on one spot took
+    // six times the damage in one second, and you could not tell who you were swinging at.
+    gw.state.player.party = [{ id: 'c1', name: 'Svadya Milisi', level: 1 }];
+    gw.Battle.start('Çapulcular', 8);
+    const live = gw.Battle.units.filter(u => u.hp > 0);
+    assert.ok(live.length >= 4, 'not enough units to test separation');
+    live.forEach(u => { u.x = 300; u.y = 300; });        // everyone on one pixel
+    // One pass halves each pair's overlap; a handful has to open a real gap between every two.
+    for(let k = 0; k < 40; k++) gw.Battle.separate();
+    for(let i = 0; i < live.length; i++)
+        for(let j = i + 1; j < live.length; j++) {
+            const a = live[i], b = live[j];
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            assert.ok(d >= a.radius + b.radius,
+                `two units are ${d.toFixed(1)} apart, closer than their ${a.radius + b.radius} of body`);
+        }
+    gw.Battle.active = false;
+    gw.state.player.party = [];
+});
+
+test('battle terrain: no impassable rock is left standing in the river (#21)', () => {
+    // A rock is the only thing on the field that cannot be walked through. Standing in the water
+    // it reads as part of the river: the player walks into the ford and stops dead against nothing.
+    gw.state.player.party = [];
+    let withRiver = 0;
+    for(let i = 0; i < 60; i++) {
+        gw.Battle.start('Çapulcular', 6);
+        const t = gw.Battle.terrain;
+        if(t.rivers.length) withRiver++;
+        t.rocks.forEach(k => t.rivers.forEach(r => assert.ok(
+            !(k.x + k.r > r.x && k.x - k.r < r.x + r.w && k.y + k.r > r.y && k.y - k.r < r.y + r.h),
+            `rock (${Math.round(k.x)},${Math.round(k.y)}) sits in the river`)));
+        gw.Battle.active = false;
+    }
+    assert.ok(withRiver > 0, '60 fields and not one river — the case was never exercised');
 });
 
 test('no party, no orders (#114)', () => {
@@ -1842,8 +1953,10 @@ test('a panned camera holds its world position while the player walks', () => {
     Game.update(0.016);                                  // seeds the previous-position pair
     const tx = state.player.x + Game.camera.offsetX, ty = state.player.y + Game.camera.offsetY;
     for(let i = 0; i < 50; i++) { state.player.x += 7; state.player.y += 4; Game.update(0.016); }
-    assert.strictEqual(state.player.x + Game.camera.offsetX, tx);
-    assert.strictEqual(state.player.y + Game.camera.offsetY, ty);
+    // Sub-pixel, not bit-exact: fifty subtractions of the player's own drifting float position
+    // leave rounding behind. The invariant is that the view does not slide, not that it is exact.
+    assert.ok(Math.abs(state.player.x + Game.camera.offsetX - tx) < 0.5, 'the panned view slid sideways');
+    assert.ok(Math.abs(state.player.y + Game.camera.offsetY - ty) < 0.5, 'the panned view slid down');
 
     // With no pan the camera still follows: a zero offset stays zero.
     Game.camera.offsetX = 0; Game.camera.offsetY = 0;

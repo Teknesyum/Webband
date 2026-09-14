@@ -209,6 +209,11 @@ const Battle = {
                 this.terrain.rivers.push({ x: 0, y: ry, w: W, h: 60+Math.random()*40, isVertical: false });
             }
         }
+        // A rock is the only impassable thing on the field. Standing in the water it reads as part of
+        // the river — the player walks into the ford and stops dead against nothing he can see.
+        // The river is the one place a rock may not sit.
+        this.terrain.rocks = this.terrain.rocks.filter(k => !this.terrain.rivers.some(r =>
+            k.x + k.r > r.x && k.x - k.r < r.x + r.w && k.y + k.r > r.y && k.y - k.r < r.y + r.h));
         
         // Siege field: no river/rocks at the wall's foot, cover stays only on the besieging side
         if(this.siege) {
@@ -1073,7 +1078,43 @@ const Battle = {
             }
         });
 
+        this.separate();
         this.checkEnd();
+    },
+
+    // Two armies used to walk straight through each other and pile onto the same pixels: you could
+    // not tell who you were swinging at, and a stack of six men took six times the damage in the
+    // same second. Bodies now push each other apart — the line forms, the flanks matter.
+    // ponytail: O(n²) over the living. At the ~70 units a battle ever holds that is ~2.5k distance
+    // checks a frame, far under budget; bucket by grid if the cap ever rises.
+    separate() {
+        let live = this.units.filter(u => u.hp > 0 && !u.routing);
+        for(let i = 0; i < live.length; i++) {
+            let a = live[i];
+            for(let j = i + 1; j < live.length; j++) {
+                let b = live[j];
+                let dx = b.x - a.x, dy = b.y - a.y;
+                let min = (a.radius + b.radius) * 1.35;   // shoulder room, not just skin contact
+                let d2 = dx*dx + dy*dy;
+                if(d2 >= min*min) continue;
+                let d = Math.sqrt(d2) || 0.01;
+                // A tiny jitter when two units land exactly on top of each other, or the push has no direction.
+                let nx = d2 < 0.0001 ? Math.random() - 0.5 : dx / d;
+                let ny = d2 < 0.0001 ? Math.random() - 0.5 : dy / d;
+                // The overlap is shared, each side giving way in proportion to how easily it is
+                // shoved: a rider gives less ground than a man on foot.
+                let push = min - d;
+                let am = a.mounted ? 0.3 : 1, bm = b.mounted ? 0.3 : 1;
+                let aShare = push * am / (am + bm), bShare = push * bm / (am + bm);
+                a.x -= nx * aShare; a.y -= ny * aShare;
+                b.x += nx * bShare; b.y += ny * bShare;
+            }
+        }
+        let bw2 = this.canvas.width, bh2 = this.canvas.height;
+        live.forEach(u => {
+            u.x = Math.max(12, Math.min(bw2 - 12, u.x));
+            u.y = Math.max(12, Math.min(bh2 - 12, u.y));
+        });
     },
 
     // --- Ground: grass + terrain is drawn once to an offscreen canvas, never regenerated every frame
