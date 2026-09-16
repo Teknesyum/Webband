@@ -3,6 +3,25 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.14.0 — Ün ve Nişan (2026-09-17)
+
+- **Başarımlar geldi.** Ünden tımara, seviyeden esir sayısına 31 başarım; kazandığın an
+  sağ altta bronz/gümüş/altın rozet belirir, hepsini "Başarımlar" menüsünden görürsün.
+
+- **Dokuz yeni görev.** Ateşli Hastalık, Tehlikeli Yolculuk, Düşman Ordugâhı, Sınır
+  Anlaşmazlığı, Rehin Tüccar, Zincirleme Teslimat, Kurt Sürüleri, Orman Pususu, Sınır
+  Karakolu — ve artık görevi bitirdiğinde ödülü veren lordun ya da loncanın **yanına
+  dönerek teslim ediyorsun**, havadan gelmiyor.
+
+- **Yolda kalmış satıcı bazen kazık atar.** Denklerini gerçek değerinin üstüne satmaya
+  çalışır; ticaret gözün varsa fiyatı yüzüne vurup gerçeğine alırsın.
+
+- **Gözetleme kulesi bir gün iz bırakır.** Kuleyi açtığın gün gördüğün düşman izleri
+  ertesi güne hayalet olarak kalır.
+
+- **Savaş arazisi konuşuyor.** Oklar ormanda dallara takılır, engebe atışı bozar; safların
+  düzeni ve süvari itişi elden geçti.
+
 ## 1.13.1 — Kalradya Ezgileri (2026-09-14)
 
 - **Kervanlar da artık yolunu kesmiyor.** Üzerinden geçtiğin bir kervan ya da köylü kafilesi

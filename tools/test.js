@@ -1084,6 +1084,18 @@ function questSuite() {
     const enter = id => Quests.emit('entered_location', { locId: id, loc: loc(id) });
     const give = (itemId, qty) => state.player.inventory.push({ ...gq.ITEMS[itemId], qty });
 
+    // Preconditions a few quests gate on: enemy_muster needs a war on the map,
+    // hostage_rescue needs a bandit party to rescue from. Declare war between every
+    // AI faction pair and plant one bandit so every giver's `can()` can pass.
+    const facs = Object.keys(gq.FACTIONS).filter(f => f !== 'player_kingdom');
+    for(let i = 0; i < facs.length; i++)
+        for(let j = i + 1; j < facs.length; j++) Game.declareWar(facs[i], facs[j]);
+    if(!state.npcParties.some(n => n.type === 'bandit' && n.size > 0)) {
+        const b = Game.createNPC('Çapulcu Reisi', 'bandit', 6, '#8b0000');
+        state.npcParties.push(b);
+    }
+    const bandNpc = band => { const n = Game.createNPC('Çete', 'bandit', 4, '#888'); n.band = band; state.npcParties.push(n); return n; };
+
     const drivers = {
         butter_blockade: q => Quests.emit('bought_item', { locId: q.data.locId, itemId: 'cheese', qty: q.data.need }),
         sergeant_exam: q => {
@@ -1131,7 +1143,20 @@ function questSuite() {
         diplomatic_round: q => q.data.lords.forEach(lordId => Quests.emit('talked_to', { lordId })),
         market_sampler: q => { LOCATIONS.filter(l=>l.type==='city').slice(0,q.data.need).forEach(l => Quests.emit('bought_item',{itemId:'wheat',qty:1,locId:l.id})); enter(q.data.home); },
         salt_run: q => { Quests.emit('bought_item',{itemId:'salt',qty:q.data.need,locId:q.data.home}); enter(q.data.home); },
-        war_chest: q => { state.player.money = q.data.need; enter(q.data.locId); }
+        war_chest: q => { state.player.money = q.data.need; enter(q.data.locId); },
+        fever_relief: q => { give('honey', q.data.need); enter(q.data.locId); },
+        lady_escort: q => enter(q.data.locId),
+        enemy_muster: q => enter(q.data.locId),
+        border_dispute: q => q.data.lords.forEach(lordId => Quests.emit('talked_to', { lordId })),
+        hostage_rescue: q => Quests.emit('battle_won', { npcId: q.data.npcId }),
+        relay_packages: q => q.data.stops.forEach(enter),
+        wolf_cull: q => { for(let i = 0; i < q.data.need; i++) Quests.emit('battle_won', { npcId: bandNpc('wolf').id }); },
+        forest_ambush: q => { for(let i = 0; i < q.data.need; i++) Quests.emit('battle_won', { npcId: bandNpc('forest').id }); },
+        outpost_defense: q => {
+            const v = loc(q.data.locId);
+            state.player.x = v.x; state.player.y = v.y;
+            for(let i = 0; i < q.data.need; i++) Quests.emit('battle_won', { questWave: q.id });
+        }
     };
     assert.ok(!QUESTS.fog_dot, 'retired hidden-location quest is still in the offer pool');
 
@@ -1165,6 +1190,17 @@ function questSuite() {
             assert.ok(QUESTS[id].desc(q).length > 10, 'desc is empty');
 
             drivers[id](q);
+            // #107: meeting the objective no longer pays — it flips the quest to 'awaiting'
+            // and the reward is collected by returning to the giver. Drive that hand-off:
+            // pull the giver to the snapshot spot so `giverPresent` holds, then walk in.
+            if(Quests.has(id) && q.state === 'awaiting') {
+                const g = Quests.giver(q.giverId);
+                if(!g.isGuild) {
+                    const p = Nobles.partyOf(q.giverId), tl = loc(q.turnInLocId);
+                    if(p && tl) { p.x = tl.x; p.y = tl.y; }
+                }
+                enter(q.turnInLocId);
+            }
             assert.ok(!Quests.has(id), 'quest didn\'t finish — the driver\'s events don\'t reach the engine');
             assert.strictEqual(state.player.money, QUESTS[id].reward.money, 'reward wasn\'t paid');
         });

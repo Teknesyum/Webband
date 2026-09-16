@@ -970,6 +970,22 @@ const Nobles = {
     drawMarkers(ctx) {
         for(let id in state.knownLocations) {
             let m = state.knownLocations[id];
+            // A watchtower look leaves faint ghosts of every band it saw (#128): a thin, pale,
+            // nameless ring at the last-seen spot, so the memory of "there was something there"
+            // lingers a day without turning the map into a wall of bold yellow "nerede?" rings.
+            if(m.ghost) {
+                let age = state.time.day - m.day;               // fades over its one-day life
+                ctx.save();
+                ctx.globalAlpha = Math.max(0.15, 0.5 - age * 0.35);
+                ctx.strokeStyle = 'rgba(210,200,170,0.9)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 6]);
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, m.radius || 26, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+                continue;
+            }
             if(m.live) {
                 let party = this.partyOf(id);
                 if(party) { m.x = party.x; m.y = party.y; }
@@ -1463,9 +1479,10 @@ const Nobles = {
 
     // ---------- Daily ----------
     dailyTick() {
-        // Known-location markers are removed after 3 days
+        // Known-location markers are removed after 3 days; watchtower ghosts last one (#128)
         for(let id in state.knownLocations) {
-            if(state.time.day - state.knownLocations[id].day >= 3) delete state.knownLocations[id];
+            let m = state.knownLocations[id];
+            if(state.time.day - m.day >= (m.ghost ? 1 : 3)) delete state.knownLocations[id];
         }
 
         // Rival suitors advance — but the race only really heats up once you start courting.

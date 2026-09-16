@@ -707,6 +707,201 @@ QUESTS.war_chest = {
     }
 };
 
+// --- FIELD CONTRACTS (#106) — zamana karşı, eskort, casusluk, arabuluculuk,
+// kurtarma, teslimat zinciri, av/toplama, savunma. Hepsi mevcut Quests.emit
+// olaylarıyla ve state.player/state.npcParties üstünde çalışır; app.js'e yeni kanca eklenmedi.
+QUESTS.fever_relief = {
+    title: 'Ateşli Hastalık', givers: ['goodnatured', 'martial'], minRelation: 0, days: 6,
+    reward: { money: 750, renown: 9, rel: 16 },
+    setup(q, giver) {
+        let vils = LOCATIONS.filter(l => l.faction === giver.faction && l.type === 'village');
+        let v = vils[Math.floor(Math.random() * vils.length)] || LOCATIONS[0];
+        q.data = { locId: v.id, locName: v.name, need: 8 };
+    },
+    offer(q) { return T`${q.data.locName}'da ateşli hastalık yayılıyor, ihtiyarlar bal ve kaynatılmış otla iyileşir derdi.
+        <b>${q.data.need} birim bal</b> lazım — <b>altı gün</b> içinde ulaşmazsan geç kalırsın.`; },
+    desc(q) {
+        let n = (state.player.inventory.find(i => i.id === 'honey') || {}).qty || 0;
+        return T`<b>${T(q.data.locName)}</b> köyüne <b>${n}/${q.data.need}</b> birim balla gir — süre kısa, oyalanma.`;
+    },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) {
+        if(ev !== 'entered_location' || d.locId !== q.data.locId) return;
+        let i = state.player.inventory.find(x => x.id === 'honey' && x.qty >= q.data.need);
+        if(!i) { alert(T`Yeterince bal yok. (${(state.player.inventory.find(x => x.id === 'honey') || {}).qty || 0}/${q.data.need})`); return; }
+        i.qty -= q.data.need; return 'done';
+    }
+};
+
+QUESTS.lady_escort = {
+    title: 'Tehlikeli Yolculuk', givers: ['martial', 'goodnatured'], minRelation: 10, days: 10,
+    reward: { money: 1300, renown: 10, rel: 16 },
+    setup(q, giver) {
+        let pool = LOCATIONS.filter(l => l.faction === giver.faction && l.type === 'city' && l.id !== giver.homeLocId);
+        let c = pool[Math.floor(Math.random() * pool.length)] || LOCATIONS[0];
+        q.data = { locId: c.id, locName: c.name };
+    },
+    offer(q) { return T`Yeğenimi <b>${q.data.locName}</b>'a göndermem gerekiyor ama yollar çapulcu kaynıyor.
+        Yanına birkaç muhafız takıyorum, sen önden git — kafile seni izleyecek, yol boyunca göz kulak ol.`; },
+    desc(q) { return T`Kafileyle birlikte <b>${T(q.data.locName)}</b>'a sağ salim ulaş.`; },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) { if(ev === 'entered_location' && d.locId === q.data.locId) return 'done'; }
+};
+
+QUESTS.enemy_muster = {
+    title: 'Düşman Ordugâhı', givers: ['cunning', 'martial'], minRelation: 15, days: 14,
+    reward: { money: 1350, renown: 14, rel: 12 },
+    can(giver) { return QUESTS.enemy_muster.foes(giver).length > 0; },
+    foes(giver) { return LOCATIONS.filter(l => l.type === 'city' && l.faction && l.faction !== giver.faction && Game.atWar(l.faction, giver.faction)); },
+    setup(q, giver) {
+        let pool = QUESTS.enemy_muster.foes(giver);
+        let c = pool[Math.floor(Math.random() * pool.length)];
+        q.data = { locId: c.id, locName: c.name };
+    },
+    offer(q) { return T`${q.data.locName} surlarının ardında ne kadar asker biriktirdiklerini bilmem lazım.
+        Sokul, say, sıvış — ama yakalanırsan zindanı boylarsın, seni tanımam.`; },
+    desc(q) { return T`<b>${T(q.data.locName)}</b> surlarına kadar sokul ve nöbeti gözle.`; },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) { if(ev === 'entered_location' && d.locId === q.data.locId) return 'done'; }
+};
+
+QUESTS.border_dispute = {
+    title: 'Sınır Anlaşmazlığı', givers: ['goodnatured', 'cunning'], minRelation: 15, days: 16,
+    reward: { money: 1000, renown: 10, rel: 16 },
+    setup(q, giver) {
+        let pool = LORDS.filter(l => l.faction === giver.faction && l.id !== giver.id);
+        let picks = pool.sort(() => Math.random() - 0.5).slice(0, 2).map(l => l.id);
+        q.data = { lords: picks, talked: [] };
+    },
+    offer(q) { return T`İki komutanım aynı sınır kalesini kendi hakkı sanıyor, neredeyse birbirlerine kılıç çekecekler.
+        Git, ikisini de dinle — kimin haklı olduğunu değil, ateşin nasıl söneceğini bul.`; },
+    desc(q) { return T`Anlaşmazlıktaki iki lordu da ziyaret et ve dinle — <b>${q.data.talked.length}/${q.data.lords.length}</b>.`; },
+    where(q) { let id = q.data.lords.find(x => !q.data.talked.includes(x)); return id ? Quests.lordSeat(id) : null; },
+    on(q, ev, d) {
+        if(ev === 'talked_to' && q.data.lords.includes(d.lordId) && !q.data.talked.includes(d.lordId)) q.data.talked.push(d.lordId);
+        if(q.data.talked.length >= q.data.lords.length) return 'done';
+    },
+    onDone(q) { q.data.lords.forEach(id => Nobles.addRel(id, 3)); }
+};
+
+QUESTS.hostage_rescue = {
+    title: 'Rehin Tüccar', givers: ['quarrelsome', 'goodnatured'], minRelation: 10, days: 20,
+    reward: { money: 1200, renown: 10, rel: 16 },
+    can() { return state.npcParties.some(n => n.type === 'bandit' && n.size > 0); },
+    setup(q) {
+        let bands = state.npcParties.filter(n => n.type === 'bandit' && n.size > 0);
+        let b = bands[Math.floor(Math.random() * bands.length)];
+        q.data = { npcId: b ? b.id : null, npcName: b ? b.name : T('Çapulcular') };
+    },
+    offer(q) { return T`Ortağım son kervanla yola çıktı, geri dönmedi. Çapulcular kaçırmış olmalı.
+        Bul onları, ortağımı sağ getir.`; },
+    desc(q) { return T`Haritada <b>${T(q.data.npcName)}</b> çetesini bul ve yen; aşağıdaki yer çetenin
+        şu an dolaştığı civardır — çete gezer, işaret de onunla kayar.`; },
+    where(q) {
+        let b = state.npcParties.find(n => n.id === q.data.npcId && n.size > 0);
+        if(!b) return null;
+        let near = LOCATIONS.slice().sort((x, y) => Game.dist(x, b) - Game.dist(y, b))[0];
+        return near ? near.id : null;
+    },
+    on(q, ev, d) { if(ev === 'battle_won' && d.npcId === q.data.npcId) return 'done'; }
+};
+
+QUESTS.relay_packages = {
+    title: 'Zincirleme Teslimat', givers: ['cunning', 'goodnatured'], minRelation: 5, days: 18,
+    reward: { money: 1250, renown: 7, rel: 14 },
+    setup(q, giver) {
+        let pool = LOCATIONS.filter(l => l.faction === giver.faction && l.id !== giver.homeLocId && (l.type === 'city' || l.type === 'village'));
+        let stops = pool.sort(() => Math.random() - 0.5).slice(0, 3).map(l => l.id);
+        q.data = { stops, leg: 0 };
+    },
+    offer(q) { return T`Bu paketi açma. Her durakta biri seni bekliyor, paketi ona ver,
+        elindeki yenisini bir sonraki durağa taşı. Zincir kopmasın.`; },
+    desc(q) {
+        let l = LOCATIONS.find(x => x.id === q.data.stops[q.data.leg]);
+        return T`Durak <b>${q.data.leg + 1}/${q.data.stops.length}</b> — <b>${l ? T(l.name) : '?'}</b>'e paketi taşı.`;
+    },
+    where(q) { return q.data.stops[q.data.leg]; },
+    on(q, ev, d) {
+        if(ev !== 'entered_location' || d.locId !== q.data.stops[q.data.leg]) return;
+        q.data.leg++;
+        if(q.data.leg >= q.data.stops.length) return 'done';
+        alert(T`Paketi teslim ettin, eline yenisini tutuşturdular. Sıradaki durak: ${T(Quests.locName(q.data.stops[q.data.leg]))}.`);
+        Quests.render();
+    }
+};
+
+QUESTS.wolf_cull = {
+    title: 'Kurt Sürüleri', givers: ['martial', 'quarrelsome'], minRelation: 0, days: 16,
+    reward: { money: 1350, renown: 11, rel: 12 },
+    setup(q) { q.data = { got: 0, need: 3 }; },
+    offer(q) { return T`Sürüler ağılları boşaltıyor, çobanlar geceleri uyuyamıyor.
+        Haritada dolaşan <b>${q.data.need} kurt sürüsünü</b> dağıt.`; },
+    desc(q) { return T`Haritada kurt sürülerini bul ve dağıt — <b>${q.data.got}/${q.data.need}</b>.`; },
+    on(q, ev, d) {
+        if(ev !== 'battle_won' || d.lordId || d.questWave) return;
+        let npc = state.npcParties.find(n => n.id === d.npcId);
+        if(npc && npc.band === 'wolf') q.data.got++;
+        if(q.data.got >= q.data.need) return 'done';
+    }
+};
+
+QUESTS.forest_ambush = {
+    title: 'Orman Pususu', givers: ['martial', 'cunning'], minRelation: 0, days: 16,
+    reward: { money: 1300, renown: 10, rel: 12 },
+    setup(q) { q.data = { got: 0, need: 3 }; },
+    offer(q) { return T`Tüccarlar ormanın içinden geçen kestirmeyi terk etti, orada pusu kuran çeteler var.
+        <b>${q.data.need} orman çetesini</b> dağıt, yol yeniden açılsın.`; },
+    desc(q) { return T`Haritada orman çetelerini bul ve dağıt — <b>${q.data.got}/${q.data.need}</b>.`; },
+    on(q, ev, d) {
+        if(ev !== 'battle_won' || d.lordId || d.questWave) return;
+        let npc = state.npcParties.find(n => n.id === d.npcId);
+        if(npc && npc.band === 'forest') q.data.got++;
+        if(q.data.got >= q.data.need) return 'done';
+    }
+};
+
+QUESTS.outpost_defense = {
+    title: 'Sınır Karakolu', givers: ['martial'], minRelation: 10, days: 18,
+    reward: { money: 1500, renown: 16, rel: 16 },
+    setup(q, giver) {
+        let castles = LOCATIONS.filter(l => l.faction === giver.faction && l.type === 'castle');
+        let c = castles[Math.floor(Math.random() * castles.length)] || LOCATIONS.find(l => l.id === giver.homeLocId) || LOCATIONS[0];
+        q.data = { locId: c.id, locName: c.name, waves: 0, need: 3 };
+    },
+    offer(q) { return T`${q.data.locName} karakolu zayıf kaldı, çapulcular bunu koklamış. <b>Üç dalga</b> gelecek, hepsini kır.`; },
+    desc(q) {
+        let v = LOCATIONS.find(l => l.id === q.data.locId);
+        let watch = state.player.quests.includes(q) && v
+            ? '<br>' + (Game.dist(state.player, v) <= 500
+                ? T`✅ <b>Nöbettesin</b> — her gün gelebilirler.`
+                : T`❌ <b>Nöbet yerinden uzaktasın</b> — sen dönene kadar kimse gelmez.`)
+            : '';
+        return T`<b>${T(q.data.locName)}</b> yakınında (yarım günlük mesafede) bekle —
+            <b>${q.data.waves}/${q.data.need}</b> dalga püskürtüldü` + watch;
+    },
+    where(q) { return q.data.locId; },
+    day(q) {
+        let v = LOCATIONS.find(l => l.id === q.data.locId);
+        if(Game.dist(state.player, v) > 500) return;
+        if(Math.random() < 0.5) {
+            let n = Game.createNPC(T('Karakol Baskıncıları'), 'bandit', 6 + Math.floor(Math.random() * 9), '#8b0000');
+            n.x = v.x + (Math.random() - 0.5) * 300;
+            n.y = v.y + (Math.random() - 0.5) * 300;
+            n.targetX = state.player.x; n.targetY = state.player.y;
+            n.questWave = q.id;
+            state.npcParties.push(n);
+            alert(T`${q.data.locName} yönünden toz bulutu — geliyorlar!`);
+        }
+    },
+    on(q, ev, d) {
+        if(ev === 'battle_won' && d.questWave === q.id) {
+            q.data.waves++;
+            if(q.data.waves >= q.data.need) return 'done';
+            alert(T`Bir dalga püskürtüldü (${q.data.waves}/${q.data.need}). Nöbete devam.`);
+        }
+    }
+};
+
 const Quests = {
 
     active() { return state.player.quests; },
@@ -747,6 +942,45 @@ const Quests = {
         return l ? l.homeLocId : null;
     },
 
+    // ---------- Turn-in (#107): done -> awaiting -> closed ----------
+    // A guild master never leaves home; a lord's party roams, so "where do I collect"
+    // is a snapshot of their position taken the moment the job is finished, not a live feed.
+    turnInLoc(q) {
+        let g = this.giver(q.giverId);
+        if(g.isGuild) return g.homeLocId;
+        let party = Nobles.partyOf(q.giverId);
+        if(!party) return g.homeLocId;
+        let near = LOCATIONS.slice().sort((x, y) => Game.dist(x, party) - Game.dist(y, party))[0];
+        return near ? near.id : g.homeLocId;
+    },
+
+    // Is the giver actually standing at that snapshot right now? A guild master always is;
+    // a lord's party may have moved on since the snapshot was taken.
+    giverPresent(giverId, locId) {
+        let g = this.giver(giverId);
+        if(g.isGuild) return true;
+        let party = Nobles.partyOf(giverId);
+        let loc = LOCATIONS.find(l => l.id === locId);
+        if(!party || !loc) return false;
+        return Game.dist(party, loc) < 420;
+    },
+
+    // "Where" and "what it says" both need to know whether a quest is still being
+    // worked, or is done and just waiting for a hand-off — same single source pattern as where().
+    effectiveWhere(q) {
+        if(q.state === 'awaiting') return q.turnInLocId;
+        let def = QUESTS[q.id];
+        return def.where ? def.where(q) : null;
+    },
+
+    descFor(q) {
+        if(q.state === 'awaiting') {
+            let g = this.giver(q.giverId);
+            return T`Görev tamam. Ödülü almak için <b>${this.giverName(g)}</b>'e git — en son <b>${this.locName(q.turnInLocId)}</b>'de görüldü.`;
+        }
+        return QUESTS[q.id].desc(q);
+    },
+
     nearestTourney() {
         return this.nearestLoc(l => l.type === 'city' && state.activeTournaments[l.id]);
     },
@@ -778,9 +1012,8 @@ const Quests = {
     targets() {
         let m = {};
         (state.player.quests || []).forEach(q => {
-            let def = QUESTS[q.id];
-            let w = def && def.where && def.where(q);
-            if(w) (m[w] = m[w] || []).push(T(def.title));
+            let w = this.effectiveWhere(q);
+            if(w) (m[w] = m[w] || []).push(T(QUESTS[q.id].title));
         });
         return m;
     },
@@ -823,12 +1056,11 @@ const Quests = {
     // Both the offer modal and the quest list render through here: the sentence
     // the player sees before accepting is the same one they later find on the quest screen.
     taskHtml(q) {
-        let def = QUESTS[q.id];
-        let w = def.where && def.where(q);
+        let w = this.effectiveWhere(q);
         let gun = w ? this.daysTo(w) : null;
         return `<div style="background:rgba(0,0,0,0.25);border-left:3px solid var(--primary);border-radius:6px;
                 padding:0.7rem 0.9rem;margin-top:1rem;line-height:1.55">
-            <div>${def.desc(q)}</div>
+            <div>${this.descFor(q)}</div>
             ${w ? `<div style="margin-top:0.4rem;color:#e0b062;font-size:var(--fs-sm)">${
                 gun ? T`📍 ${this.locName(w)} · şu an ~${gun} günlük yol` : T`📍 ${this.locName(w)}`}</div>` : ''}
         </div>`;
@@ -836,12 +1068,20 @@ const Quests = {
 
     offerMenu(giverId) {
         let giver = this.giver(giverId);
-        if(state.player.quests.some(q => q.giverId === giverId)) {
-            let q = state.player.quests.find(x => x.giverId === giverId);
+        // Standing right in front of the giver is itself proof of presence — if their
+        // reward is just waiting on a hand-off, settle it here instead of making the
+        // player wait for a fresh entered_location that may never come (they're already in).
+        let pending = state.player.quests.find(x => x.giverId === giverId);
+        if(pending && pending.state === 'awaiting' && this.giverPresent(giverId, pending.turnInLocId)) {
+            this.tryTurnIn(pending);
+            pending = state.player.quests.find(x => x.giverId === giverId);
+        }
+        if(pending) {
+            let q = pending;
             return Game.showModal(`<h3>📜 ${this.giverName(giver)}</h3>
-                <p style="font-style:italic">${T`"Sana verdiğim işi bitirmeden yenisini isteme."`}</p>
+                <p style="font-style:italic">${q.state === 'awaiting' ? T`"Ödülünü unutmadım, işte burada."` : T`"Sana verdiğim işi bitirmeden yenisini isteme."`}</p>
                 <p style="margin-top:1rem"><b>${T(QUESTS[q.id].title)}</b><br>
-                <span style="color:var(--text-muted)">${QUESTS[q.id].desc(q)}</span></p>
+                <span style="color:var(--text-muted)">${this.descFor(q)}</span></p>
                 <button class="btn" style="margin-top:1rem" onclick="Quests.back('${giverId}')">${T`Geri`}</button>`);
         }
         let cd = (state.questCooldown || {})[giverId] || 0;
@@ -920,7 +1160,7 @@ const Quests = {
 
     /** A single quest instance — the roll is `pick`'s job, building it is this one's (tests build from here too). */
     make(id, giverId) {
-        let q = { id, giverId, startDay: state.time.day, deadline: state.time.day + QUESTS[id].days, data: {} };
+        let q = { id, giverId, state: 'active', startDay: state.time.day, deadline: state.time.day + QUESTS[id].days, data: {} };
         QUESTS[id].setup(q, this.giver(giverId));
         return q;
     },
@@ -949,10 +1189,14 @@ const Quests = {
     emit(ev, d = {}) {
         for(let i = state.player.quests.length - 1; i >= 0; i--) {
             let q = state.player.quests[i];
+            if(q.state === 'awaiting') {
+                if(ev === 'entered_location' && d.locId === q.turnInLocId) this.tryTurnIn(q);
+                continue;
+            }
             let def = QUESTS[q.id];
             if(!def.on) continue;
             let r = def.on(q, ev, d);
-            if(r === 'done') this.complete(q);
+            if(r === 'done') this.markDone(q);
             else if(r === 'fail') this.fail(q, T('Görev başarısız oldu.'));
         }
     },
@@ -960,14 +1204,41 @@ const Quests = {
     dailyTick() {
         for(let i = state.player.quests.length - 1; i >= 0; i--) {
             let q = state.player.quests[i];
+            // The task itself is finished; only the walk back is left, and that carries no clock.
+            if(q.state === 'awaiting') continue;
             let def = QUESTS[q.id];
             if(state.time.day > q.deadline) { this.fail(q, T('Süre doldu.')); continue; }
             if(def.day) {
                 let r = def.day(q);
-                if(r === 'done') this.complete(q);
+                if(r === 'done') this.markDone(q);
                 else if(r === 'fail') this.fail(q, T('Görev başarısız oldu.'));
             }
         }
+    },
+
+    // Objective met: the quest stops being "active" and starts waiting for a hand-off.
+    // Reward doesn't move yet — see tryTurnIn/complete.
+    markDone(q) {
+        let def = QUESTS[q.id];
+        state.npcParties = state.npcParties.filter(n => n.questWave !== q.id);
+        q.state = 'awaiting';
+        q.turnInLocId = this.turnInLoc(q);
+        q.turnInSnapshotDay = state.time.day;
+        let g = this.giver(q.giverId);
+        alert(T`✅ Görev tamam: ${T(def.title)}\nÖdülü almak için ${T(this.giverName(g))}'e git — en son ${T(this.locName(q.turnInLocId))}'de görüldü.`);
+        this.render();
+    },
+
+    // Player reached the snapshot spot: pay out if the giver is actually still there,
+    // otherwise the trail has moved on and a new snapshot is taken.
+    tryTurnIn(q) {
+        if(this.giverPresent(q.giverId, q.turnInLocId)) { this.complete(q); return; }
+        let g = this.giver(q.giverId);
+        let daysSince = Math.max(1, state.time.day - q.turnInSnapshotDay);
+        q.turnInLocId = this.turnInLoc(q);
+        q.turnInSnapshotDay = state.time.day;
+        alert(T`${T(this.giverName(g))} burada değil — ${daysSince} gün önce buradaymış. Son görüldüğü yer: ${T(this.locName(q.turnInLocId))}.`);
+        this.render();
     },
 
     complete(q) {
@@ -1012,7 +1283,8 @@ const Quests = {
 
     abandon(qid) {
         let q = state.player.quests.find(x => x.id === qid);
-        if(q) this.fail(q, T('Görevden vazgeçtin.'));
+        // A finished job isn't abandoned, just picked up later — there's nothing left to fail.
+        if(q && q.state !== 'awaiting') this.fail(q, T('Görevden vazgeçtin.'));
     },
 
     // ---------- Screen ----------
@@ -1031,16 +1303,20 @@ const Quests = {
         el.innerHTML = amb + state.player.quests.map(q => {
             let def = QUESTS[q.id];
             let left = q.deadline - state.time.day;
-            return `<div style="background:rgba(0,0,0,0.3);border:1px solid var(--panel-border);border-left:4px solid var(--primary);
+            let awaiting = q.state === 'awaiting';
+            return `<div style="background:rgba(0,0,0,0.3);border:1px solid var(--panel-border);border-left:4px solid ${awaiting ? '#2ecc71' : 'var(--primary)'};
                     border-radius:8px;padding:1rem;margin-bottom:0.8rem">
                 <div style="display:flex;justify-content:space-between;align-items:center">
                     <b style="font-size:1.1rem">${T(def.title)}</b>
-                    <span style="font-size:var(--fs-sm);color:${left <= 3 ? 'var(--danger)' : 'var(--text-muted)'}">${T`${left} gün kaldı`}</span>
+                    <span style="font-size:var(--fs-sm);color:${awaiting ? '#2ecc71' : (left <= 3 ? 'var(--danger)' : 'var(--text-muted)')}">${
+                        awaiting ? T`Teslime hazır` : T`${left} gün kaldı`}</span>
                 </div>
-                <div style="font-size:var(--fs-sm);color:var(--text-muted);margin:0.3rem 0">${T`Veren: ${Quests.giverName(Quests.giver(q.giverId))} · ${q.deadline}. güne kadar`}</div>
+                <div style="font-size:var(--fs-sm);color:var(--text-muted);margin:0.3rem 0">${
+                    awaiting ? T`Veren: ${Quests.giverName(Quests.giver(q.giverId))}`
+                             : T`Veren: ${Quests.giverName(Quests.giver(q.giverId))} · ${q.deadline}. güne kadar`}</div>
                 ${Quests.taskHtml(q)}
-                <button class="btn" style="margin-top:0.6rem;font-size:var(--fs-sm);padding:0.3rem 0.8rem;border-color:var(--danger);color:var(--danger)"
-                        onclick="Quests.abandon('${q.id}')">${T`Vazgeç`}</button>
+                ${awaiting ? '' : `<button class="btn" style="margin-top:0.6rem;font-size:var(--fs-sm);padding:0.3rem 0.8rem;border-color:var(--danger);color:var(--danger)"
+                        onclick="Quests.abandon('${q.id}')">${T`Vazgeç`}</button>`}
             </div>`;
         }).join('');
     }

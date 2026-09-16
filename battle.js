@@ -170,9 +170,14 @@ const Battle = {
             let wx = Math.round(W * 0.66);
             let gaps = [{ y: H / 2, h: 74, gate: true }];
             if(this.siege.gaps > 1) gaps.push({ y: Math.round(H * 0.22), h: 118, gate: false });   // tower ramp
-            this.siege.wall = { x: wx, t: 26, gaps };
+            // Which equipment silhouette sits at the gate (#118) rides the same plan.gaps signal
+            // that already decides whether there's a second breach: a tower plan builds a ramp,
+            // a ladder plan only ever climbs the one gate.
+            this.siege.wall = { x: wx, t: 26, gaps, equip: this.siege.gaps > 1 ? 'tower' : 'ladder' };
+            this.siegeBannerColor = (faction && FACTIONS[faction] && FACTIONS[faction].color) || '#b23b3b';
         }
         this.active = true;
+        this.pendingEnd = undefined;   // a stale delayed-end flag from a previous fight must not carry over (#114)
 
         // In an ambush the player isn't caught at the edge but in the middle of the arena (needed for the circle)
         let startPlayerX = this.siege ? 120
@@ -191,6 +196,12 @@ const Battle = {
         }
         for(let i=0; i<2+Math.random()*3; i++) {
             this.terrain.forests.push({ x: Math.random()*W, y: Math.random()*H, r: 60+Math.random()*60 });
+        }
+        // Mountain (#118): unlike a hill's flat patch, speed falls off toward a single summit —
+        // 1 at the foot, down to 0.45 at the peak. At most one per field, drawn with contour rings.
+        this.terrain.mountains = [];
+        if(Math.random() > 0.5) {
+            this.terrain.mountains.push({ x: 60+Math.random()*Math.max(1,W-120), y: 60+Math.random()*Math.max(1,H-120), r: 90+Math.random()*90 });
         }
         // Impassable rocks — adds positioning and tactical variety.
         // Not placed in the spawn lanes (150 units from the edges).
@@ -228,6 +239,7 @@ const Battle = {
             this.terrain.hills = this.terrain.hills.filter(h => h.x < wx - 120);
             this.terrain.pits = this.terrain.pits.filter(p => p.x < wx - 100);
             this.terrain.forests = this.terrain.forests.filter(f => f.x < wx - 160);
+            this.terrain.mountains = this.terrain.mountains.filter(m => m.x < wx - 200);
         }
 
         let weaponAtk = state.player.equipment.weapon ? state.player.equipment.weapon.attack : 0;
@@ -255,11 +267,21 @@ const Battle = {
             isAttacking: false, attackTimer: 0, swingCd: 0, angleToMouse: 0, currentWeaponAngle: 0
         });
 
+        // Troop kills/XP/casualties are watched from a single log this battle, read back
+        // in endBattle() for the detail tab (#120).
+        this._battleLog = { deaths: [], xpGain: {}, xpStart: {} };
+        state.player.party.forEach(p => { this._battleLog.xpStart[p.id] = { level: p.level, name: p.name }; });
+
         // Troops (Player's party) — the wounded don't join the battle, they heal in camp
         state.player.party.filter(p => !p.wounded).forEach((p, i) => {
             let typeInfo = Game.troopStats(p);
+            // Growth used to be a single lump at promotion; now every level nudges something,
+            // so the levels between promotions are felt too (#124) — the big jump still comes
+            // from the class upgrade itself, this only softens the flat stretch between them.
             let lvlBonusHp = p.level * 2 + (p.level===51?100:0);
             let lvlBonusAtk = Math.floor(p.level / 3) + (p.level===51?15:0);
+            let lvlBonusDef = Math.floor(p.level / 2) + (p.level===51?10:0);
+            let lvlBonusSpd = Math.floor(p.level / 4) + (p.level===51?8:0);
             // Hunger and morale were two separate multipliers; both at once dragged HP AND attack to ×0.56 —
             // a losing battle fed on itself. It now floors at 0.7.
             let debuff = Math.max(0.7, (p.debuff ? 0.7 : 1) * Game.moraleMult());
@@ -270,10 +292,10 @@ const Battle = {
                 x: startPlayerX - 20 + Math.random()*60, y: 50 + Math.random()*(H-100),
                 // Speed isn't affected by morale: the enemy has no morale, so if it scaled, the same troop
                 // would run at two different speeds on the two sides. Morale scales HP and attack (the UI says so too).
-                speed: typeInfo.speed, attack: (typeInfo.attack + lvlBonusAtk) * debuff, defense: typeInfo.defense,
+                speed: typeInfo.speed + lvlBonusSpd, attack: (typeInfo.attack + lvlBonusAtk) * debuff, defense: typeInfo.defense + lvlBonusDef,
                 type: typeInfo.type, mounted: typeInfo.type === 'cavalry' || typeInfo.speed > this.FOOT_MAX,
                 dmgType: typeInfo.dmgType, color: typeInfo.type === 'cavalry' ? '#33ddff' : typeInfo.type === 'archer' ? '#55ff55' : '#33aaff',
-                radius: typeInfo.type === 'cavalry' ? 7 : 5, atkCd: 0
+                radius: typeInfo.type === 'cavalry' ? 7 : 5, atkCd: 0, level: p.level
             });
         });
 
@@ -612,10 +634,23 @@ const Battle = {
         return deg * Math.PI / 180;
     },
 
+    // Anti-cavalry (#109): a spear/polearm held by standing infantry against a charging horse.
+    // Troops don't carry an explicit weapon type, so `pierce` (spears, not arrows — this only
+    // runs on melee infantry) stands in for "holds something built to gore a horse".
+    isBracer(u) {
+        if(!u || u.hp <= 0 || u.beast || u.mounted || u.type !== 'infantry') return false;
+        if(u.id === 'player') return this.playerWeaponType() === 'polearm';
+        return u.dmgType === 'pierce';
+    },
+
     // Melee damage from one place: blood, knockback, damage text, kill logging
     dealMelee(src, tgt, raw) {
         let bf = this.blockFactor(tgt, src.x, src.y);
         if(bf === 0) return this.blockedFx(tgt, src.x, src.y);
+        // Bracing infantry bites harder into a charging horse — the counter to cavalry kiting
+        // the whole line (#109). Cuts both ways: the same check on the other side of dealMelee's
+        // caller means a lone rider can't just charge a spear wall down for free either.
+        if(tgt.type === 'cavalry' && !tgt.beast && this.isBracer(src)) raw *= 1.5;
         let dmg = this.afterArmor(src.dmgType, raw * bf * this.DAMAGE_PACE, tgt.defense, tgt);
         tgt.hp -= dmg;
         // Attributes grow through play: strength if the player lands the hit, vitality if the player takes it.
@@ -627,6 +662,10 @@ const Battle = {
         this.blood(tgt.x, tgt.y, 3 + Math.random()*3);
         this.spark(tgt.x, tgt.y, a, src.isPlayerTeam ? '#ffdd66' : '#ff8866');
         this.floatingTexts.push({ x: tgt.x, y: tgt.y - 12, text: `-${dmg}`, color: src.isPlayerTeam ? '#ffdd55' : '#ff6666', life: 0.8, big: src.id === 'player' });
+        // Adrenaline (#109): infantry that's just eaten a hit from cavalry gets a short burst of
+        // speed — a fighting chance to close the gap a horse would otherwise always have. Only
+        // the hit itself arms it; the burst and its cooldown both tick in update().
+        if(src.type === 'cavalry' && !src.beast && tgt.type === 'infantry' && !tgt.mounted && tgt.hp > 0) tgt.adrenalineHitT = 3.0;
         if(tgt.hp <= 0) {
             // A blunt weapon doesn't kill, it knocks out — raising the odds of being taken prisoner
             if((DMG_TYPES[src.dmgType] || {}).knock) tgt.stunned = true;
@@ -696,6 +735,14 @@ const Battle = {
                 }
             }
         }
+        // Mountain (#118): speed falls off toward the summit — 1 at the foot, 0.45 at the peak —
+        // instead of a hill's flat patch. Goes through the same worst() gate as everything else.
+        if (this.terrain.mountains) {
+            for(let m of this.terrain.mountains) {
+                let dx = u.x - m.x, dy = u.y - m.y, d = Math.sqrt(dx*dx + dy*dy);
+                if(d <= m.r) worst(1 - (1 - d / m.r) * 0.55);
+            }
+        }
         return { speedMod, attackMod };
     },
 
@@ -704,12 +751,23 @@ const Battle = {
         let t = state.player.party.find(x => x.id === id);
         if(!t) return;
         let r = Game.giveTroopXp(t, 1);
+        // One XP per kill actually granted; the detail tab (#120) reads this back as "XP kazanıldı".
+        if(this._battleLog) this._battleLog.xpGain[id] = (this._battleLog.xpGain[id] || 0) + 1;
         if(r === 'ready') this.log(`🔥 <b>${T(t.name)}</b> ${T`Terfiye Hazır! (Grup ekranından sınıf atlatın)`}`);
         else if(r === 'levelup') this.log(`🔥 <b>${T(t.name)}</b> ${T`Seviye Atladı! (Lvl ${t.level})`}`);
     },
 
     update(dt) {
         if(dt <= 0) return; // FIX NaN POISONING
+
+        // Arena/duel end delay (#114): once a side is decided the field freezes on the final
+        // blow for a beat instead of cutting straight to the modal — render() keeps drawing the
+        // frozen frame since nothing below runs while this is pending.
+        if(this.pendingEnd !== undefined) {
+            this.endDelay -= dt;
+            if(this.endDelay <= 0) { this.active = false; let w = this.pendingEnd; this.pendingEnd = undefined; this.endBattle(w); }
+            return;
+        }
 
         // Command opportunities: each one opens at its own moment, not all together.
         this.battleTime += dt;
@@ -739,6 +797,23 @@ const Battle = {
             if(proj.x < 0 || proj.x > this.canvas.width || proj.y < 0 || proj.y > this.canvas.height) {
                 this.projectiles.splice(i, 1);
                 continue;
+            }
+
+            // Terrain interference (#118): rolled once per arrow, the first time it grazes a rock
+            // or enters a forest canopy — not every frame, or a long pass through a forest would
+            // approach 100% regardless of the stated chance.
+            if(!proj._terrRolled && this.terrain) {
+                let snagged = false, rolled = false;
+                for(let k of this.terrain.rocks || []) {
+                    let dx = proj.x - k.x, dy = proj.y - k.y;
+                    if(dx*dx + dy*dy <= (k.r + 3) * (k.r + 3)) { rolled = true; snagged = Math.random() < 0.7; break; }
+                }
+                if(!rolled) for(let f of this.terrain.forests || []) {
+                    let dx = proj.x - f.x, dy = proj.y - f.y;
+                    if(dx*dx + dy*dy <= f.r*f.r) { rolled = true; snagged = Math.random() < 0.6; break; }
+                }
+                if(rolled) proj._terrRolled = true;
+                if(snagged) { this.projectiles.splice(i, 1); continue; }
             }
 
             // Collision check
@@ -801,15 +876,38 @@ const Battle = {
         this._byId = {};
         this.units.forEach(u => { this._byId[u.id] = u; });
 
+        // Anti-cavalry brace (#109): a bracing spearman planted near an enemy horse sets against
+        // the charge — the horse slows down in that radius (paired with dealMelee's bonus damage
+        // against it). Precomputed once per frame rather than per pair inside the movement loop.
+        const BRACE_RANGE = 55;
+        let bracers = this.units.filter(u => this.isBracer(u));
+        this.units.forEach(u => {
+            if(u.hp <= 0 || u.type !== 'cavalry' || u.beast) { u.braced = false; return; }
+            u.braced = bracers.some(b => b.isPlayerTeam !== u.isPlayerTeam
+                && (b.x - u.x) ** 2 + (b.y - u.y) ** 2 <= BRACE_RANGE * BRACE_RANGE);
+        });
+
         // Units movement & action update
         this.units.forEach(u => {
             if(u.hp <= 0) return;
 
             u.vx = 0; u.vy = 0; // Reset velocity
             if(u.atkCd > 0) u.atkCd -= dt; // attack cooldown timer (dt-based — independent of frame rate)
-            
+            // Adrenaline (#109): a hit from cavalry arms a short window; if the burst hasn't
+            // already fired and isn't cooling down, it triggers here — a chance to close the
+            // gap a horse would otherwise always have.
+            if(u.adrenalineHitT > 0) u.adrenalineHitT -= dt;
+            if(u.adrenalineT > 0) u.adrenalineT -= dt;
+            if(u.adrenalineCd > 0) u.adrenalineCd -= dt;
+            if(u.adrenalineHitT > 0 && !(u.adrenalineT > 0) && !(u.adrenalineCd > 0) && u.type === 'infantry' && !u.beast) {
+                u.adrenalineHitT = 0; u.adrenalineT = 2.5; u.adrenalineCd = 8;
+                this.floatingTexts.push({ x: u.x, y: u.y - 24, text: T('⚡ Adrenalin!'), color: '#ffee55', life: 0.9 });
+            }
+
             let { speedMod, attackMod } = this.getTerrainEffects(u);
             let uSpeed = u.speed * speedMod;
+            if(u.braced) uSpeed *= 0.55;           // a horse can't keep its charge speed against set spears
+            if(u.adrenalineT > 0) uSpeed *= 1.4;   // the adrenaline burst itself
             let uAttack = u.attack * attackMod;
 
             // When the horse is hit, the rider falls off — one check for everyone, player included
@@ -1054,13 +1152,15 @@ const Battle = {
             if(u.hp <= 0) return;
             u.x = Math.max(12, Math.min(bw - 12, u.x));
             u.y = Math.max(12, Math.min(bh - 12, u.y));
-            // Rocks are impassable: anyone who enters one is pushed back out.
-            // ponytail: arrows pass right over a rock — no cover value, just a movement obstacle.
+            // Rocks are impassable: anyone who enters one is pushed back out. Also cover now (#118):
+            // an arrow that grazes one is stopped 70% of the time (Battle.projectiles update).
             // Except while fleeing: a rock can't push a unit running straight across sideways, or it gets stuck and locks up the battle.
             if(!u.routing) rocks.forEach(k => {
                 let dx = u.x - k.x, dy = u.y - k.y;
                 let d = Math.sqrt(dx*dx + dy*dy), min = k.r + u.radius;
-                if(d < min && d > 0.01) { u.x = k.x + dx/d*min; u.y = k.y + dy/d*min; }
+                // Sliding push (#118): only closes part of the overlap each frame instead of
+                // snapping straight to the boundary, so brushing the edge reads as a slide, not a wall.
+                if(d < min && d > 0.01) { let nx = dx/d, ny = dy/d, correct = (min - d) * 0.55; u.x += nx * correct; u.y += ny * correct; }
             });
             // Wall: impassable outside a breach, narrows it into a corridor inside the breach (#25)
             let w = this.siege && this.siege.wall;
@@ -1178,6 +1278,20 @@ const Battle = {
             c.beginPath(); c.arc(h.x, h.y, h.r*0.62, 0, Math.PI*2); c.stroke();
         });
 
+        // Mountain (#118): drawn with contour rings so the falling speed multiplier toward
+        // the summit actually reads on the ground — a hill's flat gradient can't show that.
+        (TR.mountains||[]).forEach(m => {
+            let rg = c.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
+            rg.addColorStop(0, 'rgba(150,140,128,0.32)');
+            rg.addColorStop(0.6, 'rgba(96,88,76,0.16)');
+            rg.addColorStop(1, 'rgba(0,0,0,0)');
+            c.fillStyle = rg; c.beginPath(); c.arc(m.x, m.y, m.r, 0, Math.PI*2); c.fill();
+            c.strokeStyle = 'rgba(235,230,215,0.20)'; c.lineWidth = 1;
+            for(let ring = 1; ring <= 4; ring++) { c.beginPath(); c.arc(m.x, m.y, m.r*ring/5, 0, Math.PI*2); c.stroke(); }
+            c.fillStyle = 'rgba(255,255,255,0.32)';
+            c.beginPath(); c.arc(m.x, m.y, m.r*0.12, 0, Math.PI*2); c.fill();   // snow cap at the summit
+        });
+
         (TR.forests||[]).forEach(f => {
             c.fillStyle = 'rgba(9,24,11,0.5)';
             c.beginPath(); c.arc(f.x, f.y, f.r, 0, Math.PI*2); c.fill();
@@ -1192,7 +1306,17 @@ const Battle = {
 
         (TR.rocks||[]).forEach(k => this.drawRock(c, k.x, k.y, k.r));
 
-        if(this.siege && this.siege.wall) this.drawWall(c, this.siege.wall, H);
+        if(this.siege && this.siege.wall) {
+            this.drawWall(c, this.siege.wall, H);
+            // Breach corridor highlight (#118): the one crossable point on the field should
+            // read at a glance, not just be inferred from where the wall happens to have a gap.
+            let gate = this.siege.wall.gaps.find(gp => gp.gate);
+            if(gate) {
+                let cg = c.createLinearGradient(this.siege.wall.x - 90, 0, this.siege.wall.x + 90, 0);
+                cg.addColorStop(0, 'rgba(255,200,120,0)'); cg.addColorStop(0.5, 'rgba(255,200,120,0.10)'); cg.addColorStop(1, 'rgba(255,200,120,0)');
+                c.fillStyle = cg; c.fillRect(this.siege.wall.x - 90, gate.y - gate.h/2 - 10, 180, gate.h + 20);
+            }
+        }
 
         // A slight darkening: keeps units more readable against the ground
         c.fillStyle = 'rgba(6,10,6,0.16)';
@@ -1224,6 +1348,12 @@ const Battle = {
                 c.fillStyle = '#7a7266'; c.fillRect(x1 - 4, yy, 13, 12);
                 c.strokeStyle = 'rgba(20,18,16,0.8)'; c.lineWidth = 2; c.strokeRect(x1 - 4, yy, 13, 12);
             }
+            // Banners (#118): a flag every ~90px so the sur reads as a held wall, not a bare strip
+            for(let by = a + 40; by < b; by += 90) {
+                c.fillStyle = '#4a3a24'; c.fillRect(x1 - 1, by - 24, 3, 24);
+                c.fillStyle = this.siegeBannerColor || '#b23b3b';
+                c.beginPath(); c.moveTo(x1 + 2, by - 24); c.lineTo(x1 + 16, by - 18); c.lineTo(x1 + 2, by - 12); c.closePath(); c.fill();
+            }
         });
 
         w.gaps.forEach(g => {
@@ -1239,7 +1369,68 @@ const Battle = {
                 for(let i = 0; i < 9; i++)   // tower ramp: a breach filled with rubble
                     this.drawRock(c, x0 + Math.random()*w.t, a + 6 + Math.random()*(b - a - 12), 3 + Math.random()*4);
             }
+            // Attacker's siege equipment (#118): parked on the field side of the gate the field
+            // was already breached through — a tower plan means a tower, otherwise it's ladders.
+            if(g.gate) this.drawSiegeEquip(c, w, g);
         });
+    },
+
+    // Attacker-side equipment silhouette at the gate — decorative, drawn once into the baked
+    // ground, not a hitbox. `w.equip` was set from the plan's own gap count in Battle.start().
+    drawSiegeEquip(c, w, g) {
+        let x0 = w.x - w.t/2;
+        if(w.equip === 'tower') {
+            let tx = x0 - 42, ty = g.y;
+            c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(tx + 15, ty + 48, 22, 7, 0, 0, Math.PI*2); c.fill();
+            let tg = c.createLinearGradient(tx, 0, tx + 30, 0);
+            tg.addColorStop(0, '#5a3f22'); tg.addColorStop(1, '#3a2a16');
+            c.fillStyle = tg; c.fillRect(tx, ty - 46, 30, 94);
+            c.strokeStyle = 'rgba(18,12,8,0.85)'; c.lineWidth = 2; c.strokeRect(tx, ty - 46, 30, 94);
+            for(let ly = ty - 40; ly < ty + 44; ly += 13) { c.beginPath(); c.moveTo(tx, ly); c.lineTo(tx + 30, ly); c.stroke(); }
+            c.fillStyle = '#6b4a2a'; c.fillRect(tx - 6, ty - 50, 42, 8);   // ramp lip facing the wall
+        } else {
+            [-16, 18].forEach(off => {
+                let bx = x0 - 6, by1 = g.y + off + 34, by2 = g.y + off - 34, tx2 = x0 + 3;
+                c.strokeStyle = '#7a5a34'; c.lineWidth = 3;
+                c.beginPath(); c.moveTo(bx, by1); c.lineTo(tx2, by2); c.stroke();
+                c.beginPath(); c.moveTo(bx + 6, by1); c.lineTo(tx2 + 6, by2); c.stroke();
+                c.strokeStyle = 'rgba(60,42,20,0.9)'; c.lineWidth = 2;
+                for(let r = 1; r < 6; r++) {
+                    let t = r / 6, ax = bx + (tx2 - bx) * t, ay = by1 + (by2 - by1) * t;
+                    c.beginPath(); c.moveTo(ax - 1, ay); c.lineTo(ax + 7, ay); c.stroke();
+                }
+            });
+        }
+    },
+
+    // Periodic arrow-rain arcs off the wall + a boiling-oil glow at the gate while
+    // an attacker stands in the breach corridor — drawn live in render(), not baked.
+    drawSiegeFx(ctx, now, W, H) {
+        let w = this.siege.wall;
+        if(!w) return;
+        let t = (now / 900) % 1;
+        if(t < 0.5) {
+            ctx.strokeStyle = 'rgba(220,200,150,0.55)'; ctx.lineWidth = 1.5;
+            for(let i = 0; i < 5; i++) {
+                let sy = (H / 5) * i + 20, prog = (t*2 + i*0.13) % 1;
+                let sx = w.x - w.t/2 - 4, ex = sx - 130;
+                let x = sx + (ex - sx) * prog, y = sy - Math.sin(prog * Math.PI) * 30;
+                ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 10, y + 3); ctx.stroke();
+            }
+        }
+        let gate = w.gaps.find(g => g.gate);
+        if(gate) {
+            // Player is always the besieger (spawns left of the wall, defenders spawn behind it),
+            // so any attacker-side unit near the gate means the breach is in use.
+            let breached = this.units.some(u => u.isPlayerTeam
+                && Math.abs(u.x - w.x) < 60 && Math.abs(u.y - gate.y) < gate.h/2);
+            if(breached) {
+                let pulse = 0.25 + 0.15 * Math.sin(now / 180);
+                let og = ctx.createRadialGradient(w.x, gate.y, 4, w.x, gate.y, 46);
+                og.addColorStop(0, `rgba(255,150,40,${pulse})`); og.addColorStop(1, 'rgba(255,150,40,0)');
+                ctx.fillStyle = og; ctx.beginPath(); ctx.arc(w.x, gate.y, 46, 0, Math.PI*2); ctx.fill();
+            }
+        }
     },
 
     drawRock(c, x, y, r) {
@@ -1304,6 +1495,9 @@ const Battle = {
                 }
             });
         }
+
+        // Siege FX (#118): arrow rain from the wall + boiling-oil glow at the breach
+        if(this.siege && !Game.lite()) this.drawSiegeFx(ctx, now, W, H);
 
         // Kan lekeleri
         this.bloodStains.forEach(b => {
@@ -1667,9 +1861,24 @@ const Battle = {
         ctx.shadowBlur = 0;
     },
     logKill(victim, killer) {
-        if(Game.opt('gore')) this.corpses.push({ x: victim.x, y: victim.y, isPlayerTeam: victim.isPlayerTeam, rot: Math.random()*Math.PI*2 });
+        if(Game.opt('gore')) {
+            this.corpses.push({ x: victim.x, y: victim.y, isPlayerTeam: victim.isPlayerTeam, rot: Math.random()*Math.PI*2 });
+            // #114: a duel has only one kill in it — make that final blow read as heavier.
+            if(this.isDuel) {
+                for(let i = 0; i < 4; i++) this.bloodStains.push({
+                    x: victim.x + (Math.random()-0.5)*20, y: victim.y + (Math.random()-0.5)*20,
+                    size: 8 + Math.random()*10, alpha: 1
+                });
+            }
+        }
         let capCorpse = Game.lite() ? 20 : 60;
         while(this.corpses.length > capCorpse) this.corpses.shift();
+        // #120: death record for the post-battle detail tab.
+        if(this._battleLog) this._battleLog.deaths.push({
+            name: victim.name || (victim.isPlayerTeam ? T('Dost Asker') : T('Çapulcu')),
+            isPlayerTeam: !!victim.isPlayerTeam, type: victim.type || 'infantry', level: victim.level || 1,
+            killerName: killer ? (killer.name || (killer.isPlayerTeam ? T('Dost Asker') : T('Çapulcu'))) : T('Bilinmeyen')
+        });
         if(victim.id === 'player') {
             this.knockedOut = true;
             this.log(T('<span style="color:#ff4444"><b>Yere yığıldın!</b> Adamların savaşa devam ediyor…</span>'), 'right');
@@ -1824,10 +2033,18 @@ const Battle = {
     checkEnd() {
         this.routCheck();
         this.reinforce();
+        if(this.pendingEnd !== undefined) return;
         let pAlive = this.units.some(u=>u.isPlayerTeam&&u.hp>0) || this.reserves.p.length > 0;
         let eAlive = this.units.some(u=>!u.isPlayerTeam&&u.hp>0) || this.reserves.e.length > 0;
-        if(!pAlive) { this.active=false; this.endBattle(false); }
-        else if(!eAlive) { this.active=false; this.endBattle(true); }
+        if(pAlive && eAlive) return;
+        let won = pAlive;   // exactly one side (at most) is still standing at this point
+        // Arena, tournament and honour duels get a beat on the final blow before the result
+        // modal (#114) — a freeze-frame, via the guard at the top of update(). A full field
+        // battle still ends the instant the last side falls; delaying every battle risked
+        // interfering with auto-resolve/reserve timing nobody asked to change here.
+        if(this.isDuel || this.isArena || this.isTourney) { this.pendingEnd = won; this.endDelay = 1.0; return; }
+        this.active = false;
+        this.endBattle(won);
     },
 
     // An enemy who can't match you isn't worth much: loot and experience are cut down by the strength ratio.
@@ -1839,6 +2056,64 @@ const Battle = {
         let pp = state.player.stats.level +
                  state.player.party.reduce((a, t) => a + (t.level || 1) + 1, 0);
         return Math.max(0.2, Math.min(1, (ep / Math.max(1, pp)) * 1.6));
+    },
+
+    // #120: switches the win-modal between the existing summary and the new detail tab.
+    switchResultTab(which) {
+        let ozetPane = document.getElementById('bres-pane-ozet'), detayPane = document.getElementById('bres-pane-detay');
+        let ozetBtn = document.getElementById('bres-tab-ozet'), detayBtn = document.getElementById('bres-tab-detay');
+        if(!ozetPane || !detayPane) return;
+        ozetPane.style.display = which === 'ozet' ? '' : 'none';
+        detayPane.style.display = which === 'detay' ? '' : 'none';
+        if(ozetBtn) ozetBtn.className = which === 'ozet' ? 'btn primary' : 'btn';
+        if(detayBtn) detayBtn.className = which === 'detay' ? 'btn primary' : 'btn';
+    },
+
+    // #120: casualty table, troop XP/promotion table, loot breakdown, prisoner list —
+    // all built from data already collected during the fight (_battleLog) or already
+    // computed by endBattle for the summary tab.
+    buildDetailTab(moneyGain, cargoTxt, captured) {
+        let log = this._battleLog || { deaths: [], xpGain: {}, xpStart: {} };
+        let typeName = { infantry: T('Piyade'), archer: T('Okçu'), cavalry: T('Süvari') };
+        let tds = 'padding:0.3rem 0.5rem;border-bottom:1px solid var(--panel-border)';
+
+        let casRows = log.deaths.map(d => `<tr>
+            <td style="${tds}">${T(d.name)}</td>
+            <td style="${tds};color:${d.isPlayerTeam ? '#ff8888' : '#88dd88'}">${d.isPlayerTeam ? T('Dost') : T('Düşman')}</td>
+            <td style="${tds}">${typeName[d.type] || d.type}</td>
+            <td style="${tds}">${d.level}</td>
+            <td style="${tds}">${T(d.killerName)}</td>
+        </tr>`).join('');
+
+        let xpRows = state.player.party.filter(t => log.xpGain[t.id]).map(t => {
+            let ready = TROOP_UPGRADES[t.name] && t.xp >= t.xpNext;
+            let promoBtns = ready ? TROOP_UPGRADES[t.name].map(choice =>
+                `<button class="btn primary" style="font-size:var(--fs-xs);padding:0.15rem 0.4rem;margin-left:0.25rem" onclick="Game.promoteTroop('${t.name.replace(/'/g,"\\'")}','${T(choice.name).replace(/'/g,"\\'")}',${choice.cost})">${T(choice.name)}</button>`
+            ).join('') : '';
+            return `<tr>
+                <td style="${tds}">${T(t.name)}</td>
+                <td style="${tds}">+${log.xpGain[t.id]}</td>
+                <td style="${tds}">${T`Lvl ${t.level}`}</td>
+                <td style="${tds}">${ready ? '🔥 ' + T('Terfiye hazır') + promoBtns : ''}</td>
+            </tr>`;
+        }).join('');
+
+        let newPrisoners = captured > 0 ? state.player.prisoners.slice(-captured) : [];
+        let prisTxt = newPrisoners.map(p => `${T(p.name)} (Lvl ${p.level})`).join(', ');
+
+        let block = (title, inner) => `<div style="background:rgba(0,0,0,0.25);padding:1rem;border-radius:8px;margin-bottom:1rem;text-align:left">
+            <h3 style="color:var(--primary);margin-bottom:0.6rem;font-size:1rem">${title}</h3>${inner}</div>`;
+
+        return `<div style="max-height:60vh;overflow-y:auto">
+            ${block(T('Kayıplar'), casRows
+                ? `<table style="width:100%;border-collapse:collapse;font-size:var(--fs-sm)"><tr style="color:var(--text-muted)"><td style="${tds}">${T('İsim')}</td><td style="${tds}">${T('Taraf')}</td><td style="${tds}">${T('Tür')}</td><td style="${tds}">${T('Seviye')}</td><td style="${tds}">${T('Kim öldürdü')}</td></tr>${casRows}</table>`
+                : `<p style="color:var(--text-muted)">${T('Kayıp yok.')}</p>`)}
+            ${block(T('Birlik Tecrübesi'), xpRows
+                ? `<table style="width:100%;border-collapse:collapse;font-size:var(--fs-sm)"><tr style="color:var(--text-muted)"><td style="${tds}">${T('İsim')}</td><td style="${tds}">${T('Kazanılan XP')}</td><td style="${tds}">${T('Seviye')}</td><td style="${tds}"></td></tr>${xpRows}</table>`
+                : `<p style="color:var(--text-muted)">${T('Bu savaşta XP kazanan birlik yok.')}</p>`)}
+            ${block(T('Ganimet'), `<p>${T`💰 ${moneyGain} dinar`}</p>${cargoTxt ? `<p style="margin-top:0.4rem">${cargoTxt}</p>` : ''}`)}
+            ${block(T('Esirler'), prisTxt ? `<p>⛓️ ${prisTxt}</p>` : `<p style="color:var(--text-muted)">${T('Esir alınmadı.')}</p>`)}
+        </div>`;
     },
 
     endBattle(won) {
@@ -2037,7 +2312,10 @@ const Battle = {
                 }
             }
 
-            let resultHtml = `
+            // #120: the detail tab reads the same numbers the summary already computed.
+            let detailHtml = this.buildDetailTab(moneyGain, cargoTxt, captured);
+
+            let summaryHtml = `
             <div style="text-align:center;">
                 <h2 style="color:#2ecc71;margin-bottom:1rem;font-size:2rem;text-shadow:0 0 10px rgba(46,204,113,0.5)">${this.autoLoss ? T('🎖️ Askerlerin Halletti') : this.knockedOut ? T('🩸 Pahalı Zafer') : T('⚔️ Mükemmel Zafer! ⚔️')}</h2>
                 ${this.autoLoss ? `<p style="color:#8fd6ff;margin-bottom:1rem">${T`Sen inmedin: adamların kendi başlarına dövüştü, beklenen kayıp %${Math.round(this.autoLoss*100)}.`}</p>` : ''}
@@ -2056,6 +2334,14 @@ const Battle = {
                     ${nobleTaken ? `<p style="margin-top:0.8rem;color:#e59b3d"><b>${T`👑 ${nobleTaken} esir alındı!`}</b> <span style="font-size:var(--fs-sm);color:var(--text-muted)">${T`Grup ekranından fidye iste ya da salıver.`}</span></p>` : ''}
                 </div>
                 <button class="btn primary" style="font-size:1.2rem;padding:0.8rem 2rem;box-shadow:0 0 15px rgba(255,170,0,0.4);border-radius:8px" onclick="Game.closeModal(); Game.checkLevelUp(); Game.updateTopBar()">${T`Kazanımları Al ve İlerle`}</button>
+            </div>`;
+            let resultHtml = `<div>
+                <div style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:1rem">
+                    <button id="bres-tab-ozet" class="btn primary" style="padding:0.4rem 1.2rem" onclick="Battle.switchResultTab('ozet')">${T('Özet')}</button>
+                    <button id="bres-tab-detay" class="btn" style="padding:0.4rem 1.2rem" onclick="Battle.switchResultTab('detay')">${T('Ayrıntı')}</button>
+                </div>
+                <div id="bres-pane-ozet">${summaryHtml}</div>
+                <div id="bres-pane-detay" style="display:none">${detailHtml}</div>
             </div>`;
             Game.showModal(resultHtml);
         } else {

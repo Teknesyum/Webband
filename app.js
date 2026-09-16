@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.13.1', date: '2026-09-14', name: 'Kalradya Ezgileri' };  // the version name is not translated
+const VERSION = { no: '1.14.0', date: '2026-09-17', name: 'Ün ve Nişan' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -606,6 +606,45 @@ const Input = {
         });
     }
 };
+
+// --- ACHIEVEMENTS (#127) ---
+// Raw Turkish name/desc (translated at the display site); `cond` reads live `state`
+// so it is only ever run at check time, never while this table is built. Tiers colour
+// the badge. `checkAchievements()` walks the list once a day and on demand.
+const ACH_TIERS = { bronze: { ico: '🥉', col: '#cd7f32' }, silver: { ico: '🥈', col: '#c0c0c0' }, gold: { ico: '🥇', col: '#ffd700' } };
+const ACHIEVEMENTS = [
+    { id: 'renown_100',  tier: 'bronze', name: 'Adı Duyulan',        desc: 'İtibarın 100\'e ulaştı.',                    cond: () => state.player.renown >= 100 },
+    { id: 'renown_500',  tier: 'silver', name: 'Diyar Diyar Anılan', desc: 'İtibarın 500\'e ulaştı.',                    cond: () => state.player.renown >= 500 },
+    { id: 'renown_1000', tier: 'gold',   name: 'Efsane',             desc: 'İtibarın 1000\'e ulaştı.',                   cond: () => state.player.renown >= 1000 },
+    { id: 'gold_5k',     tier: 'bronze', name: 'Kese Doldu',         desc: 'Kesende 5.000 dinar biriktirdin.',           cond: () => state.player.money >= 5000 },
+    { id: 'gold_20k',    tier: 'silver', name: 'Tüccar Aklı',        desc: 'Kesende 20.000 dinar biriktirdin.',          cond: () => state.player.money >= 20000 },
+    { id: 'gold_100k',   tier: 'gold',   name: 'Hazine Sandığı',     desc: 'Kesende 100.000 dinar biriktirdin.',         cond: () => state.player.money >= 100000 },
+    { id: 'party_20',    tier: 'bronze', name: 'Bölük Başı',         desc: 'Grubun 20 kişiye ulaştı.',                   cond: () => state.player.party.length >= 20 },
+    { id: 'party_60',    tier: 'silver', name: 'Sancak Beyi',        desc: 'Grubun 60 kişiye ulaştı.',                   cond: () => state.player.party.length >= 60 },
+    { id: 'party_120',   tier: 'gold',   name: 'Ordu Sahibi',        desc: 'Grubun 120 kişiye ulaştı.',                  cond: () => state.player.party.length >= 120 },
+    { id: 'level_10',    tier: 'bronze', name: 'Çıraklık Bitti',     desc: '10. seviyeye ulaştın.',                      cond: () => (state.player.stats.level || 1) >= 10 },
+    { id: 'level_20',    tier: 'silver', name: 'Usta Savaşçı',       desc: '20. seviyeye ulaştın.',                      cond: () => (state.player.stats.level || 1) >= 20 },
+    { id: 'level_30',    tier: 'gold',   name: 'Silahşör',           desc: '30. seviyeye ulaştın.',                      cond: () => (state.player.stats.level || 1) >= 30 },
+    { id: 'fief_1',      tier: 'bronze', name: 'Toprak Sahibi',      desc: 'İlk tımarını elde ettin.',                   cond: () => LOCATIONS.some(l => l.owner === 'player') },
+    { id: 'fief_3',      tier: 'silver', name: 'Derebeyi',           desc: 'Üç veya daha fazla tımara sahipsin.',        cond: () => LOCATIONS.filter(l => l.owner === 'player').length >= 3 },
+    { id: 'fief_6',      tier: 'gold',   name: 'Eyalet Sahibi',      desc: 'Altı veya daha fazla tımara sahipsin.',      cond: () => LOCATIONS.filter(l => l.owner === 'player').length >= 6 },
+    { id: 'vassal',      tier: 'silver', name: 'Kral Vasalı',        desc: 'Bir krallığa vasal oldun.',                  cond: () => !!state.player.vassalOf },
+    { id: 'marshal',     tier: 'gold',   name: 'Mareşal',            desc: 'Bir krallığın mareşalliğini üstlendin.',     cond: () => !!state.marshalOf },
+    { id: 'comp_3',      tier: 'bronze', name: 'Yol Arkadaşları',    desc: 'Üç yoldaş topladın.',                        cond: () => state.player.party.filter(p => p.isCompanion).length >= 3 },
+    { id: 'comp_6',      tier: 'silver', name: 'Yakın Halka',        desc: 'Altı yoldaş topladın.',                      cond: () => state.player.party.filter(p => p.isCompanion).length >= 6 },
+    { id: 'married',     tier: 'silver', name: 'Soylu Birlik',       desc: 'Bir soyluyla evlendin.',                     cond: () => !!state.player.spouse },
+    { id: 'honor_50',    tier: 'silver', name: 'Sözünün Eri',        desc: 'Şerefin 50\'ye ulaştı.',                     cond: () => (state.player.honor || 0) >= 50 },
+    { id: 'dishonor',    tier: 'bronze', name: 'Kötü Şöhret',        desc: 'Şerefin −30\'un altına düştü.',              cond: () => (state.player.honor || 0) <= -30 },
+    { id: 'days_50',     tier: 'bronze', name: 'Kırk Gün Kırk Gece', desc: '50 gün hayatta kaldın.',                     cond: () => state.time.day >= 50 },
+    { id: 'days_150',    tier: 'silver', name: 'Mevsimlik Sefer',    desc: '150 gün hayatta kaldın.',                    cond: () => state.time.day >= 150 },
+    { id: 'days_365',    tier: 'gold',   name: 'Bir Yıllık Destan',  desc: '365 gün hayatta kaldın.',                    cond: () => state.time.day >= 365 },
+    { id: 'prison_5',    tier: 'bronze', name: 'Zindancı',           desc: 'Aynı anda 5 esir tuttun.',                   cond: () => (state.player.prisoners || []).length >= 5 },
+    { id: 'prison_lord', tier: 'silver', name: 'Soylu Esir',         desc: 'Bir lordu esir aldın.',                      cond: () => (state.player.prisoners || []).some(p => p.noble) },
+    { id: 'quests_5',    tier: 'bronze', name: 'Güvenilir El',       desc: '5 görev tamamladın.',                        cond: () => (state.career && state.career.quests || 0) >= 5 },
+    { id: 'quests_20',   tier: 'silver', name: 'Aranan Adam',        desc: '20 görev tamamladın.',                       cond: () => (state.career && state.career.quests || 0) >= 20 },
+    { id: 'quests_50',   tier: 'gold',   name: 'Diyarın Hizmetkârı', desc: '50 görev tamamladın.',                       cond: () => (state.career && state.career.quests || 0) >= 50 },
+    { id: 'prof_master', tier: 'silver', name: 'Bir Dalda Usta',     desc: 'Bir yeterlilikte 5. kademeye ulaştın.',      cond: () => Object.values(state.player.proficiencies || {}).some(p => (p.level || 1) >= 5) },
+];
 
 // --- GAME ---
 const Game = {
@@ -1993,8 +2032,21 @@ const Game = {
         // kicked off from the site window, and `renderMap` draws nothing while a modal is up.
         if(!r.until) r.until = t + r.secs * 1000;
         let left = (r.until - t) / 1000;
-        if(left <= 0) { this.towerReveal = null; this.pauseBar(''); return; }
+        if(left <= 0) { this.snapshotTowerGhosts(); this.towerReveal = null; this.pauseBar(''); return; }
         this.pauseBar(T`🗼 ÇEVREYİ GÖZLÜYORSUN · ${left.toFixed(1)}s`);
+    },
+    // The look ends but the memory doesn't (#128): every band and army inside the widened
+    // circle leaves a faint one-day ghost at its last-seen spot, so the player can act on what
+    // they glimpsed instead of racing to memorise it before the horizon snaps shut.
+    snapshotTowerGhosts() {
+        let range = this.getVisibility() * this.TOWER_REVEAL_MUL;
+        (state.npcParties || []).forEach(npc => {
+            if(!npc || npc.size <= 0) return;
+            if(this.dist(npc, state.player) > range) return;
+            state.knownLocations['ghost_' + npc.id] = {
+                x: npc.x, y: npc.y, radius: 26, day: state.time.day, name: '', ghost: true
+            };
+        });
     },
 
     // --- UPDATE ---
@@ -2270,11 +2322,21 @@ const Game = {
         return this.CARGO_BASE + this.CARGO_PER_MAN * (state.player.party.length + 1) + this.CARGO_PER_MOUNT * mounted;
     },
     cargoLoad() { return state.player.inventory.reduce((n, i) => n + (i.qty || 0), 0); },
-    // Loot and quest rewards can exceed the cap; the cost is speed. It drops to ×0.5 at
-    // twice capacity — slowing you down instead of making you unable to walk.
+    // Loot and quest rewards can exceed the cap; the cost is speed, and it bites harder the
+    // deeper you are (#98). The old linear-to-0.5 floor meant ten times capacity walked as
+    // fast as twice: a quadratic with no floor makes overloading a real decision — 50% over
+    // is ~0.57, twice is ~0.25, three times is ~0.08.
     cargoMult() {
         let cap = this.cargoCap(), load = this.cargoLoad();
-        return load <= cap ? 1 : Math.max(0.5, 1 - (load - cap) / cap * 0.5);
+        if(load <= cap) return 1;
+        let over = (load - cap) / cap;
+        return 1 / (1 + over * over * 3);
+    },
+    // The overload ratio also drags morale down each day (#98): sitting a little over is
+    // fine, but a wagon train you can't carry demoralises the men.
+    cargoMoraleHit() {
+        let cap = this.cargoCap(), load = this.cargoLoad();
+        return load <= cap ? 0 : Math.round((load - cap) / cap * 2);
     },
 
     isNight() { let h = state.time.hour; return h < 6 || h >= 20; },
@@ -3714,13 +3776,32 @@ const Game = {
           ]},
 
         { id: 'peddler', icon: '🧺', when: c => c.money >= 150 && c.onRoad,
-          text: () => T`Sırtında denk taşıyan bir seyyar satıcı: "Kervanım dağıldı, malı yarı fiyatına veriyorum. Buradan şehre canlı varamam."`,
+          text: c => {
+              let d = Game.peddlerDeal(c);
+              if(!d.scam) return T`Sırtında denk taşıyan bir seyyar satıcı: "Kervanım dağıldı, malı yarı fiyatına veriyorum. Buradan şehre canlı varamam."`;
+              if(d.detect) return T`Sırtında denk taşıyan bir seyyar satıcı: "Şehirde bunun iki katı eder, sana ${d.price} dinara veriyorum." Ama denkler fazla hafif, fiyat da fahiş — <b>seni kazıklamaya çalışıyor</b>.`;
+              return T`Sırtında denk taşıyan bir seyyar satıcı: "Şehirde bunun iki katı eder — sana ${d.price} dinara bırakıyorum, kaçırma."`;
+          },
           choices: [
-            { label: () => T`🧺 Denkleri satın al (−140 dinar)`, run() {
-                Game.spend(140); Game.addItem('velvet', 2); Game.addProficiencyXp('trade', 40);
-                return T`İki top kadife, şehirde bunun iki katı eder — şehre varabilirsen.<br><b>−140 dinar</b>, <b>+2 kadife</b>, <b>Ticaret +40 tecrübe</b>.`;
+            { label: c => { let d = Game.peddlerDeal(c); return T`🧺 Denkleri satın al (−${d.price} dinar)`; }, run(c) {
+                let d = Game.peddlerDeal(c);
+                Game.spend(d.price); Game.addItem('velvet', 2); Game.addProficiencyXp('trade', d.scam ? 15 : 40);
+                if(!d.scam) return T`İki top kadife, şehirde bunun iki katı eder — şehre varabilirsen.<br><b>−${d.price} dinar</b>, <b>+2 kadife</b>, <b>Ticaret +40 tecrübe</b>.`;
+                return T`İki top kadife aldın. Sonradan pazarda gördün ki adam sana <b>iki katına yakın</b> yutturmuş.<br><b>−${d.price} dinar</b>, <b>+2 kadife</b>. Pahalı bir ders — <b>Ticaret +15 tecrübe</b>.`;
             }},
-            { label: () => T`🛡️ Şehre kadar yanında götür (−3 saat)`, run() {
+            // Only offered when your trade eye catches the con (#117): call his bluff.
+            { label: c => Game.peddlerDeal(c).detect ? T`🗣️ Yüzüne vur, gerçek fiyata ver` : '', run(c) {
+                Game.spend(56); Game.addItem('velvet', 2); Game.addProficiencyXp('trade', 60);
+                return T`"Bu kadife pazarda 60 dinar." Adam kızardı, sesi kısıldı: iki topu <b>56 dinara</b> bıraktı.<br><b>−56 dinar</b>, <b>+2 kadife</b>, <b>Ticaret +60 tecrübe</b>.`;
+            }},
+            // The dark option: rob the con man. You get little and it costs your name (#117).
+            { label: c => Game.peddlerDeal(c).detect ? T`🗡️ Öldür ve al` : '', run() {
+                Game.addItem('velvet', 1);
+                state.player.renown = Math.max(0, state.player.renown - 6);
+                let h = Game.addHonor('roadCruel');
+                return T`Yalancı bir çerçi de olsa, kan yolda kalır. Denklerini karıştırdın, çoğu çürüktü — bir top sağlam çıktı.<br><b>+1 kadife</b>, itibar <b>−6</b>, şeref <b>${h}</b>.`;
+            }},
+            { label: c => Game.peddlerDeal(c).scam ? '' : T`🛡️ Şehre kadar yanında götür (−3 saat)`, run() {
                 Game.roadDelay(3);
                 let n = 100 + Math.floor(Math.random() * 80);
                 state.player.money += n; state.player.renown += 1;
@@ -3827,6 +3908,19 @@ const Game = {
         return ev;
     },
 
+    // A peddler is honest 60% of the time; the rest try to pass city goods off at 160-220% of
+    // the fair 140-denar ask (#117). A trained trade eye catches the con and unlocks two
+    // answers — shame him into a real price, or rob the liar for a pittance and your name.
+    // Memoised on the encounter ctx so text/labels/run all see the same deal.
+    peddlerDeal(c) {
+        if(!c._peddler) {
+            let scam = Math.random() < 0.4;
+            let markup = 1.6 + Math.random() * 0.6;
+            let detect = scam && Math.random() < Math.min(0.9, 0.1 + this.profLvl('trade') * 0.06);
+            c._peddler = { scam, detect, price: scam ? Math.round(140 * markup) : 140 };
+        }
+        return c._peddler;
+    },
     roadEvent() {
         let ctx = this.eventCtx();
         let ev = this.pickEvent(this.ROAD_EVENTS, ctx);
@@ -3840,8 +3934,9 @@ const Game = {
         this.showModal(`<h3>${ev.icon} ${T`Yolda`}</h3>
             <p style="font-style:italic;color:var(--text-muted)">${ev.text(ctx)}</p>
             <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem">
-                ${ev.choices.map((ch, i) =>
-                    `<button class="btn" style="text-align:left" onclick="Game.roadChoice(${i}, event)">${ch.label(ctx)}</button>`).join('')}
+                ${ev.choices.map((ch, i) => ({ i, lab: ch.label(ctx) }))
+                    .filter(o => o.lab)   // a choice whose label is empty this encounter is hidden (keeps run() index)
+                    .map(o => `<button class="btn" style="text-align:left" onclick="Game.roadChoice(${o.i}, event)">${o.lab}</button>`).join('')}
             </div>`);
         return ev.id;
     },
@@ -4095,6 +4190,7 @@ const Game = {
         this.lairTick();
         this.ensureTraders();   // new caravans set out to replace robbed ones
         this.dailyEvent();      // daily event pool (#35) — last, after the day's accounting closes
+        this.checkAchievements();   // milestone sweep (#127) — non-modal, won't clobber the event
     },
 
     // ---- "11+2": what arrived since the player last looked (#111) ----
@@ -5403,14 +5499,21 @@ const Game = {
 
     // --- DRAGGING THE TARGET MARKER (#35) ---
     // The marker's radius is screen-sized (16px), so it can still be grabbed when zoomed out.
-    targetGrabRadius() { return 16 / this.camera.zoom + 6; },
+    // A fingertip is much bigger than a mouse point, so touch gets a fatter grab (#99).
+    targetGrabRadius() { return (this.isTouch() ? 28 : 16) / this.camera.zoom + 6; },
 
     startTargetDrag(e) {
         if(e.button !== 0 || Battle.active || TournamentMinigame.active) return;
         if(state.player.wait) return;
         if(state.player.status !== 'moving' || !state.player.targetLocation) return;
         let m = this.mapPos(e);
-        if(this.dist(state.player.targetLocation, m) > this.targetGrabRadius()) return;
+        let near = this.dist(state.player.targetLocation, m) <= this.targetGrabRadius();
+        // On the marker: grab it. With a mouse, a hold anywhere on empty ground also grabs the
+        // target and drags it under the cursor (#99) — the desktop map has no drag-to-pan, so
+        // there's nothing to collide with, and a plain click still falls through to onMapUp
+        // because the drag only commits once the pointer actually moves (`moved`). On touch the
+        // same one-finger drag *is* the pan gesture, so there we keep the grab to the handle.
+        if(!near && e.pointerType !== 'mouse') return;
         this.dragTarget = { x: m.x, y: m.y, moved: false };
         this.mapCanvas.style.cursor = 'grabbing';
     },
@@ -6728,7 +6831,7 @@ const Game = {
     // ============ SETTINGS (#55 item 7) ============
     // One screen, one read gate: every setting's default lives in OPTS, and a deviating
     // key is written to state.settings (so it enters the save and stays blank in an old save).
-    OPTS: { muted: false, volume: 0.6, music: true, reducedMotion: 'auto', gore: true, frameGate: true, fontScale: 1, autosave: true, lite: 'auto', difficulty: 'normal', edgePan: 'auto' },
+    OPTS: { muted: false, volume: 0.35, music: true, reducedMotion: 'auto', gore: true, frameGate: true, fontScale: 1, autosave: true, lite: 'auto', difficulty: 'normal', edgePan: 'auto' },
 
     // Difficulty is a single pair of multipliers: damage **taken** and **dealt**. No other
     // number moves — a wolf pack and a lord's army pass through the same gate, so the
@@ -6780,6 +6883,72 @@ const Game = {
         if(cur) this.applyViewBg(cur.id.replace(/-view$/, ''));
         this.Music.sync();   // mute, volume and the music switch all land here
     },
+    // --- Achievements (#127) ---
+    ensureAchievements() {
+        if(!state.achievements) state.achievements = {};
+        if(!state.career) state.career = { quests: 0 };
+    },
+    // Walked once a day and whenever a milestone might have shifted. State-based conditions
+    // mean nothing has to be wired into each event site — the daily sweep catches them.
+    checkAchievements() {
+        this.ensureAchievements();
+        let earned = [];
+        ACHIEVEMENTS.forEach(a => {
+            if(state.achievements[a.id]) return;
+            let ok = false; try { ok = a.cond(); } catch(e) {}
+            if(ok) { state.achievements[a.id] = state.time.day; earned.push(a); }
+        });
+        if(earned.length) this.achToast(earned);
+    },
+    // A non-modal toast, so a milestone earned on the same day as a road event doesn't
+    // clobber the event's modal. Stacks bottom-right, fades itself out.
+    achToast(list) {
+        if(typeof document === 'undefined') return;
+        let host = document.getElementById('ach-toasts');
+        if(!host) {
+            host = document.createElement('div');
+            host.id = 'ach-toasts';
+            host.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+            document.body.appendChild(host);
+        }
+        list.forEach((a, k) => {
+            let tier = ACH_TIERS[a.tier];
+            let el = document.createElement('div');
+            el.style.cssText = `pointer-events:auto;min-width:220px;max-width:300px;padding:10px 14px;border-radius:10px;
+                background:rgba(20,18,14,0.94);border:1px solid ${tier.col};box-shadow:0 6px 24px rgba(0,0,0,0.5);
+                color:#f0e6d2;font-size:13px;opacity:0;transform:translateY(10px);transition:opacity .3s,transform .3s`;
+            el.innerHTML = `<div style="font-size:11px;letter-spacing:.5px;color:${tier.col};margin-bottom:2px">${tier.ico} ${T`Başarım Kazanıldı`}</div>
+                <div style="font-weight:700">${T(a.name)}</div>
+                <div style="opacity:.8;font-size:12px;margin-top:2px">${T(a.desc)}</div>`;
+            host.appendChild(el);
+            setTimeout(() => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; }, 30 + k * 120);
+            setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(10px)';
+                setTimeout(() => el.remove(), 350); }, 5200 + k * 120);
+        });
+    },
+    showAchievements() {
+        this.ensureAchievements();
+        let got = ACHIEVEMENTS.filter(a => state.achievements[a.id]).length;
+        let order = { gold: 0, silver: 1, bronze: 2 };
+        let rows = ACHIEVEMENTS.slice().sort((x, y) =>
+            (!!state.achievements[y.id] - !!state.achievements[x.id]) || (order[x.tier] - order[y.tier]))
+        .map(a => {
+            let tier = ACH_TIERS[a.tier], done = state.achievements[a.id];
+            return `<div style="display:flex;align-items:center;gap:0.7rem;padding:0.5rem 0.7rem;border-radius:8px;
+                background:${done ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.15)'};opacity:${done ? 1 : 0.5}">
+                <span style="font-size:1.5rem;filter:${done ? 'none' : 'grayscale(1)'}">${done ? tier.ico : '🔒'}</span>
+                <div style="flex:1">
+                    <div style="font-weight:700;color:${done ? tier.col : '#9a8f78'}">${T(a.name)}</div>
+                    <div style="font-size:0.82rem;opacity:0.8">${T(a.desc)}</div>
+                </div>
+                ${done ? `<span style="font-size:0.75rem;opacity:0.6">${T`${done}. gün`}</span>` : ''}
+            </div>`;
+        }).join('');
+        this.showModal(`<h3>${T`🏆 Başarımlar`} <span style="font-size:0.7em;opacity:0.6">(${got}/${ACHIEVEMENTS.length})</span></h3>
+            <div style="display:flex;flex-direction:column;gap:0.4rem;max-height:60vh;overflow-y:auto;margin:0.6rem 0">${rows}</div>
+            <button class="btn primary" style="margin-top:0.4rem" onclick="Game.closeModal()">${T`Kapat`}</button>`, '440px');
+    },
+
     // Only four tabs fit in a narrow screen's bottom strip; Quests, Saves, Sound and
     // Settings open from here (#86). The strip itself is still the one real menu — this page
     // calls the same `onclick`s, it doesn't open a second path.
@@ -6790,6 +6959,7 @@ const Game = {
         this.showModal(`<h3>${T`⋯ Daha`}</h3>
         <div style="display:flex;flex-direction:column;gap:0.5rem">
             ${it('📜', T('Görevler'), "Game.closeModal(); Game.showScreen('quests')")}
+            ${it('🏆', T('Başarımlar'), 'Game.showAchievements()')}
             ${it('🏰', T('Topraklarım'), 'Game.showFiefs()')}
             ${it('💾', T('Kayıtlar'), 'Save.open()')}
             ${it(sesli ? '🔊' : '🔇', sesli ? T('Ses Açık') : T('Ses Kapalı'), 'Game.toggleMute(); Game.showMoreMenu()')}
@@ -8791,6 +8961,9 @@ const Game = {
     addHonor(kind) {
         let h = this.HONOR[kind]; if(!h) return 0;
         state.player.honor = Math.max(-100, Math.min(100, (state.player.honor || 0) + h[0]));
+        // Quest completion is the one career milestone with no state you can read back later,
+        // so tally it here where the quest engine already reports "kept your word" (#127).
+        if(kind === 'questDone') { this.ensureAchievements(); state.career.quests++; this.checkAchievements(); }
         return h[0];
     },
     // The same honor doesn't read the same to everyone: a good-natured lord loves honor, a cunning
@@ -9387,7 +9560,8 @@ const Game = {
             // Instead of a flat -25: the target drops further as debt grows. The real penalty is the
             // -1 morale per hour (Game.wageDebtTick); this line just keeps morale from recovering.
             'Maaş borcu': p.wageDebt > 0 ? -Math.min(40, 10 + Math.floor(p.wageDebt / Math.max(1, this.upkeep().wage)) * 10) : 0,
-            'Kapasite aşımı': -over * 2
+            'Kapasite aşımı': -over * 2,
+            'Aşırı yük': -this.cargoMoraleHit()
         };
         p.moraleInfo = parts;
         let t = Object.keys(parts).reduce((a, k) => a + parts[k], 0);
