@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.14.0', date: '2026-09-17', name: 'Ün ve Nişan' };  // the version name is not translated
+const VERSION = { no: '1.15.0', date: '2026-09-17', name: 'Muharebe Merceği' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -3559,7 +3559,7 @@ const Game = {
         { id: 'sick_carter', icon: '🤒', when: c => c.party >= 1,
           text: () => T`Devrilmiş bir arabanın yanında bir kervancı ateşler içinde yatıyor. Yoldaşları çoktan gitmiş.`,
           choices: [
-            { label: () => T`⚕️ Cerrahını başına yolla (3 saat)`, run() {
+            { label: () => Game.hasSurgeon() ? T`⚕️ Cerrahını başına yolla (3 saat)` : '', run() {
                 Game.roadDelay(3); Game.addProficiencyXp('surgery', 60);
                 state.player.renown += 2;
                 return T`Adam akşama doğru gözlerini açtı. Bu hikâye yolun ilerisinde senden önce varacak.<br><b>Cerrahlık +60 tecrübe</b>, itibar <b>+2</b>, şeref <b>+${Game.addHonor('roadKind')}</b>.<br><i>3 saat kaybettin.</i>`;
@@ -4509,6 +4509,26 @@ const Game = {
             this.markRosterSeen('party'); this.markRosterSeen('prisoners');
         }
         else if(screenId === 'inventory') this.renderInventoryScreen();
+        if(screenId === 'map') this.maybeShowF11Hint();
+    },
+
+    // A one-line nudge that the browser game plays best in fullscreen (#132). Only on a
+    // real keyboard where F11 exists and only while windowed: a phone has no F11 and a page
+    // already in fullscreen doesn't need telling. Dismissed once, it stays gone (localStorage).
+    maybeShowF11Hint() {
+        let el = document.getElementById('f11-hint');
+        if(!el) return;
+        let ok = document.fullscreenEnabled && !document.fullscreenElement
+            && !this.isTouch() && localStorage.getItem('f11hint') !== 'off';
+        el.classList.toggle('hidden', !ok);
+        if(ok && !this._f11wired) {
+            this._f11wired = true;
+            let txt = document.getElementById('f11-hint-text');
+            if(txt) txt.innerHTML = T`🖥️ Tam ekran için <kbd>F11</kbd>`;
+            let close = document.getElementById('f11-hint-close');
+            if(close) close.onclick = () => { localStorage.setItem('f11hint', 'off'); el.classList.add('hidden'); };
+            document.addEventListener('fullscreenchange', () => { if(document.fullscreenElement) el.classList.add('hidden'); });
+        }
     },
 
     // --- MAP RENDER ---
@@ -6838,9 +6858,11 @@ const Game = {
     // balance table (arrow range, charge multiplier, armor math) stays a single piece.
     // Stays raw, translated at display with `T`.
     DIFFS: {
-        easy:   { taken: 0.6, dealt: 1.25, name: 'Kolay', note: 'Aldığın hasar %40 az, verdiğin %25 fazla' },
-        normal: { taken: 1,   dealt: 1,    name: 'Orta',  note: 'Tasarlandığı denge' },
-        hard:   { taken: 1.5, dealt: 0.85, name: 'Zor',   note: 'Aldığın hasar %50 fazla, verdiğin %15 az' }
+        veryeasy: { taken: 0.45, dealt: 1.5,  name: 'Çok Kolay', note: 'Aldığın hasar %55 az, verdiğin %50 fazla' },
+        easy:     { taken: 0.6,  dealt: 1.25, name: 'Kolay',     note: 'Aldığın hasar %40 az, verdiğin %25 fazla' },
+        normal:   { taken: 1,    dealt: 1,    name: 'Orta',      note: 'Tasarlandığı denge' },
+        hard:     { taken: 1.5,  dealt: 0.85, name: 'Zor',       note: 'Aldığın hasar %50 fazla, verdiğin %15 az' },
+        veryhard: { taken: 2.1,  dealt: 0.7,  name: 'Çok Zor',   note: 'Aldığın hasar %110 fazla, verdiğin %30 az' }
     },
     diff() { return this.DIFFS[this.opt('difficulty')] || this.DIFFS.normal; },
     // If the target is on your side this is the damage "taken", otherwise "dealt".
@@ -6986,7 +7008,7 @@ const Game = {
         let epBtn = ['auto', true, false].map(v => `<button class="btn${ep === v ? ' primary' : ''}" style="font-size:var(--fs-sm);padding:0.25rem 0.6rem"
             onclick="Game.setOpt('edgePan', ${this.lit(v)})">${v === 'auto' ? T('Cihaza göre') : v ? T('Açık') : T('Kapalı')}</button>`).join(' ');
         let df = this.opt('difficulty');
-        let dfBtn = ['easy', 'normal', 'hard'].map(v => `<button class="btn${df === v ? ' primary' : ''}" style="font-size:var(--fs-sm);padding:0.25rem 0.6rem"
+        let dfBtn = Object.keys(this.DIFFS).map(v => `<button class="btn${df === v ? ' primary' : ''}" style="font-size:var(--fs-sm);padding:0.25rem 0.6rem"
             onclick="Game.setOpt('difficulty', '${v}')">${T(this.DIFFS[v].name)}</button>`).join(' ');
         let hz = this._step === Infinity ? T('ölçülmedi') : Math.round(1000 / this._step) + T(' Hz');
         this.showModal(`<div id="settings-panel"><h3>${T`⚙️ Ayarlar`}</h3>
@@ -9395,6 +9417,14 @@ const Game = {
         return lvl;
     },
 
+    // A real surgeon in the group: a hired surgery companion, or the player trained past
+    // the base level. Gates the "send your surgeon" road choice (sick_carter).
+    hasSurgeon() {
+        if(state.player.party.some(t => t.isCompanion && !t.wounded &&
+            (COMPANIONS.find(x => x.id === t.companionId) || {}).skill === 'surgery')) return true;
+        return this.profLvl('surgery') >= 3;
+    },
+
     addProficiencyXp(id, amount) {
         let pData = state.player.proficiencies[id];
         if(!pData) return;
@@ -9902,13 +9932,19 @@ const Game = {
         let html = `<div style="display:flex;gap:2rem;">
         <div style="flex:1;">
             <h3 style="color:var(--primary)">${T`Kuşanılan`}</h3>
-            ${this._eqSlot(T('Silah'),'weapon',e.weapon)}
-            ${this._eqSlot(T('Kalkan'),'shield',e.shield)}
-            ${this._eqSlot(T('Zırh'),'armor',e.armor)}
-            ${this._eqSlot(T('Başlık'),'helmet',e.helmet)}
-            ${this._eqSlot(T('Eldiven'),'gloves',e.gloves)}
-            ${this._eqSlot(T('Çizme'),'boots',e.boots)}
-            ${this._eqSlot(T('At'),'horse',e.horse)}
+            <div class="equip-figures">
+                <div class="equip-figure">
+                    ${this._eqSlot('helmet',e.helmet)}
+                    ${this._eqSlot('armor',e.armor)}
+                    ${this._eqSlot('weapon',e.weapon)}
+                    ${this._eqSlot('shield',e.shield)}
+                    ${this._eqSlot('gloves',e.gloves)}
+                    ${this._eqSlot('boots',e.boots)}
+                </div>
+                <div class="equip-figure horse">
+                    ${this._eqSlot('horse',e.horse)}
+                </div>
+            </div>
         </div>
         <div style="flex:2;">
             <h3 style="color:var(--primary)">${T`Çanta`} <span style="font-size:var(--fs-sm);color:${this.cargoLoad() > this.cargoCap() ? 'var(--danger)' : 'var(--text-muted)'}">${this.cargoLoad()}/${this.cargoCap()}</span></h3>`;
@@ -9918,7 +9954,8 @@ const Game = {
             state.player.inventory.forEach((item,i) => {
                 let canEquip = ['weapon','shield','armor','helmet','gloves','boots','horse'].includes(item.type);
                 let isUse = item.type === 'special' && item.id === 'boss_map';
-                html += `<div style="padding:0.8rem;background:rgba(0,0,0,0.3);border:1px solid var(--panel-border);border-radius:6px;width:120px;text-align:center;">
+                html += `<div style="padding:0.8rem;background:rgba(0,0,0,0.3);border:1px solid var(--panel-border);border-radius:6px;width:120px;text-align:center;"
+                ${canEquip ? `draggable="true" ondragstart="Game._eqDragIdx=${i}" ondragend="Game._eqDragIdx=null"` : ''}>
                 <div style="font-size:1.5rem">${item.icon||'📦'}</div>
                 <div style="font-weight:bold;font-size:var(--fs-md);margin-top:0.3rem">${T(item.name)}</div>
                 <div style="color:var(--text-muted);font-size:var(--fs-sm)">x${item.qty}</div>
@@ -9945,13 +9982,32 @@ const Game = {
         return bits.join(' · ');
     },
 
-    _eqSlot(label, slot, item) {
-        return `<div style="background:rgba(0,0,0,0.3);padding:0.8rem;border-radius:6px;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-size:var(--fs-xs);color:var(--text-muted)">${label}</div>
-        <div style="font-weight:bold">${item ? (item.icon||'')+' '+T(item.name) : T('Yok')}</div>
-        ${item ? `<div style="font-size:var(--fs-xs);color:#cbb26b">${this.itemNote(item)}</div>` : ''}</div>
-        ${item ? `<button class="btn" style="font-size:var(--fs-xs);padding:0.2rem 0.4rem" onclick="Game.unequipItem('${slot}')">${T`Çıkar`}</button>` : ''}
-        </div>`;
+    EQUIP_SLOTS: { helmet: { icon: '⛑️', label: 'Başlık' }, armor: { icon: '🎽', label: 'Zırh' },
+        weapon: { icon: '🗡️', label: 'Silah' }, shield: { icon: '🛡️', label: 'Kalkan' },
+        gloves: { icon: '🧤', label: 'Eldiven' }, boots: { icon: '🥾', label: 'Çizme' },
+        horse: { icon: '🐴', label: 'At' } },
+
+    // A drop-zone over the silhouette (style.css .equip-slot). Filled slots show the item and
+    // unequip on click; empty slots show a faint placeholder. The bag items are draggable and
+    // drop here (see the bag markup + _eqDrop).
+    _eqSlot(slot, item) {
+        let meta = this.EQUIP_SLOTS[slot] || { icon: '📦', label: slot };
+        let title = item ? T(item.name) + (this.itemNote(item) ? ' — ' + this.itemNote(item) : '')
+                         : T(meta.label);
+        let inner = item ? (item.icon || meta.icon) : `<span class="equip-slot-ph">${meta.icon}</span>`;
+        return `<div class="equip-slot${item ? ' filled' : ''}" data-slot="${slot}" title="${String(title).replace(/"/g, '&quot;')}"
+            ${item ? `onclick="Game.unequipItem('${slot}')"` : ''}
+            ondragover="event.preventDefault();this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="this.classList.remove('drag-over');Game._eqDrop('${slot}')">${inner}</div>`;
+    },
+    _eqDrop(slot) {
+        let i = this._eqDragIdx;
+        this._eqDragIdx = null;
+        if(i == null) return;
+        let item = state.player.inventory[i];
+        if(!item || item.type !== slot) return;
+        this.equipItem(i);
     },
     equipItem(idx) {
         let item = state.player.inventory[idx];

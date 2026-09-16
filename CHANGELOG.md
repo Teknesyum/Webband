@@ -3,6 +3,24 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.15.0 — Muharebe Merceği (2026-09-17)
+
+- **Savaş kamerası yakınlaştı.** Muharebe artık 3 kat yakından oynanıyor; hangi askerin
+  kiminle vuruştuğu net görünüyor. Sağ üstteki **minimap** tüm arenayı, dost ve düşman
+  noktalarını gösteriyor — yakın planı kaybetmeden sahayı okuyabiliyorsun.
+- **Beş kademeli zorluk.** "Çok Kolay"dan "Çok Zor"a beş kademe; aldığın ve verdiğin hasarı
+  birlikte ayarlıyor. Ayarlar menüsünden seçilir.
+- **Oklar hızlandı.** Ok ve yaylım artık 1,5 kat hızlı uçuyor — havada asılı kalıp yana
+  adımlanamıyor.
+- **Savaş yapay zekâsı akıllandı.** Birimler ulaşamadıkları hedefe saplanıp kalmıyor,
+  okçular önceliğini koruyor; düşük canlı piyade süvariye karşı boşuna kaçmıyor.
+- **Yedi yeni sözleşme.** Borç Tahsildarı, Kaçak Birlik, Gölgedeki Ferman, Tüccar Kervanı,
+  Kuşatma Erzakı, Rehine Değişimi ve çok adımlı "Sisteki Nokta" hikâyesi.
+- **Envanter kuşanması yenilendi.** Beş kare yerine insan + at silüeti; eşyayı çantadan
+  sürükleyip doğru yuvaya bırakarak kuşanıyorsun.
+- **Tam ekran ipucu.** Masaüstünde ilk haritada "F11 ile tam ekran" hatırlatması çıkar;
+  bir kez kapattığında bir daha görünmez.
+
 ## 1.14.0 — Ün ve Nişan (2026-09-17)
 
 - **Başarımlar geldi.** Ünden tımara, seviyeden esir sayısına 31 başarım; kazandığın an

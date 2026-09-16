@@ -1094,6 +1094,13 @@ function questSuite() {
         const b = Game.createNPC('Çapulcu Reisi', 'bandit', 6, '#8b0000');
         state.npcParties.push(b);
     }
+    // An active AI siege so siege_provisions has a besieged fief to offer (its `can` gate).
+    const siegeCity = LOCATIONS.find(l => l.type === 'city' && l.faction);
+    if(siegeCity) {
+        const sieger = Game.createNPC('Kuşatmacı', 'lord', 30, '#333');
+        sieger.siegeLocId = siegeCity.id;
+        state.npcParties.push(sieger);
+    }
     const bandNpc = band => { const n = Game.createNPC('Çete', 'bandit', 4, '#888'); n.band = band; state.npcParties.push(n); return n; };
 
     const drivers = {
@@ -1156,7 +1163,14 @@ function questSuite() {
             const v = loc(q.data.locId);
             state.player.x = v.x; state.player.y = v.y;
             for(let i = 0; i < q.data.need; i++) Quests.emit('battle_won', { questWave: q.id });
-        }
+        },
+        debt_collector: q => q.data.debtors.forEach(lordId => Quests.emit('talked_to', { lordId })),
+        rogue_company: q => Quests.emit('battle_won', { npcId: q.data.npcId }),
+        shadow_dispatch: q => { enter(q.data.locId); enter(q.data.homeId); },
+        merchant_convoy: q => enter(q.data.locId),
+        siege_provisions: q => { give('wheat', q.data.need); enter(q.data.locId); },
+        noble_hostage_exchange: q => { for(let i = 0; i < q.data.need; i++) state.player.prisoners.push({ id: 'nh' + i, level: 5 }); enter(q.data.locId); },
+        mist_point: q => { enter(q.data.locId); Quests.emit('battle_won', { questWave: q.id }); }
     };
     assert.ok(!QUESTS.fog_dot, 'retired hidden-location quest is still in the offer pool');
 

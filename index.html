@@ -289,6 +289,11 @@
     <!-- Duraklatma şeridi (#113): saat durduğunda görünür bir işaret olsun, yoksa
          oyuncu oyunun donduğunu sanar. Metnini Game.setPaused yazar. -->
     <div id="pause-bar" class="hidden"></div>
+    <!-- Tam ekran ipucu (#kenar menüleri): göster/gizle app.js işi, id burada hazır -->
+    <div id="f11-hint" class="hidden glass-panel">
+        <span id="f11-hint-text">🖥️ Tam ekran için <kbd>F11</kbd></span>
+        <button id="f11-hint-close" aria-label="Kapat">&times;</button>
+    </div>
     <!-- Modals -->
     <div id="modal-overlay" class="hidden">
         <div id="modal-content" class="glass-panel">

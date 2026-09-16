@@ -902,6 +902,210 @@ QUESTS.outpost_defense = {
     }
 };
 
+// --- MORE FIELD CONTRACTS (#106) — borç tahsili, av/temizlik, casusluk, eskort,
+// kuşatma erzakı, rehine değişimi. Same event surface as the block above.
+QUESTS.debt_collector = {
+    title: 'Borç Tahsildarı', givers: ['cunning', 'quarrelsome'], minRelation: 5, days: 16,
+    reward: { money: 1400, renown: 7, rel: 12 },
+    setup(q, giver) {
+        let pool = LORDS.filter(l => l.faction === giver.faction && l.id !== giver.id);
+        let debtors = pool.sort(() => Math.random() - 0.5).slice(0, 3).map(l => l.id);
+        q.data = { debtors, collected: [] };
+    },
+    offer(q) { return T`Üç soylu bana borçlu, hiçbiri ödemiyor. Sözle bastıramadım, belki sen bastırırsın.
+        Üçünü de bul, borcu hatırlat — kimin ne kadar utandığı beni ilgilendirmez.`; },
+    desc(q) { return T`Borçlu lordları sırayla ziyaret et ve tahsilatı hatırlat — <b>${q.data.collected.length}/${q.data.debtors.length}</b>.`; },
+    where(q) { let id = q.data.debtors.find(x => !q.data.collected.includes(x)); return id ? Quests.lordSeat(id) : null; },
+    on(q, ev, d) {
+        if(ev === 'talked_to' && q.data.debtors.includes(d.lordId) && !q.data.collected.includes(d.lordId)) {
+            q.data.collected.push(d.lordId);
+            Nobles.addRel(d.lordId, -2);
+            alert(T`${T(Nobles.lord(d.lordId).name)} borcunu hatırlayınca suratı asıldı ama ödedi. (${q.data.collected.length}/${q.data.debtors.length})`);
+        }
+        if(q.data.collected.length >= q.data.debtors.length) return 'done';
+    }
+};
+
+QUESTS.rogue_company = {
+    title: 'Kaçak Birlik', givers: ['martial', 'quarrelsome'], minRelation: 10, days: 20,
+    reward: { money: 850, renown: 16, rel: 14 },   // prestij ağırlıklı: para az, nam çok
+    can() { return state.npcParties.some(n => n.type === 'bandit' && n.size > 0); },
+    setup(q) {
+        let bands = state.npcParties.filter(n => n.type === 'bandit' && n.size > 0);
+        let b = bands[Math.floor(Math.random() * bands.length)];
+        q.data = { npcId: b ? b.id : null, npcName: b ? b.name : T('Kaçak Birlik') };
+    },
+    offer(q) { return T`Bayrağımı taşıyan bir birlik firar etti, şimdi kendi hesabına yağma yapıyor.
+        Bunu duyurmam yasak — utanç krallığa yeter. Bul onları, sessizce hallet.`; },
+    desc(q) { return T`Haritada <b>${T(q.data.npcName)}</b> birliğini bul ve dağıt; aşağıdaki yer birliğin
+        şu an dolaştığı civardır — birlik gezer, işaret de onunla kayar.`; },
+    where(q) {
+        let b = state.npcParties.find(n => n.id === q.data.npcId && n.size > 0);
+        if(!b) return null;
+        let near = LOCATIONS.slice().sort((x, y) => Game.dist(x, b) - Game.dist(y, b))[0];
+        return near ? near.id : null;
+    },
+    on(q, ev, d) { if(ev === 'battle_won' && d.npcId === q.data.npcId) return 'done'; }
+};
+
+QUESTS.shadow_dispatch = {
+    title: 'Gölgedeki Ferman', givers: ['cunning', 'martial'], minRelation: 15, days: 14,
+    reward: { money: 1300, renown: 12, rel: 14 },
+    can(giver) { return QUESTS.shadow_dispatch.foes(giver).length > 0; },
+    foes(giver) { return LOCATIONS.filter(l => l.type === 'city' && l.faction && l.faction !== giver.faction && Game.atWar(l.faction, giver.faction)); },
+    setup(q, giver) {
+        let pool = QUESTS.shadow_dispatch.foes(giver);
+        let c = pool[Math.floor(Math.random() * pool.length)];
+        let home = LOCATIONS.find(l => l.id === giver.homeLocId);
+        q.data = { locId: c.id, locName: c.name, homeId: giver.homeLocId, homeName: home ? home.name : '?', stage: 'infiltrate' };
+    },
+    offer(q) { return T`${q.data.locName} surlarının içinde bize yazılmış bir ferman var, kimin elinde olduğunu biliyorum.
+        Sokul, al, sıvış. Yakalanırsan seni tanımam — ama fermanı getirirsen krallık senin adını anar.`; },
+    desc(q) {
+        return q.data.stage === 'infiltrate'
+            ? T`<b>${T(q.data.locName)}</b> surlarına sokul ve fermanı ele geçir.`
+            : T`Ferman elinde — sınırı geçip <b>${T(q.data.homeName)}</b>'a dön, izini kaybettir.`;
+    },
+    where(q) { return q.data.stage === 'infiltrate' ? q.data.locId : q.data.homeId; },
+    on(q, ev, d) {
+        if(ev !== 'entered_location') return;
+        if(q.data.stage === 'infiltrate' && d.locId === q.data.locId) {
+            q.data.stage = 'extract';
+            alert(T('Ferman elinde. Şimdi sınırı sağ salim geçmen lazım.'));
+            Quests.render();
+            return;
+        }
+        if(q.data.stage === 'extract' && d.locId === q.data.homeId) return 'done';
+    }
+};
+
+QUESTS.merchant_convoy = {
+    title: 'Tüccar Kervanı', givers: ['goodnatured', 'cunning'], minRelation: 5, days: 12,
+    reward: { money: 1450, renown: 9, rel: 14 },
+    setup(q, giver) {
+        let pool = LOCATIONS.filter(l => l.faction === giver.faction && l.type === 'city' && l.id !== giver.homeLocId);
+        let c = pool[Math.floor(Math.random() * pool.length)] || LOCATIONS.find(l => l.id === giver.homeLocId) || LOCATIONS[0];
+        q.data = { locId: c.id, locName: c.name, ambushed: false, cleared: false };
+    },
+    offer(q) { return T`Kervanım <b>${q.data.locName}</b>'a mal götürecek. Yolun ortasında pusu kurulduğunu duydum ama nerede bilmiyorum.
+        Kervanla git, pusuya düşerlerse kurtar, sonunda kervanı sağ salim teslim et.`; },
+    desc(q) {
+        if(q.data.ambushed && !q.data.cleared) return T`Kervan pusuya düştü — saldıranları dağıt.`;
+        return T`Kervanla birlikte <b>${T(q.data.locName)}</b>'a doğru yol al; yolda pusu olabilir.`;
+    },
+    where(q) { return q.data.locId; },
+    day(q) {
+        if(q.data.ambushed || q.data.cleared) return;
+        if(Math.random() < 0.15) {
+            q.data.ambushed = true;
+            let n = Game.createNPC(T('Kervan Baskıncıları'), 'bandit', 5 + Math.floor(Math.random() * 6), '#8b0000');
+            n.x = state.player.x + (Math.random() - 0.5) * 200;
+            n.y = state.player.y + (Math.random() - 0.5) * 200;
+            n.targetX = state.player.x; n.targetY = state.player.y;
+            n.questWave = q.id;
+            state.npcParties.push(n);
+            alert(T('Kervanın önü kesildi! Silaha sarıl.'));
+        }
+    },
+    on(q, ev, d) {
+        if(ev === 'battle_won' && d.questWave === q.id) {
+            q.data.ambushed = false; q.data.cleared = true;
+            alert(T('Baskıncılar dağıtıldı, kervan yoluna devam ediyor.'));
+            return;
+        }
+        if(ev === 'entered_location' && d.locId === q.data.locId && !q.data.ambushed) return 'done';
+    }
+};
+
+QUESTS.siege_provisions = {
+    title: 'Kuşatma Erzakı', givers: ['martial', 'goodnatured'], minRelation: 10, days: 8,
+    reward: { money: 1000, renown: 13, rel: 16 },   // prestij ağırlıklı: kısa süre, çok nam
+    can(giver) { return QUESTS.siege_provisions.besieged(giver).length > 0; },
+    besieged(giver) {
+        let ids = state.npcParties.filter(n => n.siegeLocId).map(n => n.siegeLocId);
+        return LOCATIONS.filter(l => ids.includes(l.id) && l.faction === giver.faction);
+    },
+    setup(q, giver) {
+        let pool = QUESTS.siege_provisions.besieged(giver);
+        let c = pool[Math.floor(Math.random() * pool.length)];
+        q.data = { locId: c.id, locName: c.name, need: 15 };
+    },
+    offer(q) { return T`${q.data.locName} kuşatma altında, ambarları tükeniyor. <b>${q.data.need} birim yemek</b> bul,
+        muhasara hattını yarıp içeri sok. Çabuk ol, açlık kılıçtan hızlı öldürür.`; },
+    desc(q) {
+        let f = Quests.foodCount();
+        return T`<b>${T(q.data.locName)}</b>'a gir, çantanda <b>${f}/${q.data.need}</b> birim yemek olsun.`;
+    },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) {
+        if(ev !== 'entered_location' || d.locId !== q.data.locId) return;
+        if(Quests.foodCount() < q.data.need) { alert(T`Yeterince erzak yok. (${Quests.foodCount()}/${q.data.need})`); return; }
+        Quests.takeFood(q.data.need);
+        return 'done';
+    }
+};
+
+QUESTS.noble_hostage_exchange = {
+    title: 'Rehine Değişimi', givers: ['cunning', 'quarrelsome'], minRelation: 15, days: 16,
+    reward: { money: 1600, renown: 10, rel: 13 },
+    setup(q, giver) {
+        let pool = LOCATIONS.filter(l => l.type === 'city' && l.faction !== giver.faction);
+        let c = pool[Math.floor(Math.random() * pool.length)] || LOCATIONS[0];
+        q.data = { locId: c.id, locName: c.name, need: 3 };
+    },
+    offer(q) { return T`Düşman elimizdeki esirleri istiyor, karşılığında bizim adamlarımızı serbest bırakacaklar.
+        Soylu olmayan <b>${q.data.need} esiri</b> <b>${q.data.locName}</b> kapısına götür ve değiş tokuşu yap.`; },
+    desc(q) { return T`Soylu olmayan esirlerle <b>${T(q.data.locName)}</b>'a gir — <b>${Quests.prisonerCount()}/${q.data.need}</b>.`; },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) {
+        if(ev !== 'entered_location' || d.locId !== q.data.locId || Quests.prisonerCount() < q.data.need) return;
+        Quests.takePrisoners(q.data.need); return 'done';
+    }
+};
+
+// --- STORY CONTRACT (#105) — "Sisteki Nokta": ipucu (offer) → keşif (seek) →
+// karşılaşma (encounter, battle_won via questWave) → çözüm (turn-in + onDone lore).
+// Longer and stranger than a field contract on purpose; no `can()` gate — it always exists.
+QUESTS.mist_point = {
+    title: 'Sisteki Nokta', givers: [], minRelation: 20, days: 30,
+    reward: { money: 1200, renown: 20, rel: 18 },
+    setup(q, giver) {
+        let anchor = LOCATIONS[Math.floor(Math.random() * LOCATIONS.length)];
+        let px = anchor.x + (Math.random() - 0.5) * 700, py = anchor.y + (Math.random() - 0.5) * 700;
+        q.data = { stage: 'seek', locId: anchor.id, locName: anchor.name, px, py, npcId: null };
+    },
+    offer(q) { return T`"${q.data.locName} yakınlarında, sisin hiç dağılmadığı bir nokta var diyorlar.
+        Oraya giden dönmüş ama eskisi gibi konuşmuyor artık.<br><br>
+        Ben yaşlıyım, gidemem. Sen git — ne olduğunu öğren, dönebilirsen anlat."`; },
+    desc(q) {
+        if(q.data.stage === 'seek') return T`<b>${T(q.data.locName)}</b> civarını araştır — sisin dağılmadığı yeri bul.`;
+        if(q.data.stage === 'encounter') return T`Sisin içinden şekiller çıktı — üstüne git, ne olduklarını öğren.`;
+        return T`Nokta sustu. Dönüp anlatman gerek.`;
+    },
+    where(q) { return q.data.locId; },
+    on(q, ev, d) {
+        if(q.data.stage === 'seek' && ev === 'entered_location' && d.locId === q.data.locId) {
+            q.data.stage = 'encounter';
+            let n = Game.createNPC(T('Sisteki Gölgeler'), 'bandit', 6 + Math.floor(Math.random() * 4), '#6a5acd');
+            n.x = q.data.px; n.y = q.data.py;
+            n.targetX = state.player.x; n.targetY = state.player.y;
+            n.questWave = q.id;
+            state.npcParties.push(n);
+            q.data.npcId = n.id;
+            alert(T('Sis kalınlaşıyor. İçinden insan biçimleri sıyrılıp geliyor.'));
+            Quests.render();
+            return;
+        }
+        if(q.data.stage === 'encounter' && ev === 'battle_won' && d.questWave === q.id) {
+            q.data.stage = 'resolved';
+            return 'done';
+        }
+    },
+    onDone(q) {
+        alert(T('Gölgeler dağılınca sis de dağıldı, geriye ne kırık bir mühür ne de bir iz kaldı — sadece anlatacak bir hikaye.'));
+    }
+};
+
 const Quests = {
 
     active() { return state.player.quests; },

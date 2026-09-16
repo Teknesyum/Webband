@@ -18,6 +18,11 @@ const Battle = {
     // Deliberately NOT unit speed: slowing movement makes the field feel like mud.
     SWING_PACE: 1.6,
 
+    // Camera (#4): the field used to render at 1:1 — the whole arena visible at once, every
+    // unit tiny. Now zoomed in on the player; drawMinimap() compensates for the lost overview.
+    // A literal ~10x would put less than one melee range on screen, so this is tuned down for playability.
+    CAM_ZOOM: 3,
+
     // Rival suitor duel: 1-on-1, no group, no loot
     startDuel(lord) {
         this._duelParty = state.player.party;
@@ -145,6 +150,10 @@ const Battle = {
         this.grass = null;
         this.ground = null;
         this.currentCommand = 'charge';
+        // Camera (#4): recentered fresh every battle, otherwise it opens on wherever the
+        // previous fight's player unit died.
+        this.camZoom = this.CAM_ZOOM;
+        this.cam = { x: W / 2, y: H / 2 };
         // Commands aren't ready at the start of battle: each one becomes available
         // as an "opportunity" at its own random moment. The horn call comes from inside the battle, not a menu.
         // An order needs someone to obey it (#114). The duel and the arena empty the party
@@ -165,7 +174,9 @@ const Battle = {
         // Ambush (Game.checkAmbush): a band you failed to notice catches you out in the open
         this.ambushed = !!state.ambush; state.ambush = false;
         // Siege (#25): wall + breach terrain, a positional bonus for the defender. The plan comes from Game.SIEGE_PLANS.
+        // Reset every battle (#5): otherwise a siege's castle scene/banner bleeds into the next, unrelated field fight.
         this.siege = siegePlan ? { name: siegePlan.name, defBonus: siegePlan.defBonus, gaps: siegePlan.gaps } : null;
+        this.siegeBannerColor = null;
         if(this.siege) {
             let wx = Math.round(W * 0.66);
             let gaps = [{ y: H / 2, h: 74, gate: true }];
@@ -515,7 +526,8 @@ const Battle = {
         p.attackTimer = 0.3; // 300ms attack duration
         p.swingCd = this.swingCooldown();
         p.hasHit = false; // So it only hits a single target
-        p.angleToMouse = Math.atan2(Input.mouse.y - p.y, Input.mouse.x - p.x);
+        let wm = this.worldMouse();
+        p.angleToMouse = Math.atan2(wm.y - p.y, wm.x - p.x);
         this.swings.push({ x: p.x, y: p.y, angle: p.angleToMouse, life: 0.3 });
     },
 
@@ -545,11 +557,12 @@ const Battle = {
             return;
         }
         this.arrows--;
-        let a = Math.atan2(Input.mouse.y - p.y, Input.mouse.x - p.x);
+        let wm = this.worldMouse();
+        let a = Math.atan2(wm.y - p.y, wm.x - p.x);
         let moving = Math.abs(p.lastVx || 0) > 0.1 || Math.abs(p.lastVy || 0) > 0.1;
         let spread = (0.04 + (moving ? 0.10 : 0) + (p.type === 'cavalry' ? 0.08 : 0)) * (1 - Math.min(0.6, lv * 0.005));
         a += (Math.random() - 0.5) * spread * 2;
-        let speed = 320;
+        let speed = 480;   // 1.5x (#118): arrows used to hang in the air long enough to sidestep
         this.projectiles.push({
             x: p.x + Math.cos(a) * 12, y: p.y + Math.sin(a) * 12,
             vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
@@ -941,7 +954,7 @@ const Battle = {
                 Input.aimSync(u);   // on touch, aim comes from the virtual stick's direction (#65)
                 // Block: right click or Shift. Can't swing while blocking, walks slowly.
                 u.blocking = u.hp > 0 && !u.isAttacking && (this.blockHeld || !!Input.keys['shift']);
-                if(u.blocking) u.blockAngle = Math.atan2(Input.mouse.y - u.y, Input.mouse.x - u.x);
+                if(u.blocking) { let wm = this.worldMouse(); u.blockAngle = Math.atan2(wm.y - u.y, wm.x - u.x); }
                 if(u.blockFlash > 0) u.blockFlash -= dt;
                 if(u.bowTimer > 0) u.bowTimer -= dt;
                 // The block penalty is now the same on both sides (the AI slows too) and 0.65 instead
@@ -1015,15 +1028,31 @@ const Battle = {
             u.retargetCd = (u.retargetCd || 0) - dt;
             let closest = u.tgtId ? this._byId[u.tgtId] : null;
             if(closest && closest.hp <= 0) closest = null;
+            // Stuck target (#109): if the current target hasn't gotten meaningfully closer since
+            // the last retarget cycle it's likely unreachable (pinned behind a rock/wall/crowd) —
+            // sit it out for a few seconds instead of grinding against it forever.
+            if(closest && u.retargetCd <= 0 && u._tgtLastD !== undefined) {
+                let curD = Math.hypot(closest.x - u.x, closest.y - u.y);
+                if(curD > 60 && curD > u._tgtLastD - 8) { u.avoidId = closest.id; u.avoidUntil = this.battleTime + 3; closest = null; }
+            }
             if(!closest || u.retargetCd <= 0) {
-                let minD2 = Infinity;
+                // `fallback` ignores the avoid list: a unit must never end up with no target at all
+                // just because the one enemy left standing was marked stuck (this bit a 1-on-1 badly).
+                let minScore = Infinity, pick = null, fallbackD2 = Infinity, fallback = null;
                 this.units.forEach(e => {
                     if(e.hp<=0 || e.isPlayerTeam === u.isPlayerTeam) return;
                     let dx = e.x-u.x, dy = e.y-u.y, d2 = dx*dx + dy*dy;
-                    if(d2 < minD2) { minD2 = d2; closest = e; }
+                    if(d2 < fallbackD2) { fallbackD2 = d2; fallback = e; }
+                    if(e.id === u.avoidId && this.battleTime < u.avoidUntil) return;
+                    // Role priority: a melee unit leans toward running down a nearby archer instead
+                    // of always taking the geometrically closest body — a light nudge, not a hard rule.
+                    let score = (u.type !== 'archer' && e.type === 'archer') ? d2 * 0.7 : d2;
+                    if(score < minScore) { minScore = score; pick = e; }
                 });
+                closest = pick || fallback;
                 u.tgtId = closest ? closest.id : null;
                 u.retargetCd = 0.3 + Math.random()*0.2;
+                u._tgtLastD = closest ? Math.hypot(closest.x-u.x, closest.y-u.y) : undefined;
             }
             let minD = closest ? Math.sqrt(Math.pow(closest.x-u.x,2)+Math.pow(closest.y-u.y,2)) : Infinity;
 
@@ -1080,7 +1109,7 @@ const Battle = {
                         } else {
                             if(u.atkCd <= 0) {
                                 u.atkCd = (1.4 + Math.random()*0.3) * this.SWING_PACE;
-                                let arrowSpeed = 250;
+                                let arrowSpeed = 375;   // 1.5x (#118): arrows used to hang in the air long enough to sidestep
                                 let tX = closest.x, tY = closest.y;
                                 if(Math.random() > 0.5) { // 50% predictive aim
                                     let timeToHit = finalDist / arrowSpeed;
@@ -1105,6 +1134,24 @@ const Battle = {
                         u.x += dx*r; u.y += dy*r;
                     }
                 }
+                return;
+            }
+
+            // Low-HP retreat tendency (#109): a badly hurt foot soldier sometimes buys itself room
+            // instead of trading blows to the death — archers already do this via their own kite,
+            // above. Rerolled every ~1-1.5s so it reads as a tendency, not a permanent flee.
+            // Against a mounted enemy retreating on foot is futile — it can't outrun a horse and just
+            // gives up its own swing for nothing, which used to tank foot's win rate against cavalry.
+            if(!u.beast && u.type !== 'cavalry' && u.hp < u.maxHp * 0.25 && !(closest && closest.mounted)) {
+                u.retreatCd = (u.retreatCd || 0) - dt;
+                if(u.retreatCd <= 0) { u.retreatCd = 1 + Math.random() * 0.6; u.wantsRetreat = Math.random() < 0.5; }
+            } else u.wantsRetreat = false;
+            if(u.wantsRetreat && closest && finalDist < 90) {
+                let dx = u.x - closest.x, dy = u.y - closest.y;
+                let len = Math.max(1, Math.sqrt(dx*dx + dy*dy));
+                let rs = uSpeed * 0.75;
+                u.vx = (dx/len)*rs; u.vy = (dy/len)*rs;
+                u.x += u.vx*dt; u.y += u.vy*dt;
                 return;
             }
 
@@ -1172,7 +1219,38 @@ const Battle = {
         });
 
         this.separate();
+        this.updateCamera(dt);
         this.checkEnd();
+    },
+
+    // Camera (#4): smoothly follows the player (or the first living ally if the player is
+    // already gone), clamped so it never shows past the arena's own edges.
+    updateCamera(dt) {
+        let zoom = this.camZoom || 1;
+        if(zoom <= 1 || !this.canvas) return;
+        let p = (this._byId && this._byId['player']) || this.units.find(u => u.isPlayerTeam && u.hp > 0) || this.units[0];
+        if(!p) return;
+        if(!this.cam) this.cam = { x: p.x, y: p.y };
+        let t = Math.min(1, dt * 6);
+        this.cam.x += (p.x - this.cam.x) * t;
+        this.cam.y += (p.y - this.cam.y) * t;
+        let W = this.canvas.width, H = this.canvas.height;
+        let halfW = W / (2 * zoom), halfH = H / (2 * zoom);
+        this.cam.x = Math.max(halfW, Math.min(W - halfW, this.cam.x));
+        this.cam.y = Math.max(halfH, Math.min(H - halfH, this.cam.y));
+    },
+
+    // Screen mouse -> world coordinates. On touch, Input.aimSync (app.js) already writes
+    // Input.mouse in world space (a fixed offset from the player); only the desktop path, which
+    // writes canvas-pixel coordinates, needs the camera zoom/pan undone (#4).
+    worldMouse() {
+        if(Input.aim || Input.stick) return { x: Input.mouse.x, y: Input.mouse.y };
+        let zoom = this.camZoom || 1;
+        if(zoom <= 1 || !this.cam || !this.canvas) return { x: Input.mouse.x, y: Input.mouse.y };
+        return {
+            x: this.cam.x + (Input.mouse.x - this.canvas.width / 2) / zoom,
+            y: this.cam.y + (Input.mouse.y - this.canvas.height / 2) / zoom
+        };
     },
 
     // Two armies used to walk straight through each other and pile onto the same pixels: you could
@@ -1480,6 +1558,15 @@ const Battle = {
         let now = performance.now();
 
         ctx.clearRect(0,0,W,H);
+
+        // Camera (#4): everything from the ground to floating damage text is drawn inside this
+        // transform. Screen-space stuff (vignette, HUD, minimap) is drawn after ctx.restore().
+        let zoom = this.camZoom || 1, cam = this.cam || { x: W/2, y: H/2 };
+        ctx.save();
+        ctx.translate(W/2, H/2);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-cam.x, -cam.y);
+
         ctx.drawImage(this.ground, 0, 0);
 
         // Water shimmer (the only animated terrain effect)
@@ -1581,6 +1668,8 @@ const Battle = {
         });
         ctx.globalAlpha = 1;
 
+        ctx.restore();   // back to screen space (#4) — vignette, HUD and minimap are not zoomed
+
         // Vignette
         if(!this._vignette || this._vignette.w !== W) {
             let vg = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.35, W/2, H/2, Math.max(W,H)*0.72);
@@ -1591,6 +1680,38 @@ const Battle = {
         ctx.fillStyle = this._vignette.g; ctx.fillRect(0,0,W,H);
 
         this.drawHud(ctx, W, H, now);
+        this.drawMinimap(ctx, W, H);
+    },
+
+    // Minimap (#4): the zoomed camera can only show a slice of the field, so a small overhead
+    // view sits in the corner — the whole arena scaled down, friendly dots one color, enemies
+    // red, the player brighter, plus an outline of what the camera currently shows. No gradient:
+    // a flat fill, baked once per frame like everything else in the HUD.
+    drawMinimap(ctx, W, H) {
+        if(!this.units.length) return;
+        let mw = Math.min(150, W * 0.28), mh = mw * 0.62;
+        let mx = W - mw - 12, my = 12;
+        let ww = this.canvas.width, wh = this.canvas.height;
+        let sx = mw / ww, sy = mh / wh;
+        ctx.save();
+        ctx.fillStyle = 'rgba(10,14,10,0.6)';
+        ctx.fillRect(mx, my, mw, mh);
+        ctx.strokeStyle = 'rgba(200,170,90,0.5)'; ctx.lineWidth = 1;
+        ctx.strokeRect(mx, my, mw, mh);
+        this.units.forEach(u => {
+            if(u.hp <= 0) return;
+            let px = mx + u.x * sx, py = my + u.y * sy;
+            ctx.fillStyle = u.id === 'player' ? '#ffcc00' : (u.isPlayerTeam ? '#4fa8ff' : '#ff5a4a');
+            ctx.beginPath(); ctx.arc(px, py, u.id === 'player' ? 2.6 : 1.6, 0, Math.PI*2); ctx.fill();
+        });
+        let zoom = this.camZoom || 1;
+        if(zoom > 1.02 && this.cam) {
+            let halfW = ww / (2*zoom), halfH = wh / (2*zoom);
+            let vx = mx + (this.cam.x - halfW) * sx, vy = my + (this.cam.y - halfH) * sy;
+            ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1;
+            ctx.strokeRect(vx, vy, halfW * 2 * sx, halfH * 2 * sy);
+        }
+        ctx.restore();
     },
 
     // All the unit emoji used in battle. warmUp() bakes these before the battle
