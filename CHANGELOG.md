@@ -3,6 +3,18 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.20.0 — Dünya Nefes Alıyor (2026-09-17)
+
+- **Mareşal seferleri seyrekleşti.** Lordlar artık her fırsatta sefere çıkıp birbirini bozguna
+  uğratmıyor; sefer sıklığı ve bekleme süresi ayarlandı, kuşatmalar biraz kısaldı. Dünya daha
+  durağan: lordlar topraklarını daha uzun tutuyor (200 günde fetih 4–10, sefer 22–31).
+- **Artık her eşya pazarda satılabiliyor.** Sadece ticaret malları değil; silah, zırh, at, yiyecek
+  ne aldıysan geri satabilirsin. Yalnızca boss ödülleri ve Savaş Tanrısı Nişanı gibi kazanılan
+  eşyalar satılmaz.
+- **Çarpışan lorda destek (#32).** Yakınında bir lord haydutlarla ya da düşman bir lordla kapışıyorsa
+  yanına varıp destek verebilirsin — adamları düşmanı çoktan hırpalamış olur, karşına daha az kişi
+  çıkar; kazanırsan o lord ve krallığı sana minnettar kalır.
+
 ## 1.19.0 — Harita Odaklı Arayüz (2026-09-17)
 
 - **Harita artık tüm ekranı kaplıyor (#40).** Üst çubuk ve kenar menüsü haritadan yer çalmıyor;

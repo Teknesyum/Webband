@@ -741,6 +741,14 @@ speed (66 → 105). Trade goods are bought and sold at the market (sell price ×
 measured, a 20-person army eats 20 grain a day: it used to cost ~270₺, now **40₺** (the same
 army's wages are 40₺). Trade goods (iron, velvet, ale, salt) weren't discounted — those are
 carried for profit. Caravans carry cartloads of food for this reason (see "Trade parties").
+**Everything you can buy, you can sell back (#26, 1.20.0).** The market sell list used to show
+`item.type === 'trade'` only, so a bought sword or horse had no resale path. It now shows every
+inventory item that isn't `unique`, `unsellable`, or `type: 'special'` — i.e. the boss drops and
+the earned key items (`boss_map`, `lvl51_token`) stay unsellable, everything else resells at the
+usual ×0.7. `sellItem`'s guard mirrors the same predicate. Equipped gear never appears in the
+list: equipping moves the item out of `inventory` into `state.player.equipment[slot]`, so there's
+nothing to accidentally sell out from under yourself.
+
 Quantity is **1x / x5 / All** (`Game.qtyBtns`/`qtyBtn`, #103). `.btn` is a block, so two of them
 loose in an `<li>` wrapped and the x5 fell to its own line; an `inline-flex` wrapper with
 `flex-wrap: nowrap` is what keeps the three side by side. **"All" is just a big count** —
@@ -1292,6 +1300,25 @@ excluded).
   convoy −0.5).
 - News lands in `state.warLog` (no notification pops up, read it from the diplomacy screen).
 
+### Fighting beside a clashing lord (#32)
+There is **no npc-vs-npc battle engine**; a "clash" is defined at the moment of encounter, not
+simulated. `Game.clashContext(npc)` looks for another party within **`CLASH_RANGE` = 260 units**
+that is `npc`'s enemy — a lord and a bandit, or two lords whose kingdoms are at war
+(`atWar`). From that pair it picks the **ally** (a lord the player is at peace with and not at war
+with) and the **foe** (a bandit, or a lord of a faction the player is at war with). The most
+common case in the wild is a peaceable lord being hunted by a bandit band, which happens
+constantly via `lordBanditTick`.
+
+When `triggerEncounter` sees a clash (and it isn't an ambush/raid), it skips the plain talk /
+battle path and shows `showAssistModal` instead: *lend a hand* or *stay out*. Choosing to help
+calls `Game.assistFight(allyLordId, foeId)` — it records `state.player.assistAlly =
+{lordId, faction}`, points `currentEncounterNpcId` at the foe, and starts the battle against the
+foe **at 70% of its roster** (`Math.max(3, size × 0.7)`): the ally's men have already worn them
+down. `endBattle` grants the reward only on a win — **+6 relation** with the ally lord, **+2**
+with every lord of their faction, **+4 renown**, and a gratitude line in the victory summary;
+`assistAlly` is cleared on a loss so a defeat earns nothing. It's transient battle state, so no
+save migration is needed.
+
 **Bands now go hunting (#38)**: inside `updateNPCs`, a bandit party not busy with the player
 (`!notices`) heads for the nearest trade party within **1200 units**. The chase condition is
 the same as the raid's strength condition: `convoy strength × (caravan 1.15 / convoy 0.5) <
@@ -1742,16 +1769,18 @@ Diplomacy isn't just "who's at war with whom" anymore: kingdoms **raise armies**
 **Campaign** (`state.campaigns[faction]` =
 `{marshalId, marshalName, targetLocId, day, pledged, helped}`, `Game.campaignTick()` runs
 daily):
-- A kingdom at war has a 25% daily chance of picking a **marshal** (`pickMarshal`: the biggest
-  lord party on the map, excluding the king) and giving them the nearest enemy town/keep as a
-  target.
+- A kingdom at war has a **`CAMPAIGN_CHANCE` = 15%** daily chance of picking a **marshal**
+  (`pickMarshal`: the biggest lord party on the map, excluding the king) and giving them the
+  nearest enemy town/keep as a target. (Was 25% before 1.20.0 — lords were perpetually on
+  campaign and routing each other, so the world never settled.)
 - **`updateNPCs` no longer scatters the army**: while a lord of a campaigning kingdom picks a
   new target, there's a 70% chance they walk toward the marshal's target (it used to be 35%
   chance of a random one of three enemy settlements). The army massing then resolves into a
   siege via `warTick`'s own rule — the siege code itself wasn't touched.
-- A campaign ends via `endCampaign` once the target falls / peace happens / 25 days pass; the
-  same kingdom can't open a new campaign for **3 days** (`state.campaignCooldown`) — otherwise
-  a finished campaign's reward modal got clobbered by the next call-to-arms modal.
+- A campaign ends via `endCampaign` once the target falls / peace happens / **`CAMPAIGN_MAX_DAYS`
+  = 16 days** pass; the same kingdom can't open a new campaign for **`CAMPAIGN_COOLDOWN` = 7 days**
+  (`state.campaignCooldown`) — otherwise a finished campaign's reward modal got clobbered by the
+  next call-to-arms modal. (Were 25 days / 3 days before 1.20.0.)
 
 **Campaign call** (if you're a vassal): the `summonToArms` modal appears with the king's name,
 the marshal, and the target.
@@ -1779,10 +1808,11 @@ Two rules brought this back: `warTick` never lets a faction's **last** town/keep
 and a kingdom down to two fiefs has a 25% daily chance of signing peace after 5 days in
 `diplomacyTick` (normally 15 days / 6%).
 
-Measured (`node tools/sim.js --days 200 --seed 1-5`, playerless): **5–15 conquests**,
-29–39 campaigns (~every 6 days), 1–5 alliances, 17–27 peace treaties,
-**no kingdom wiped out in any round**. Before campaigns, the same sim produced 8 conquests —
-the front got noticeably more active without the map collapsing.
+Measured (`node tools/sim.js --days 200 --seed 1-5`, playerless, **1.20.0**): **4–10 conquests**,
+22–31 campaigns, 0–2 alliances, 16–22 peace treaties, **no kingdom wiped out in any round**
+(`docs/measurements/2026-09-17-world-sim.md`). Before the 1.20.0 campaign tuning the same sim
+gave 5–15 conquests / 29–39 campaigns; lords now hold their lands longer instead of being
+perpetually routed. Before campaigns existed at all, 8 conquests.
 
 ### Sieges & founding a kingdom (#25)
 A siege isn't a field battle you open with one button, it's a **three-stage** affair: camp →

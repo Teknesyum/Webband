@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.19.0', date: '2026-09-17', name: 'Harita Odaklı Arayüz' };  // the version name is not translated
+const VERSION = { no: '1.20.0', date: '2026-09-17', name: 'Dünya Nefes Alıyor' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -2912,6 +2912,46 @@ const Game = {
         return !!((mine && mine.isNpc && mine.id === npc.id) || npc.playerTargetId === 'player');
     },
 
+    // Assisting a clashing lord (#32). No npc-vs-npc combat engine exists; a clash is defined
+    // at the moment of encounter by proximity + enmity: two nearby parties that are enemies of
+    // each other (a lord and a bandit, or two lords whose kingdoms are at war). The ally is the
+    // lord the player is at peace with, the foe the one the player can lawfully attack.
+    CLASH_RANGE: 260,
+    clashContext(npc) {
+        let enemyOf = (a, b) =>
+            (a.type === 'bandit' && b.lordId) || (b.type === 'bandit' && a.lordId)
+            || (a.lordId && b.lordId && this.atWar(a.faction, b.faction));
+        let other = state.npcParties.find(n => n.id !== npc.id && n.size > 0
+            && this.dist(npc, n) < this.CLASH_RANGE && enemyOf(npc, n));
+        if(!other) return null;
+        let pair = [npc, other];
+        let ally = pair.find(p => p.lordId && !this.isHostile(p) && !this.atWar(this.playerFaction(), p.faction));
+        let foe = pair.find(p => p !== ally && (p.type === 'bandit' || this.atWar(this.playerFaction(), p.faction)));
+        if(!ally || !foe || ally === foe) return null;
+        return { ally, foe };
+    },
+    showAssistModal(clash) {
+        let ally = clash.ally, foe = clash.foe;
+        let reduced = Math.max(3, Math.round(foe.size * 0.7));
+        this.showModal(`<h3>${T`⚔️ Çarpışma`}</h3>
+            <p style="margin-top:0.5rem">${T`${this.npcName(ally)} ile ${this.npcName(foe)} kapışıyor.`}</p>
+            <p style="color:var(--text-muted);font-size:var(--fs-sm);margin-top:0.3rem">${T`Yanında savaşa girersen adamları düşmanı çoktan hırpalamış olur — karşına ${reduced} kişi çıkar. Kazanırsan lord sana minnettar kalır.`}</p>
+            <div style="display:flex;gap:0.6rem;margin-top:1rem;flex-wrap:wrap;justify-content:center">
+            <button class="btn primary" onclick="Game.assistFight('${ally.lordId || ''}','${foe.id}')">${T`🤝 Destek Ver`}</button>
+            <button class="btn" style="border-color:#cc8800;color:#cc8800" onclick="Game.closeModal(); state.encounterCooldown = 5;">${T`Karışma`}</button>
+            </div>`);
+    },
+    assistFight(allyLordId, foeId) {
+        this.closeModal();
+        let foe = state.npcParties.find(n => n.id === foeId);
+        if(!foe) return;
+        let ally = allyLordId ? Nobles.lord(allyLordId) : null;
+        state.player.assistAlly = ally ? { lordId: ally.id, faction: ally.faction } : null;
+        state.player.currentEncounterNpcId = foe.id;
+        let reduced = Math.max(3, Math.round(foe.size * 0.7));
+        Battle.start(foe.name, reduced, null, foe.faction || '', null, false, foe.band || '');
+    },
+
     // Ambush in the forest: a band/pack hidden among the trees jumps you as you approach.
     // The chance to notice depends on Spotting + Pathfinding; if you notice, it's a normal
     // encounter, if you don't, the battle starts with you surrounded.
@@ -3312,6 +3352,17 @@ const Game = {
         if(npc.trade) {
             let live = state.npcParties.find(n => n.id === npc.id);
             if(live) return this.meetTrader(live);
+        }
+
+        // Two parties locked in a clash nearby (#32): offer to fight beside the friendly side
+        // instead of the plain talk/battle path.
+        if(!ambush) {
+            let clash = this.clashContext(npc);
+            if(clash) {
+                state.player.currentEncounterNpcId = null;
+                state.encounterCooldown = 4;
+                return this.showAssistModal(clash);
+            }
         }
 
         // Running into a noble who isn't an enemy is a chance to talk, not a battle.
@@ -6955,7 +7006,7 @@ const Game = {
         });
         let sell = document.getElementById('market-sell'); sell.innerHTML = '';
         state.player.inventory.forEach(item => {
-            if(item.type === 'trade') {
+            if(!item.unique && !item.unsellable && item.type !== 'special') {
                 let price = this.marketPrice(item.id, true);
                 let li = document.createElement('li'); li.style.marginBottom = '0.5rem';
                 li.id = 'mrow-sell-' + item.id;
@@ -7631,7 +7682,7 @@ const Game = {
         let idx = state.player.inventory.findIndex(i => i.id === id);
         if(idx === -1) return;
         let item = state.player.inventory[idx];
-        if(item.type !== 'trade') { this.sfx('error'); return alert(T('Bu eşya pazarda satılmıyor.')); }
+        if(item.unique || item.unsellable || item.type === 'special') { this.sfx('error'); return alert(T('Bu eşya pazarda satılmıyor.')); }
         let can = Math.min(n, item.qty), gain = 0;
         // What you sell enters the market's stock: each unit sold lowers the next one's price.
         for(let i = 0; i < can; i++) {
@@ -8330,6 +8381,9 @@ const Game = {
     // A kingdom at war picks a marshal and marches on a single target: lord parties
     // no longer scatter to random enemy settlements, the army musters (updateNPCs).
     // A vassal player is summoned to the campaign — pledging and not showing up is the costliest option.
+    CAMPAIGN_CHANCE: 0.15,     // daily per-faction chance a marshal musters — was 0.25, too frequent (#24)
+    CAMPAIGN_COOLDOWN: 7,      // days a faction rests between campaigns — was 3
+    CAMPAIGN_MAX_DAYS: 16,     // a campaign dragging on past this is disbanded — was 25 (sieges felt endless)
     pickMarshal(f) {
         let ps = state.npcParties.filter(n => n.lordId && n.faction === f && n.size > 0);
         // The king carries the banner, the marshal's post goes to another lord
@@ -8342,15 +8396,15 @@ const Game = {
             let loc = LOCATIONS.find(l => l.id === c.targetLocId);
             // Counts if you marched with the army — sampled once a day
             if(c.pledged && loc && this.dist(state.player, loc) < 1200) c.helped = true;
-            if(!loc || !this.atWar(f, loc.faction) || state.time.day - c.day > 25) { this.endCampaign(f); continue; }
+            if(!loc || !this.atWar(f, loc.faction) || state.time.day - c.day > this.CAMPAIGN_MAX_DAYS) { this.endCampaign(f); continue; }
             // The campaign marker stays on the map (Nobles.drawMarkers clears it after 3 days, refreshed daily)
             if(c.pledged) state.knownLocations['campaign'] =
                 { x: loc.x, y: loc.y, radius: 200, day: state.time.day, name: T`Sefer: ${T(loc.name)}` };
         }
         Object.keys(FACTIONS).forEach(f => {
             // A new campaign summons shouldn't stomp the finished one's reward modal
-            if(state.time.day - (state.campaignCooldown[f] || -99) < 3) return;
-            if(state.campaigns[f] || !this.warsOf(f).length || Math.random() > 0.25) return;
+            if(state.time.day - (state.campaignCooldown[f] || -99) < this.CAMPAIGN_COOLDOWN) return;
+            if(state.campaigns[f] || !this.warsOf(f).length || Math.random() > this.CAMPAIGN_CHANCE) return;
             // The player holds the post (#69): the banner is theirs, no lord is picked
             let mine = state.marshalOf === f;
             let marshal = mine ? state.player : this.pickMarshal(f);

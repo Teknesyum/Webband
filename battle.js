@@ -2426,7 +2426,16 @@ const Battle = {
             }
 
             // Remove the defeated NPC from the map
-            let nobleTaken = null, cargoTxt = '';
+            let nobleTaken = null, cargoTxt = '', assistTxt = '';
+
+            // Fought beside a clashing lord (#32): the ally and their kingdom warm to you
+            if(state.player.assistAlly) {
+                let a = state.player.assistAlly; state.player.assistAlly = null;
+                if(a.lordId) Nobles.addRel(a.lordId, 6);
+                if(a.faction) LORDS.filter(l => l.faction === a.faction).forEach(l => Nobles.addRel(l.id, 2));
+                Game.gainRenown(4);
+                assistTxt = T`Yanında dövüştüğün lord sana minnettar — itibarın arttı.`;
+            }
             if(state.player.currentEncounterNpcId) {
                 let beaten = state.npcParties.find(n => n.id === state.player.currentEncounterNpcId);
                 Quests.emit('battle_won', {
@@ -2491,6 +2500,7 @@ const Battle = {
                     ${bossTxt ? `<p style="margin-top:0.8rem;color:#e0b0b0">💀 ${bossTxt}</p>` : ''}
                     ${cargoTxt ? `<p style="margin-top:0.8rem"><b>${T`Yük Ganimeti:`}</b> <span style="color:#e0b062">${cargoTxt}</span> 🐪</p>` : ''}
                     ${nobleTaken ? `<p style="margin-top:0.8rem;color:#e59b3d"><b>${T`👑 ${nobleTaken} esir alındı!`}</b> <span style="font-size:var(--fs-sm);color:var(--text-muted)">${T`Grup ekranından fidye iste ya da salıver.`}</span></p>` : ''}
+                    ${assistTxt ? `<p style="margin-top:0.8rem;color:#9fe0a0">🤝 ${assistTxt}</p>` : ''}
                 </div>
                 <button class="btn primary" style="font-size:1.2rem;padding:0.8rem 2rem;box-shadow:0 0 15px rgba(255,170,0,0.4);border-radius:8px" onclick="Game.closeModal(); Game.checkLevelUp(); Game.updateTopBar()">${T`Kazanımları Al ve İlerle`}</button>
             </div>`;
@@ -2506,6 +2516,7 @@ const Battle = {
             else { this._bossWin = null; Game.showModal(resultHtml); }
         } else {
             // We lost the battle — taken prisoner.
+            state.player.assistAlly = null;   // no gratitude for a fight you lost (#32)
             // Renown loss must be computed before the party disbands: the strength ratio comes from it.
             let epow = this.units.filter(u => !u.isPlayerTeam).reduce((a, u) => a + (u.level || 1) + 1, 0);
             let renownLost = this.isBossFight ? 0 : Game.defeatRenown(epow);

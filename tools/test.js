@@ -1573,6 +1573,30 @@ test('world battle: a lord hunts and disperses a nearby outlaw band', () => {
     assert.ok(g.state.npcParties.some(n => n.id === lord.id && n.size < 80), 'the winning lord took no losses');
 });
 
+test('assist: a nearby lord+bandit clash offers a support fight the player can win credit for', () => {
+    const g = H.world({ seed: 24 });
+    const { Game, state } = g;
+    const lord = state.npcParties.find(n => n.lordId);
+    const band = state.npcParties.find(n => n.type === 'bandit');
+    lord.x = 4500; lord.y = 4500; lord.size = 40;
+    band.x = 4600; band.y = 4500; band.size = 12; band.band = 'bandit';
+    state.npcParties = [lord, band];
+    state.player.vassalOf = null;
+    const clash = Game.clashContext(lord);
+    assert.ok(clash, 'no clash was detected between a peaceable lord and a bandit at his side');
+    assert.strictEqual(clash.ally.id, lord.id, 'the friendly lord was not chosen as the ally');
+    assert.strictEqual(clash.foe.id, band.id, 'the bandit was not chosen as the foe');
+    // a far-off bandit is not a clash
+    band.x = 9000; band.y = 9000;
+    assert.strictEqual(Game.clashContext(lord), null, 'a distant bandit still counted as a clash');
+    // the ally reward is granted only on a won assist battle
+    band.x = 4600; band.y = 4500;
+    Game.assistFight(lord.lordId, band.id);
+    assert.ok(state.player.assistAlly && state.player.assistAlly.lordId === lord.lordId,
+        'assistFight did not record which ally to reward');
+    g.Battle.active = false;
+});
+
 test('lord balance: every spawn and daily force target is reduced by ten percent', () => {
     const gl = H.world({ seed: 25 });
     const { Game, state } = gl;
