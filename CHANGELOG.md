@@ -3,6 +3,16 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.19.0 — Harita Odaklı Arayüz (2026-09-17)
+
+- **Harita artık tüm ekranı kaplıyor (#40).** Üst çubuk ve kenar menüsü haritadan yer çalmıyor;
+  ikisi de haritanın üstünde yarı saydam cam paneller olarak yüzüyor, üzerlerine gelince tam
+  opak oluyor. Kenar menüsü dikey bir ikon şeridine indi, haritanın ortası her zaman açık.
+- **Mobilde de harita tam ekran.** Telefonda menü alt kenara yatay şerit olarak iniyor, üst
+  çubuk üstte tek satır kalıyor — arada kalan her piksel harita.
+- **Uygulama-içi tam ekran düğmesi (⛶).** F11'in olmadığı telefonlarda da tek dokunuşla tam
+  ekrana geçilir; düğme, tam ekran durumuna göre simge değiştirir.
+
 ## 1.18.0 — Bosslar ve Nişanlar (2026-09-17)
 
 - **Dört benzersiz boss haritada beliriyor (#38).** Namın yükseldikçe Kurt Ana, Bozkır Hanı,

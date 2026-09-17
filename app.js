@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.18.0', date: '2026-09-17', name: 'Bosslar ve Nişanlar' };  // the version name is not translated
+const VERSION = { no: '1.19.0', date: '2026-09-17', name: 'Harita Odaklı Arayüz' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -900,6 +900,15 @@ const Game = {
             if(e.target.id === 'modal-overlay') e.preventDefault();
         });
         window.addEventListener('resize', () => this.resizeCanvases());
+        // Fullscreen button (#40): hide it where the API is missing, flip its icon with the state.
+        let fsBtn = document.getElementById('fs-btn');
+        if(fsBtn) {
+            if(!document.documentElement.requestFullscreen) fsBtn.style.display = 'none';
+            document.addEventListener('fullscreenchange', () => {
+                let ico = document.getElementById('fs-ico');
+                if(ico) ico.textContent = document.fullscreenElement ? '🗗' : '⛶';
+            });
+        }
 
         // Initialize village volunteers
         LOCATIONS.forEach(loc => {
@@ -4692,6 +4701,9 @@ const Game = {
         // overlapped each other. Both are hidden during battle; nobody taps them on a screen
         // that isn't being played anyway.
         document.body.classList.toggle('in-battle', screenId === 'battle');
+        // The map fills the viewport with the chrome floating over it as glass edge panels (#40);
+        // other views keep the ordinary flow layout. resizeCanvases() below sees the new box.
+        document.body.classList.toggle('view-map', screenId === 'map');
         // On a narrow screen, quests sit behind "⋯ More": that button gets marked so it shows as selected
         let more = document.querySelector('.sb-more');
         if(more) more.classList.toggle('active', screenId === 'quests');
@@ -4740,6 +4752,15 @@ const Game = {
             if(close) close.onclick = () => { localStorage.setItem('f11hint', 'off'); el.classList.add('hidden'); };
             document.addEventListener('fullscreenchange', () => { if(document.fullscreenElement) el.classList.add('hidden'); });
         }
+    },
+    // The in-app fullscreen button (#40): F11 doesn't exist on a phone, this does. Using it
+    // retires the F11 nudge for good, and the icon flips with the actual fullscreen state.
+    toggleFullscreen() {
+        let el = document.getElementById('f11-hint');
+        localStorage.setItem('f11hint', 'off');
+        if(el) el.classList.add('hidden');
+        if(document.fullscreenElement) { if(document.exitFullscreen) document.exitFullscreen(); }
+        else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
     },
 
     // --- MAP RENDER ---

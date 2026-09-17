@@ -156,6 +156,16 @@ applies the choices from one place and `enterWorld()` (the old `startGame` body)
   settlements are drawn and only 4 of 36 parties (the ones in sight). Since settlement and
   party icons shrink away in world units when zoomed out, they're scaled up with
   `Game.iconScale()` = `max(1, 0.55/zoom)` (labels were already screen-sized via `1/zoom`).
+- **Map-focused layout** (#40): on the map view the canvas fills the whole viewport and the
+  chrome floats over it as translucent glass edge panels — it never steals canvas space. The
+  stamp is `body.view-map` (set by `showScreen('map')`, cleared on every other screen, a fifth
+  layout knob beside `in-battle`); its CSS moves `#view-container` to `position:fixed; inset:0`,
+  pins `#top-bar` to the top edge and `#sidebar` to a vertically-centred left icon strip
+  (bottom bar under 820px). `showScreen` re-runs `resizeCanvases()` when the class flips, so
+  the canvas reads its new full-viewport parent box. `Game.toggleFullscreen()` (the ⛶ button at
+  the foot of the nav) is the in-app fullscreen for phones with no F11; it retires the
+  `#f11-hint` nudge for good. Measured: at 1280×720 and 375×812 the map canvas's
+  `clientWidth/Height` equals the viewport.
 - **Route line and draggable target** (#35): a flowing thin dashed line (shadow + gold
   layer) and, at the target, a small **filled** dot + a pulsing ring. The arrowhead was
   removed — the line already says the direction. The line and marker are screen-sized
