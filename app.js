@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.16.0', date: '2026-09-17', name: 'Yetenek Ağacı' };  // the version name is not translated
+const VERSION = { no: '1.17.0', date: '2026-09-17', name: 'Mekân Sahneleri' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -5896,6 +5896,16 @@ const Game = {
             });
         });
 
+        // Settlement-type badge (#100): a small corner label so the palette + silhouette are
+        // never the only cue for where the player has walked in.
+        let typeLabel = loc.type === 'castle' ? T('Kale') : loc.type === 'city' ? T('Şehir') : T('Köy');
+        ctx.font = 'bold 15px Inter, sans-serif';
+        let lw = ctx.measureText(typeLabel).width;
+        ctx.fillStyle = 'rgba(10,10,14,0.82)'; ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.roundRect(12, 12, lw + 22, 28, 6); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#f2e4bb'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(typeLabel, 23, 27);
+
         // Tooltip: the name of the building under the cursor
         if(hover >= 0 && this.sceneHot[hover]) {
             let h = this.sceneHot[hover], txt = h.label.trim();
@@ -5912,11 +5922,19 @@ const Game = {
 
     drawBackdrop(ctx, loc, ground, night, col, R) {
         let W = this.SCENE_W;
-        let wallTop = ground - 92, stone = night ? '#3a3a44' : '#8b8578';
+        // Each settlement type gets its own stone palette so village/castle/city read apart at a
+        // glance (#100): village warm earth, castle cold steel-grey, city warm terracotta-sand.
+        let stone = loc.type === 'castle' ? (night ? '#33343f' : '#8b909c')
+                  : loc.type === 'city'   ? (night ? '#3c3228' : '#b79a6f')
+                  : (night ? '#3a3327' : '#9a8f6e');
+        // Prosperity scales how crowded the silhouette is: a rich city bristles, a poor village is bare (#100).
+        let pros = Math.max(10, Math.min(100, loc.prosperity || 50)), dens = 0.55 + pros / 100;
+        let wallTop = ground - 92;
         if(loc.type === 'village') {
-            // Field strips + fence
+            // Field strips + fence — count scales with prosperity
+            let strips = Math.round(3 + dens * 2);
             ctx.fillStyle = night ? '#3a3a26' : '#9a8f4e';
-            for(let i = 0; i < 5; i++) ctx.fillRect(i * 190 + R(i) * 20, ground - 26, 150, 22);
+            for(let i = 0; i < strips; i++) ctx.fillRect(i * (W / strips) + R(i) * 20, ground - 26, W / strips - 40, 22);
             ctx.strokeStyle = night ? '#3d3327' : '#7a6042'; ctx.lineWidth = 3;
             for(let x = 10; x < W; x += 34) {
                 ctx.beginPath(); ctx.moveTo(x, ground - 4); ctx.lineTo(x, ground - 26); ctx.stroke();
@@ -5927,23 +5945,23 @@ const Game = {
         // Wall: long and crenellated in a city, thicker + a keep behind it in a castle
         if(loc.type === 'castle') {
             let kx = 60 + R(9) * (W - 320), kw = 190, kh = 165;
-            ctx.fillStyle = night ? '#2e2e38' : '#7d7768';
+            ctx.fillStyle = night ? '#2c2d38' : '#767c88';                                     // cold steel keep
             ctx.fillRect(kx, wallTop - kh + 40, kw, kh);
-            ctx.fillStyle = night ? '#232630' : '#6b6558';
+            ctx.fillStyle = night ? '#22242f' : '#636874';
             for(let i = 0; i < 5; i++) ctx.fillRect(kx + i * 40, wallTop - kh + 26, 26, 16);   // battlement
             ctx.fillStyle = col;                                                              // banner
             ctx.fillRect(kx + kw / 2 - 1, wallTop - kh - 26, 2, 30);
             ctx.beginPath(); ctx.moveTo(kx + kw / 2 + 1, wallTop - kh - 24);
             ctx.lineTo(kx + kw / 2 + 36, wallTop - kh - 16); ctx.lineTo(kx + kw / 2 + 1, wallTop - kh - 8); ctx.fill();
         } else {
-            // City silhouette: rooftops in the background, towers (count and position fixed per settlement)
-            let houses = 7 + Math.floor(R(3) * 6);
+            // City silhouette: warm terracotta rooftops, a dome + minaret behind, count by prosperity
+            let houses = Math.round((6 + R(3) * 5) * dens);
             for(let i = 0; i < houses; i++) {
                 let x = R(i + 30) * (W - 80), w = 54 + R(i + 60) * 46, h = 52 + R(i + 90) * 60;
                 let top = wallTop + 14 - h;                      // rooftops show above the wall
-                ctx.fillStyle = night ? '#22262f' : '#5f5c50';
+                ctx.fillStyle = night ? '#2a2620' : '#7a5f45';
                 ctx.fillRect(x, top, w, h);
-                ctx.fillStyle = night ? '#15181f' : '#47372c';
+                ctx.fillStyle = night ? '#1a1512' : '#8a4a30';   // terracotta pitched roof
                 ctx.beginPath(); ctx.moveTo(x - 6, top); ctx.lineTo(x + w / 2, top - 26); ctx.lineTo(x + w + 6, top); ctx.fill();
                 if(night) {                                     // hearth light in the windows
                     ctx.fillStyle = 'rgba(255,196,90,0.75)';
@@ -5951,6 +5969,15 @@ const Game = {
                     if(R(i + 120) > 0.5) ctx.fillRect(x + w * 0.62, top + 16, 7, 9);
                 }
             }
+            // A dome + minaret to mark it unmistakably a city
+            let dx = 120 + R(2) * (W - 300), dr = 46;
+            ctx.fillStyle = night ? '#2c2a34' : '#9a8c74';
+            ctx.beginPath(); ctx.arc(dx, wallTop + 6, dr, Math.PI, 0); ctx.fill();
+            ctx.fillRect(dx - dr, wallTop + 4, dr * 2, 8);
+            ctx.fillStyle = col; ctx.fillRect(dx - 1, wallTop - dr - 16, 2, 16);
+            ctx.fillStyle = night ? '#26242e' : '#8a7c64';       // minaret
+            ctx.fillRect(dx + dr + 20, wallTop - 40, 16, wallTop * 0 + 132);
+            ctx.beginPath(); ctx.moveTo(dx + dr + 20, wallTop - 40); ctx.lineTo(dx + dr + 28, wallTop - 60); ctx.lineTo(dx + dr + 36, wallTop - 40); ctx.fill();
         }
         // Wall + gate
         ctx.fillStyle = stone; ctx.fillRect(0, wallTop, W, 92);
@@ -6058,6 +6085,8 @@ const Game = {
     BG_DRAW: {
         hall:      ['drawHallBg', 640, 380],
         tavern:    ['drawTavernBg', 640, 380],
+        arena:     ['drawArenaBg', 640, 380],      // arena pit (#102)
+        market:    ['drawMarketBg', 640, 380],     // bazaar (#102)
         armory:    ['drawArmoryBg', 900, 560],     // character screen (#61)
         camp:      ['drawCampBg', 900, 560],       // party screen
         storage:   ['drawStorageBg', 900, 560],    // inventory
@@ -6071,10 +6100,15 @@ const Game = {
         this._sceneBg = this._sceneBg || {};
         if(this._sceneBg[kind]) return this._sceneBg[kind];
         let [fn, W, H] = this.BG_DRAW[kind] || this.BG_DRAW.tavern;
-        let cv = document.createElement('canvas');
-        cv.width = W; cv.height = H;
-        this[fn](cv.getContext('2d'), W, H);
-        return (this._sceneBg[kind] = cv.toDataURL('image/jpeg', 0.82));
+        // Render at 1.5x and let the CSS `cover` sample down: a fixed 640/900px bitmap stretched
+        // to a wide panel was the "144p" blur (#101). The extra pixels are baked once, not per frame.
+        let s = 1.5, cv = document.createElement('canvas');
+        cv.width = W * s; cv.height = H * s;
+        let g = cv.getContext('2d');
+        g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+        g.setTransform(s, 0, 0, s, 0, 0);
+        this[fn](g, W, H);
+        return (this._sceneBg[kind] = cv.toDataURL('image/jpeg', 0.9));
     },
     // Themed background for menu screens (#61). Single gate `showScreen`; set once per
     // screen, CSS after that. The overlay stays dark — the background doesn't compete with the text.
@@ -6293,6 +6327,16 @@ const Game = {
             lg.addColorStop(0, 'rgba(255,215,130,0.9)'); lg.addColorStop(1, 'rgba(255,180,60,0)');
             ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, 68, 46, 0, 7); ctx.fill();
         });
+        // Figures (#102): a mercenary loitering against the left beam, arms folded; the innkeeper
+        // behind the counter; a slumped drunk in the right corner.
+        this.sceneFigure(ctx, W * 0.14, floor + 30, H * 0.5, '#241a12', 'arms');
+        ctx.strokeStyle = '#4a3a26'; ctx.lineWidth = 5;                        // his sheathed blade at the hip
+        ctx.beginPath(); ctx.moveTo(W * 0.16, floor + 4); ctx.lineTo(W * 0.2, floor + 30); ctx.stroke();
+        this.sceneFigure(ctx, W * 0.86, floor + 24, H * 0.44, '#2b1f14', 'counter');
+        ctx.save();                                                            // the drunk, tipped over a table
+        ctx.translate(W * 0.7, H - 40); ctx.rotate(0.5);
+        this.sceneFigure(ctx, 0, 20, H * 0.34, '#1f160e', 'counter');
+        ctx.restore();
         this.bgVignette(ctx, W, H);
     },
     // Lords' hall: stone wall, columns, banners, torches, a throne
@@ -6346,6 +6390,117 @@ const Game = {
         let v = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.85);
         v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.6)');
         ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+    },
+
+    // A plain standing-figure silhouette for the interior scenes (#102). `pose`:
+    // 'arms' = arms folded (the loitering mercenary), 'stand' = arms at the side (staring fighters),
+    // 'lean' = tilted, leaning on a wall, 'counter' = behind a bar, only the top half shows.
+    sceneFigure(ctx, x, footY, h, col, pose) {
+        let w = h * 0.36, headR = h * 0.12, topY = footY - h, hipY = footY - h * 0.44;
+        ctx.save();
+        ctx.fillStyle = col;
+        if(pose === 'lean') { ctx.translate(x, footY); ctx.rotate(0.12); ctx.translate(-x, -footY); }
+        if(pose !== 'counter') {                                   // legs
+            ctx.fillRect(x - w * 0.26, hipY, w * 0.2, h * 0.44);
+            ctx.fillRect(x + w * 0.06, hipY, w * 0.2, h * 0.44);
+        }
+        ctx.beginPath();                                           // torso
+        ctx.moveTo(x - w * 0.3, hipY + 4);
+        ctx.lineTo(x - w * 0.26, topY + headR * 1.7);
+        ctx.lineTo(x + w * 0.26, topY + headR * 1.7);
+        ctx.lineTo(x + w * 0.3, hipY + 4);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, topY + headR, headR, 0, 7); ctx.fill();   // head
+        if(pose === 'arms') {                                      // folded across the chest
+            ctx.fillRect(x - w * 0.36, topY + headR * 2.0, w * 0.72, h * 0.11);
+        } else if(pose !== 'counter') {                            // arms hanging
+            ctx.fillRect(x - w * 0.4, topY + headR * 1.9, w * 0.14, h * 0.32);
+            ctx.fillRect(x + w * 0.26, topY + headR * 1.9, w * 0.14, h * 0.32);
+        }
+        ctx.restore();
+    },
+
+    // Arena: sun-baked sand pit, a curved timber grandstand of spectators in shade,
+    // and three prize-fighters in the foreground staring the player down (#102).
+    drawArenaBg(ctx, W, H) {
+        let sand = H * 0.52;
+        let sky = ctx.createLinearGradient(0, 0, 0, sand);           // hard noon sky
+        sky.addColorStop(0, '#7fb0dd'); sky.addColorStop(1, '#e7dcc0');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, sand);
+        // Grandstand: stepped wooden tiers wrapping the far side
+        for(let t = 0; t < 4; t++) {
+            ctx.fillStyle = t % 2 ? '#6d5233' : '#7d5f3c';
+            ctx.fillRect(0, sand - 74 + t * 18, W, 20);
+        }
+        for(let i = 0; i < 46; i++) {                                // spectators in shadow
+            let sx = 14 + (i * 761 % 1000) / 1000 * (W - 28), row = i % 3;
+            ctx.fillStyle = 'rgba(28,24,20,0.72)';
+            ctx.beginPath(); ctx.arc(sx, sand - 60 + row * 18, 6, 0, 7); ctx.fill();
+            ctx.fillRect(sx - 5, sand - 56 + row * 18, 10, 10);
+        }
+        let sg = ctx.createLinearGradient(0, sand, 0, H);            // sand floor
+        sg.addColorStop(0, '#d9b878'); sg.addColorStop(1, '#b9945a');
+        ctx.fillStyle = sg; ctx.fillRect(0, sand, W, H - sand);
+        ctx.fillStyle = 'rgba(150,110,60,0.4)';                      // raked ring line
+        ctx.beginPath(); ctx.ellipse(W / 2, H + 20, W * 0.5, H * 0.34, 0, 0, 7); ctx.fill();
+        // Three fighters facing out, each with a different wooden weapon
+        let fy = H * 0.98, fh = H * 0.6;
+        [[W * 0.26, '#2c2620'], [W * 0.5, '#241f1a'], [W * 0.74, '#2c2620']].forEach(([fx, c], i) => {
+            this.sceneFigure(ctx, fx, fy, fh * (i === 1 ? 1.08 : 1), c, 'stand');
+            ctx.strokeStyle = '#6b4a28'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+            ctx.beginPath();
+            if(i === 0) { ctx.moveTo(fx + fh * 0.16, fy - fh * 0.5); ctx.lineTo(fx + fh * 0.16, fy - fh * 0.98); }   // spear
+            else if(i === 1) { ctx.moveTo(fx + fh * 0.15, fy - fh * 0.42); ctx.lineTo(fx + fh * 0.15, fy - fh * 0.7); }   // sword
+            else { ctx.moveTo(fx - fh * 0.16, fy - fh * 0.5); ctx.lineTo(fx - fh * 0.16, fy - fh * 0.86); }         // axe haft
+            ctx.stroke();
+            if(i === 2) { ctx.fillStyle = '#8d939c'; ctx.beginPath(); ctx.moveTo(fx - fh * 0.16, fy - fh * 0.86); ctx.lineTo(fx - fh * 0.06, fy - fh * 0.8); ctx.lineTo(fx - fh * 0.16, fy - fh * 0.74); ctx.fill(); }
+        });
+        this.bgVignette(ctx, W, H);
+    },
+
+    // Market: caravanserai arcade, striped awnings, a laden camel, merchants at their stalls (#102).
+    drawMarketBg(ctx, W, H) {
+        let g = ctx.createLinearGradient(0, 0, 0, H);               // shaded arch interior
+        g.addColorStop(0, '#c9a86a'); g.addColorStop(0.5, '#9c7a48'); g.addColorStop(1, '#5f4a2c');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        let archTop = H * 0.1, springY = H * 0.42;                  // row of stone arches
+        ctx.fillStyle = '#7d6642';
+        for(let i = 0; i <= 4; i++) {
+            let ax = i * W / 4;
+            ctx.fillRect(ax - 14, archTop, 28, springY - archTop);
+        }
+        ctx.fillStyle = 'rgba(40,28,16,0.55)';
+        for(let i = 0; i < 4; i++) {
+            let cx = (i + 0.5) * W / 4;
+            ctx.beginPath();
+            ctx.moveTo(cx - W / 8 + 14, springY);
+            ctx.arc(cx, springY, W / 8 - 14, Math.PI, 0);
+            ctx.lineTo(cx + W / 8 - 14, springY); ctx.closePath(); ctx.fill();
+        }
+        let floor = H * 0.66;
+        let fg = ctx.createLinearGradient(0, floor, 0, H);          // dusty ground
+        fg.addColorStop(0, '#8a6f45'); fg.addColorStop(1, '#5a442a');
+        ctx.fillStyle = fg; ctx.fillRect(0, floor, W, H - floor);
+        // Striped awnings over two stalls
+        [[W * 0.2, floor - 6], [W * 0.8, floor - 2]].forEach(([mx, my]) => {
+            for(let i = 0; i < 5; i++) { ctx.fillStyle = i % 2 ? '#b5462f' : '#e4d6b6'; ctx.fillRect(mx - 70 + i * 28, my - 78, 28, 16); }
+            ctx.fillStyle = '#6b4a28'; ctx.fillRect(mx - 74, my - 20, 148, 14);           // counter
+            ctx.fillStyle = '#4c3320'; ctx.fillRect(mx - 70, my - 6, 8, 22); ctx.fillRect(mx + 62, my - 6, 8, 22);
+            for(let i = 0; i < 4; i++) { ctx.fillStyle = ['#c8543a', '#d8b24a', '#7ba04a', '#b06a30'][i]; ctx.beginPath(); ctx.arc(mx - 48 + i * 32, my - 26, 6, 0, 7); ctx.fill(); }
+        });
+        // A laden camel at the arcade mouth
+        let ex = W * 0.5, ey = floor + 4;
+        ctx.fillStyle = '#8a6a44';
+        ctx.fillRect(ex - 34, ey - 40, 68, 22);
+        ctx.beginPath(); ctx.arc(ex - 24, ey - 46, 12, 0, 7); ctx.arc(ex + 20, ey - 46, 12, 0, 7); ctx.fill();  // humps
+        ctx.fillRect(ex + 30, ey - 58, 10, 26); ctx.beginPath(); ctx.arc(ex + 40, ey - 60, 7, 0, 7); ctx.fill(); // head+neck
+        [-26, -8, 12, 30].forEach(o => ctx.fillRect(ex + o, ey - 18, 6, 24));                                    // legs
+        ctx.fillStyle = '#9c3b2f'; ctx.fillRect(ex - 30, ey - 52, 44, 12);                                       // saddle pack
+        // Merchants + a browsing customer silhouette
+        this.sceneFigure(ctx, W * 0.2, floor + 30, H * 0.42, '#33281c', 'counter');
+        this.sceneFigure(ctx, W * 0.8, floor + 34, H * 0.42, '#33281c', 'counter');
+        this.sceneFigure(ctx, W * 0.62, H, H * 0.5, 'rgba(30,22,14,0.8)', 'stand');
+        this.bgVignette(ctx, W, H);
     },
 
     addBtn(container, text, cb) {
@@ -6470,7 +6625,7 @@ const Game = {
         </div>
         <div id="market-msg" style="min-height:1.4rem;margin-top:0.8rem;font-size:var(--fs-md)"></div>
         <button class="btn" style="margin-top:1rem" onclick="Game.closeModal()">${T`Kapat`}</button>`;
-        this.showModal(html);
+        this.showModal(html, '600px', this.sceneBg('market'));   // bazaar interior (#102)
         this._marketLoc = loc;
         this.refreshMarket();
     },
@@ -7674,7 +7829,7 @@ const Game = {
             ${Battle.ARENA_FOES.map((f, i) => `<button class="btn" onclick="Game.startArena(${i})">
                 <b>${T(f.name)}</b> <span style="color:var(--text-muted)">${T`· Sv. ${Math.max(1, lv + f.dLv)} · ~${f.xp} XP`}</span>
                 <div style="font-size:var(--fs-sm);color:var(--text-muted)">${T(f.desc)}</div></button>`).join('')}
-        </div>`);
+        </div>`, '600px', this.sceneBg('arena'));   // arena pit interior (#102)
     },
     startArena(idx) { this.closeModal(); Battle.startArena(idx); },
     // The arena paid nothing at all, so a loss cost a day and a win cost three hours for no

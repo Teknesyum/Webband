@@ -3,6 +3,19 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.17.0 — Mekân Sahneleri (2026-09-17)
+
+- **Köy, kale ve şehir artık birbirinden ayrılıyor (#100).** Her yerleşim türü kendi taş
+  paletiyle çiziliyor — köy sıcak toprak, kale soğuk çelik grisi, şehir kiremit-kum sarısı —
+  şehre kubbe ve minare silüeti eklendi, köşeye türü yazan küçük bir etiket kondu. Silüetin
+  kalabalıklığı yerleşimin refahına göre ölçekleniyor: zengin şehir kaynıyor, fakir köy tenha.
+- **Han, arena ve pazarın kendine ait sahnesi var (#102).** Hana girince ocak başında dizilmiş
+  fıçılar, duvara yaslanmış kolları kavuşuk bir paralı asker, tezgâh arkasında hancı; arenada
+  kum meydan, gölgedeki tribün ve bize dik dik bakan üç dövüşçü; pazarda kervansaray kemerleri,
+  çizgili tenteler, yüklü deve ve tezgâh başındaki tüccarlar.
+- **Sahne görselleri netleşti (#101).** Sahneler 1,5x çözünürlükte pişiriliyor ve daha az
+  kayıpla saklanıyor — eski "144p" bulanıklığı gitti.
+
 ## 1.16.0 — Yetenek Ağacı (2026-09-17)
 
 - **Yetenek ağacı geldi (#110).** Altı dal, her dalda beş kademe, her kademede iki karşıt
