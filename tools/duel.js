@@ -37,7 +37,7 @@ function mkUnit(g, name, i, team, W, HGT) {
         x: team ? 60 + rnd() * 40 : W - 100 + rnd() * 40,
         y: 40 + rnd() * (HGT - 80),
         speed: t.speed, attack: t.attack, defense: t.defense,
-        type: t.type, dmgType: t.dmgType, charge: 1.3,
+        type: t.type, dmgType: t.dmgType, brace: t.brace, charge: 1.3,
         // Terrain's "mounted" rule looks at this, not `type` (same rule as battle.js) —
         // skip it and the measurement lets cavalry fight penalty-free in a forest.
         mounted: t.type === 'cavalry' || t.speed > g.Battle.FOOT_MAX,
@@ -88,13 +88,16 @@ function duel(a, b, n, rounds, seed) {
 }
 
 // Matchups measured in report mode: source of the balance sentences in CLAUDE.md
+// [A, B, count?] — count defaults to --count (1). Archer/kite matchups run multi-unit so the
+// bow side gets volleys off and room to kite; melee anchors stay 1v1 (#62, Fable danisma 006).
 const PAIRS = [
-    ['Nord Baltacısı', 'Rodok Kalkanlısı'],
-    ['Nord Baltacısı', 'Svadya Şövalyesi'],
-    ['Rodok Mızraklısı', 'Nord Baltacısı'],
-    ['Svadya Milisi', 'Rodok Kalkanlısı'],
-    ['Svadya Köylüsü', 'Svadya Milisi'],
-    ['Kergit Atlı Okçusu', 'Rodok Tatar Yaylısı']
+    ['Rodok Mızraklısı', 'Kergit Süvarisi'],       // mızrak→hafif süvari (anti-cav brace)  hedef 50-60
+    ['Rodok Kalkanlısı', 'Svadya Şövalyesi'],      // elit kalkan→elit ağır süvari           hedef 55-65
+    ['Svadya Şövalyesi', 'Rodok Tatar Yaylısı', 6],// süvari→okçu                            hedef 80-90
+    ['Kergit Süvarisi', 'Kergit Atlı Okçusu', 6],  // hafif süvari→atlı okçu                 hedef 65-75
+    ['Nord Baltacısı', 'Rodok Kalkanlısı'],        // aynı kademe piyade-piyade              hedef 50-60
+    ['Nord Baltacısı', 'Svadya Şövalyesi'],        // kontrol: baltacı→ağır süvari           hedef 30-40
+    ['Nord Baltacısı', 'Veagir Baltacısı']         // yedek: bir kademe fark                 hedef 65-75
 ];
 
 function main() {
@@ -104,8 +107,8 @@ function main() {
 
     const n = Number(a.count || a.sayi || 1), rounds = Number(a.n || a.tur || 50), seed = Number(a.seed || a.tohum || 1);
     const pairs = a.a && a.b ? [[String(a.a), String(a.b)]] : PAIRS;
-    const rows = pairs.map(([x, y]) => {
-        const r = duel(x, y, n, rounds, seed);
+    const rows = pairs.map(([x, y, cnt]) => {
+        const r = duel(x, y, cnt || n, rounds, seed);
         console.error(`${x} vs ${y}: %${r.winRateA} / ${r.avgDuration} s`);
         return r;
     });

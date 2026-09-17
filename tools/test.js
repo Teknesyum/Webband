@@ -195,17 +195,17 @@ test('foodStock: day count accounts for spoilage too', () => {
     p.inventory = [{ id: 'wheat', qty: 60 }];
     const fs = Game.foodStock();
     assert.strictEqual(fs.low, 60);
-    assert.strictEqual(fs.need, 5);                   // 10 troops × FOOD_MAN 0.4 + the player themself 0.75
+    assert.strictEqual(fs.need, 7);                   // 10 × lvl10 (0.4×1.4=0.56) + player 0.75 = 6.35 → 7 (#27)
     assert.strictEqual(fs.kinds, 1);
     assert.strictEqual(fs.spoil, 1);                  // 60 wheat / 60-day shelf life
-    assert.strictEqual(fs.days, 10);                  // 60 / (5 + 1)
+    assert.strictEqual(fs.days, 7);                   // 60 / (7 + 1)
 });
 test('foodStock: elite troops want meat, variety is counted', () => {
     const p = reset();
     p.party = [troop(30), troop(30)];
     p.inventory = [{ id: 'wheat', qty: 10 }, { id: 'meat', qty: 10 }];
     const fs = Game.foodStock();
-    assert.strictEqual(fs.need, 2);                   // 2 × 0.6 + player 0.75, rounded up
+    assert.strictEqual(fs.need, 3);                   // 2 × lvl30 (0.4×2.2=0.88) + player 0.75 = 2.51 → 3 (#27)
     assert.strictEqual(fs.needHigh, 1);               // 0.4 meat per lvl 30+ troop
     assert.strictEqual(fs.high, 10);
     assert.strictEqual(fs.kinds, 2);
@@ -214,6 +214,19 @@ test('foodStock: empty inventory is 0 days, never infinite', () => {
     const p = reset();
     p.party = [troop(10)];
     assert.strictEqual(Game.foodStock().days, 0);
+});
+
+test('promote: a cavalry upgrade needs a horse in the stable (#30)', () => {
+    const p = reset();
+    p.money = 9999;
+    p.party = [Object.assign(troop(10, { id: 't0' }), { name: 'X', xp: 99, xpNext: 4 })];
+    p.inventory = [];
+    Game.promoteTroop('X', 'Svadya Şövalyesi', 100);
+    assert.strictEqual(p.party[0].name, 'X', 'no horse -> promotion blocked');
+    p.inventory = [{ id: 'horse', type: 'horse', qty: 1 }];
+    Game.promoteTroop('X', 'Svadya Şövalyesi', 100);
+    assert.strictEqual(p.party[0].name, 'Svadya Şövalyesi', 'with a horse -> promoted');
+    assert.strictEqual(p.inventory.length, 0, 'the mount was spent');
 });
 
 test('foodStock: every added ration joins consumption, quality and variety', () => {
@@ -352,6 +365,22 @@ test('speed: mounted/foot gap is capped at 1.5× at every party size', () => {
     });
     state.player.party = [];
     state.player.equipment.horse = null;
+});
+
+// --- Foot crowd slow (#23) ---
+test('speed: nearby foot NPCs stack a capped slowdown, riders ignored', () => {
+    const save = state.npcParties;
+    state.npcParties = [];
+    const base = Game.getPlayerSpeed().value;
+    const foot = (n) => Array.from({ length: n }, (_, i) =>
+        ({ id: 'f' + i, band: 'bandit', x: state.player.x, y: state.player.y }));  // bandit icon:'foot'
+    state.npcParties = foot(1);
+    assert.ok(Math.abs(Game.getPlayerSpeed().value / base - 0.92) < 1e-6, 'one footman = -8%');
+    state.npcParties = foot(20);
+    assert.ok(Math.abs(Game.getPlayerSpeed().value / base - 0.5) < 1e-6, 'crowd floors at 0.5×');
+    state.npcParties = [{ id: 'r', band: 'caravan', x: state.player.x, y: state.player.y }];  // cart icon, not foot
+    assert.ok(Math.abs(Game.getPlayerSpeed().value / base - 1) < 1e-6, 'riders/carts do not crowd');
+    state.npcParties = save;
 });
 
 // --- Modal dismiss gate (#70) ---
@@ -951,6 +980,59 @@ test('encounter: the announced band kind wins over a stale global encounter id',
     Battle.active = false;
 });
 
+test('wolf: a bleeding quarry pulls the pack in (#36)', () => {
+    const { Game, state } = gw;
+    state.player.status = 'idle';
+    state.player.x = 4500; state.player.y = 4500;
+    state.player.party = [];
+    state.player.stats.hp = 5; state.player.stats.maxHp = 50;   // hpFrac < 0.5 -> bleeding
+    state.npcParties = [];
+    const wolf = Game.spawnBand('wolf');
+    wolf.x = wolf.targetX = 4500 + Math.round(Game.getVisibility() * 1.5);
+    wolf.y = wolf.targetY = 4500;
+    const before = wolf.targetX;
+    Game.updateNPCs(0.01);
+    assert.ok(wolf.targetX < before, 'the pack did not lean toward the wounded player');
+    state.player.stats.hp = state.player.stats.maxHp;
+});
+
+test('fief: the lands window renders a single heading, not a duplicate (#6)', () => {
+    const { Game, LOCATIONS } = gw;
+    const loc = LOCATIONS.find(l => l.type === 'city');
+    const prev = loc.owner; loc.owner = 'player';
+    const withHeading = Game.fiefListHtml(true, true);
+    const noHeading = Game.fiefListHtml(true, false);
+    assert.ok(withHeading.includes('Tımarların'), 'diplomacy list should keep its heading');
+    assert.ok(!noHeading.includes('Tımarların'), 'the lands window must suppress the inner heading');
+    loc.owner = prev;
+});
+
+test('road: a lone wanderer asks to join instead of auto-joining (#33)', () => {
+    const { Game, state, _sandbox } = gw;
+    state.player.party = [];
+    const before = state.player.party.length;
+    Game.offerWanderer(gw.LOCATIONS[0]);
+    const html = _sandbox.document.getElementById('modal-body').innerHTML;
+    assert.ok(html.includes('acceptWanderer') && html.includes('declineWanderer'), 'no accept/reject buttons');
+    assert.strictEqual(state.player.party.length, before, 'the wanderer joined before consent');
+    Game.acceptWanderer();
+    assert.strictEqual(state.player.party.length, before + 1, 'accept did not add the recruit');
+    Game.offerWanderer(gw.LOCATIONS[0]);
+    Game.declineWanderer();
+    assert.strictEqual(state.player.party.length, before + 1, 'decline still added the recruit');
+});
+
+test('road: the storm now offers three balanced choices, the middle one costs food (#121)', () => {
+    const { Game, state } = gw;
+    const storm = Game.ROAD_EVENTS.find(e => e.id === 'storm');
+    assert.strictEqual(storm.choices.length, 3, 'storm should have 3 choices');
+    state.player.party = [{ id: 'p1', name: 'Asker', level: 1 }];
+    state.player.inventory = [{ ...gw.ITEMS.wheat, qty: 5 }];
+    const before = Game.foodStock().total;
+    storm.choices[1].run({ food: before });     // "Atları yatıştır"
+    assert.ok(Game.foodStock().total < before, 'the middle choice should cost food');
+});
+
 test('speed: morale doesn\'t scale troop speed (the enemy has no morale)', () => {
     const speedAt = morale => {
         gw.state.player.morale = morale;
@@ -1059,6 +1141,35 @@ test('kite: a foot archer is still caught even with 0.8 flee', () => {
 test('kite: even if foot can\'t catch cavalry, the battle resolves', () => {
     const r = fight(gw, 'Nord Savaşçısı', 'Svadya Şövalyesi', 4);
     assert.notStrictEqual(r.won, null, `fight didn't end in ${r.duration.toFixed(0)} s`);
+});
+
+// --- Combat anchor matchups (Fable danisma 006) ---
+// The rock-paper-scissors triangle, measured through the real engine. Bands are wide
+// (Fable's calibration is ±8) so these guard the shape, not a knife-edge number: spears and
+// shield troops must contest cavalry, plain infantry must lose to elite cavalry, cavalry must
+// run down archers. A win-rate that leaves its band means a stat or the brace broke the triangle.
+const { duel } = require('./duel');
+const rate = (a, b, n = 1) => duel(a, b, n, 25, 2).winRateA;
+
+test('anchor: spearmen contest light cavalry (brace)', () => {
+    const w = rate('Rodok Mızraklısı', 'Kergit Süvarisi');
+    assert.ok(w >= 40 && w <= 72, `spear vs light cav ${w}% — anti-cav brace off band`);
+});
+test('anchor: a shield line contests heavy cavalry', () => {
+    const w = rate('Rodok Kalkanlısı', 'Svadya Şövalyesi');
+    assert.ok(w >= 38 && w <= 72, `shield vs heavy cav ${w}% — off band`);
+});
+test('anchor: two same-tier infantry are an even fight', () => {
+    const w = rate('Nord Baltacısı', 'Rodok Kalkanlısı');
+    assert.ok(w >= 40 && w <= 66, `elite infantry mirror ${w}% — not an even fight`);
+});
+test('anchor: plain infantry loses to elite cavalry (bring spears)', () => {
+    const w = rate('Nord Baltacısı', 'Svadya Şövalyesi');
+    assert.ok(w <= 30, `axeman vs knight ${w}% — infantry should not beat elite cavalry head-on`);
+});
+test('anchor: cavalry runs down archers', () => {
+    const w = rate('Svadya Şövalyesi', 'Rodok Tatar Yaylısı', 6);
+    assert.ok(w >= 75, `cavalry vs archers ${w}% — horse should reach the bow line`);
 });
 
 // --- Sprite sheets (#92) ---

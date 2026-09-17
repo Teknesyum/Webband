@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.20.0', date: '2026-09-17', name: 'Dünya Nefes Alıyor' };  // the version name is not translated
+const VERSION = { no: '1.21.0', date: '2026-09-17', name: 'Yolların Kıyısı' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -350,14 +350,14 @@ const TROOP_TREES = {
             [['Svadya Avcısı', 'archer', 35, 55, 6, 2, '🏹', 'pierce', 50],
              ['Svadya Keskin Nişancısı', 'archer', 45, 60, 10, 5, '🎯', 'pierce', 120]],
             [['Svadya Süvarisi', 'cavalry', 50, 99, 12, 8, '🐴', 'cut', 70],
-             ['Svadya Şövalyesi', 'cavalry', 75, 110, 22, 15, '⚔️🐴', 'cut', 150]]
+             ['Svadya Şövalyesi', 'cavalry', 78, 110, 22, 15, '⚔️🐴', 'cut', 150]]
         ]
     },
     rhodok: {   // no cavalry; huge shields and the Tatar bow
         recruit: ['Rodok Köylüsü', 'infantry', 20, 50, 6, 0, '🪖', 'blunt'],
         branches: [
-            [['Rodok Mızraklısı', 'infantry', 48, 56, 11, 8, '🛡️', 'pierce', 40],
-             ['Rodok Kalkanlısı', 'infantry', 70, 58, 17, 18, '🛡️', 'cut', 110]],
+            [['Rodok Mızraklısı', 'infantry', 52, 56, 13, 8, '🛡️', 'pierce', 40],
+             ['Rodok Kalkanlısı', 'infantry', 76, 58, 19, 18, '🛡️', 'cut', 110, 1.25]],
             [['Rodok Nişancısı', 'archer', 36, 54, 8, 3, '🏹', 'pierce', 55],
              ['Rodok Tatar Yaylısı', 'archer', 48, 56, 16, 6, '🎯', 'pierce', 130]]
         ]
@@ -395,7 +395,7 @@ const TROOP_TREES = {
 const TROOP_UPGRADES = {};
 const TROOP_TYPES = {};
 (function buildTroopTrees() {
-    const stats = r => ({ hp: r[2], speed: r[3], attack: r[4], defense: r[5], type: r[1], icon: r[6], dmgType: r[7] });
+    const stats = r => ({ hp: r[2], speed: r[3], attack: r[4], defense: r[5], type: r[1], icon: r[6], dmgType: r[7], brace: r[9] });
     const up = r => ({ name: r[0], cost: r[8], type: r[1] });
     for(let f in TROOP_TREES) {
         let tree = TROOP_TREES[f];
@@ -611,6 +611,8 @@ const Input = {
                 // N: next piece — the music re-composes itself, so skipping is the only way
                 // to hear a different band without waiting out the current one
                 else if(k === 'n') Game.Music.skip();
+                // Z: toggle the world-map 2x zoom (#21)
+                else if(k === 'z' && document.getElementById('map-view').classList.contains('active')) Game.toggleMapZoom();
             }
         });
         window.addEventListener('keyup', e => { 
@@ -866,6 +868,12 @@ const Game = {
             obj.x = 4500 + Math.cos(angle) * (maxR - 50);
             obj.y = 4500 + Math.sin(angle) * (maxR - 50);
         }
+    },
+
+    // #22 True when the party is pinned against the natural coastline (clampToMap holds it at maxR-50).
+    atMapEdge(obj) {
+        let dx = obj.x - 4500, dy = obj.y - 4500;
+        return Math.sqrt(dx*dx + dy*dy) >= this.getMapRadius(obj.x, obj.y) - 51;
     },
 
     init() {
@@ -2628,18 +2636,33 @@ const Game = {
         let heavyPenalty = (state.player.equipment.armor && state.player.equipment.armor.heavy) ? 0.05 : 0;   // Dev Örsü Zırhı is heavy (#38)
         let pathMult = 1 + (this.profLvl('pathfinding') - 1) * 0.02 + this.perkMod('mapSpeed') / 100 + this.relicMod('mapSpeed') / 100 - heavyPenalty;  // Pathfinding skill + Scout perks (#110) + Kurt Kanı relic (#37)
         let cargoMult = this.cargoMult();                             // overload (#78)
+        let footMult = this.footCrowdMult();                          // #23 nearby foot NPCs press in and slow the march
 
         return {
-            value: (base + agiBonus) * (1 + speedBonus) * (1 + mountBonus) * terrain.mult * nightMult * pathMult * cargoMult,
+            value: (base + agiBonus) * (1 + speedBonus) * (1 + mountBonus) * terrain.mult * nightMult * pathMult * cargoMult * footMult,
             base, agiBonus,
             partyMult: speedBonus,
             mountBonus,
             nightMult,
             pathMult,
             cargoMult,
+            footMult,
             terrainMult: terrain.mult,
             terrain
         };
+    },
+
+    // #23 Foot NPCs pressed right up against the party slow the march. One straggler barely
+    // matters; a crowd of them on foot drags hard, but the penalty saturates (floor 0.5×) so
+    // no single band can pin you in place. Riders, wolves and archer bands don't count.
+    footCrowdMult() {
+        if(!state.npcParties) return 1;
+        let n = 0;
+        for(let npc of state.npcParties) {
+            if((BAND_KINDS[npc.band] || {}).icon !== 'foot') continue;
+            if(this.dist(npc, state.player) < 120) n++;
+        }
+        return n ? Math.max(0.5, 1 - n * 0.08) : 1;
     },
 
     updateSpeedUI(spdData) {
@@ -2670,6 +2693,7 @@ const Game = {
             ${spdData.nightMult < 1 ? row(T('Gece yürüyüşü'), this.pct(-15, true), false) : ''}
             ${spdData.pathMult > 1 ? row(T('Yol Bulma'), this.pct((spdData.pathMult-1)*100, true), true) : ''}
             ${spdData.cargoMult < 1 ? row(T`Aşırı yük (${this.cargoLoad()}/${this.cargoCap()})`, this.pct((spdData.cargoMult-1)*100, true), false) : ''}
+            ${spdData.footMult < 1 ? row(T('Yaya kalabalığı'), this.pct((spdData.footMult-1)*100, true), false) : ''}
             <hr style="border:0;border-top:1px solid rgba(212,175,55,.4);margin:5px 0">
             ${row('<b>' + T('Toplam') + '</b>', '<b>' + spdData.value.toFixed(1) + '</b>', true)}
         `);
@@ -2849,6 +2873,11 @@ const Game = {
                 let r = Math.min(spd * dt / dist, 1);
                 state.player.x += dx * r; state.player.y += dy * r;
                 this.clampToMap(state.player); // prevent going past the natural borders
+                // #22 Pinned against the coastline for ~5s -> offer to drop the (unreachable) route.
+                if(this.atMapEdge(state.player)) {
+                    state.player.edgeDwell = (state.player.edgeDwell || 0) + dt;
+                    if(state.player.edgeDwell >= 5 && !this._edgePromptOpen) this.promptLeaveRegion();
+                } else state.player.edgeDwell = 0;
                 this.trainAttr('agi', (dist * r) / 1500);   // agility improves on the road
                 this.roadTick(dist * r);                    // road-event roll (#67)
 
@@ -2885,6 +2914,34 @@ const Game = {
         let point = { x:npc.targetX, y:npc.targetY };
         this.clampToMap(point);
         npc.targetX = point.x; npc.targetY = point.y;
+    },
+
+    // #22 The party has been shoving against the map edge for ~5s; the destination sits beyond
+    // the coastline and can never be reached. Offer to abandon it. While the modal is up timeFlows
+    // is false (map+no-modal gate), so movement and edgeDwell freeze until the player answers.
+    promptLeaveRegion() {
+        this._edgePromptOpen = true;
+        state.player.edgeDwell = 0;
+        this.showModal(`<div style="text-align:center"><h3>${T('🧭 Sınırda')}</h3>
+            <p>${T('Haritanın kenarına dayandın. Bu yöne gidilmez — hedefi bırakmak ister misin?')}</p>
+            <div style="display:flex;gap:0.6rem;justify-content:center;margin-top:1.2rem">
+                <button class="btn primary" onclick="Game.leaveRegion()">${T('Evet, hedefi bırak')}</button>
+                <button class="btn" onclick="Game.stayAtEdge()">${T('Hayır, kal')}</button>
+            </div></div>`);
+    },
+    leaveRegion() {
+        state.player.status = 'idle';
+        state.player.targetLocation = null;
+        state.player.edgeDwell = 0;
+        this._edgePromptOpen = false;
+        this.centerOnPlayer();
+        this.closeModal();
+    },
+    // Keep pushing, but don't nag: a ~25s cooldown before the prompt can fire again.
+    stayAtEdge() {
+        this._edgePromptOpen = false;
+        state.player.edgeDwell = -20;
+        this.closeModal();
     },
 
     // Crossing someone's path is not a conversation (#131). Only a fight stops you unasked:
@@ -3064,6 +3121,25 @@ const Game = {
     // Who actually steps onto the field: the leader plus the unwounded (#116). `Battle.start`
     // filters the wounded out, so every announcement has to ask this and not `party.length`.
     fieldSize() { return state.player.party.filter(t => !t.wounded).length + 1; },
+    // Force score (#7): one weighted-strength gate so "how strong are we" is a veteran-aware
+    // number, not raw headcount — a promoted troop counts as more than one green recruit. Kept
+    // as "effective men" (a lvl-1 unit = 1.0) so it reads next to the roster counts and both
+    // sides use the same scale. The hostility/flee heuristics stay on headcount on purpose
+    // (sim-verified); this drives the player-facing odds label (#10), not world AI.
+    UNIT_TIER: lvl => 1 + (Math.max(1, lvl || 1) - 1) * 0.12,
+    forceScore(party = state.player.party, includeSelf = true) {
+        let s = party.filter(t => !t.wounded).reduce((a, t) => a + this.UNIT_TIER(t.level), 0);
+        if(includeSelf) s += this.UNIT_TIER(state.player.stats.level);
+        return s;
+    },
+    npcForce(npc) { return (npc.size || 1) * this.UNIT_TIER(npc.level || 1); },
+    // Odds label buckets the force ratio. Names line up with the difficulty menu's vocabulary.
+    ODDS: [[1.5, 'Kolay', '#7bd88f'], [1.0, 'Dengeli', '#d9d2c5'], [0.62, 'Zorlu', '#e0a458'], [0, 'Çetin', '#e07a7a']],
+    oddsLabel(npc) {
+        let r = this.forceScore() / Math.max(0.5, this.npcForce(npc));
+        let row = this.ODDS.find(o => r >= o[0]) || this.ODDS[this.ODDS.length - 1];
+        return { name: row[1], color: row[2] };
+    },
     fleeChance(npc) {
         // Ratio, not difference: taking the speed difference linearly (0.45 + diff/90), even
         // a large army escaped Kergit horsemen at 89%. As a ratio, equal speed gives 24%, 1.5x speed gives 84%.
@@ -3246,18 +3322,54 @@ const Game = {
                 }
             }
 
-            // Wolves burst out from among the trees: a pack in the forest senses you and
-            // charges. The charge range depends on sight — it used to be a fixed 700, meaning
-            // the pack closed in at ×2 speed while you could only see it from 125 units away,
-            // so the whole approach was invisible. Now a pack only charges from a distance you
-            // can actually *see*; you get to make the call. A charging pack is marked on the map with a red ring (npc.charging).
+            // --- WOLF PACK BEHAVIOR (#36): sprint, blood scent, shy of roads ---
+            // Three layers stack onto the base wander, only for beasts (wolf pack):
+            //   (a) sprint  — a pack moves in bursts, not a steady trot; a short speed spike
+            //                 toggles on/off on a per-wolf timer (retimed every 3-6s, ~30% on).
+            //   (b) scent   — a weak/bleeding quarry (low player HP, wounded troops, or another
+            //                 party already locked on the player) leans the pack toward you from
+            //                 well beyond the forest charge range. It's a lean, not a lock.
+            //   (c) roads   — wolves shun the cleared road network; a target that lands on a road
+            //                 is shoved perpendicular until it clears the roadway.
             let burst = 1;
             npc.charging = false;
-            if((BAND_KINDS[npc.band] || {}).beast && dp < this.spotRange(npc) && state.player.status !== 'prisoner'
-               && this.getTerrainInfo(npc.x, npc.y).name === 'Orman') {
-                npc.targetX = state.player.x; npc.targetY = state.player.y;
-                burst = 1.6;
-                npc.charging = true;
+            let bk2 = BAND_KINDS[npc.band] || {};
+            if(bk2.beast && state.player.status !== 'prisoner') {
+                // (a) sprint — a deterministic burst cycle (no RNG, so headless sims stay
+                // reproducible): ~1.8s sprinting, ~4.2s trotting, toggled on a per-wolf timer.
+                npc.sprintCd = (npc.sprintCd || 0) - dt;
+                if(npc.sprintCd <= 0) { npc.sprinting = !npc.sprinting; npc.sprintCd = npc.sprinting ? 1.8 : 4.2; }
+                if(npc.sprinting) burst = 1.5;
+
+                // (b) blood scent
+                let hurt = state.player.party.filter(t => t.wounded).length;
+                let hpFrac = state.player.stats.hp / Math.max(1, state.player.stats.maxHp);
+                let fight = state.npcParties.some(o => o !== npc && o.playerTargetId === 'player'
+                                                  && this.dist(o, state.player) < 500);
+                let bleeding = hpFrac < 0.5 || hurt > 0 || fight;
+                let scentRange = this.getVisibility() * (bleeding ? 2.2 : 1.2);
+                if(bleeding && dp < scentRange) {
+                    npc.targetX = npc.x + (state.player.x - npc.x) * 0.6;
+                    npc.targetY = npc.y + (state.player.y - npc.y) * 0.6;
+                    burst = Math.max(burst, 1.5);
+                }
+
+                // forest charge (existing pounce): full lock at ×1.6 when close and in cover
+                if(dp < this.spotRange(npc) && this.getTerrainInfo(npc.x, npc.y).name === 'Orman') {
+                    npc.targetX = state.player.x; npc.targetY = state.player.y;
+                    burst = 1.6;
+                    npc.charging = true;
+                }
+
+                // (c) shy of roads
+                if(!npc.charging) {
+                    let roadNames = Object.keys(this.ROAD_KINDS).map(k => this.ROAD_KINDS[k].name);
+                    if(roadNames.includes(this.getTerrainInfo(npc.targetX, npc.targetY).name)) {
+                        let vx = npc.targetX - npc.x, vy = npc.targetY - npc.y, vl = Math.hypot(vx, vy) || 1;
+                        npc.targetX += -vy / vl * 120; npc.targetY += vx / vl * 120;
+                        this.clampTargetToMap(npc);
+                    }
+                }
             }
 
             // A camp is a protected time-skip, not a way to let a pursuer overlap the
@@ -3384,6 +3496,7 @@ const Game = {
         let html = `<h3>${ambush === 'ambush' ? T('🌲 Pusu!') : ambush === 'raid' ? T('🔥 Baskın!') : T('⚔️ Karşılaşma:')} ${this.npcName(npc)}</h3>
         <p style="margin-top:0.5rem;">${T`Düşman grup büyüklüğü: <b>${npc.size}</b> kişi</p>
         <p>Senin grubun: <b>${this.fieldSize()}</b> kişi`}</p>`
+        + (state.player.party.length ? (odds => `<p style="margin-top:-0.2rem"><b>${T('⚔️ Tahmini denge')}:</b> <b style="color:${odds.color}">${T(odds.name)}</b></p>`)(this.oddsLabel(npc)) : '')
         + (hurt ? `<p style="color:var(--text-muted);font-size:var(--fs-sm);margin-top:-0.4rem">${T`${hurt} yaralı kampta kalır, savaşa girmez.`}</p>` : '');
 
         if(ambush === 'ambush') {
@@ -3691,8 +3804,9 @@ const Game = {
             return `${T`Avcı çıkışan askerin bu sefer şansı yaver gitti: akşam yemeğine <b>${n} et</b> geldi.`}`;
         }},
         { id: 'deserter', bad: 0, when: c => c.party + 1 < Game.getPartyCapacity(), run(c) {
-            let t = Game.addRecruit(c.near);
-            return `${T`Yolda başıboş dolaşan bir <b>${T(t.name)}</b> gruba katıldı. Eski komutanını sormamak en iyisi.`}`;
+            // #33: a lone wanderer now asks to join instead of falling in automatically.
+            Game.offerWanderer(c.near);
+            return '';
         }},
         { id: 'blessing', bad: 0, when: c => c.near && c.near.type === 'village', run(c) {
             Game.addItem('cheese', 2);
@@ -3718,6 +3832,32 @@ const Game = {
                   name: this.recruitName(loc || LOCATIONS[0]), level: 1, xp: 0, xpNext: 3, type: 'infantry' };
         state.player.party.push(t);
         return t;
+    },
+    // A lone wanderer on the road (#33): instead of falling in automatically, he now asks,
+    // and the player accepts or waves him on. Accept reuses the plain level-1 recruit.
+    offerWanderer(near) {
+        let name = this.recruitName(near || LOCATIONS[0]);
+        this._pendingWanderer = { name, near };
+        this.showModal(`<h3>🚶 ${T`Yolda`}</h3>
+            <p>${T`Yolda başıboş dolaşan bir <b>${T(name)}</b> önünü kesti. Grubuna katılmak istiyor.`}</p>
+            <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.2rem">
+                <button class="btn primary" onclick="Game.acceptWanderer()">${T`Kabul Et`}</button>
+                <button class="btn" onclick="Game.declineWanderer()">${T`Reddet`}</button>
+            </div>`, '520px');
+    },
+    acceptWanderer() {
+        let w = this._pendingWanderer; this._pendingWanderer = null;
+        this.closeModal();
+        if(!w) return;
+        state.player.party.push({ id: 'troop_' + Math.random().toString(36).substr(2, 9),
+            name: w.name, level: 1, xp: 0, xpNext: 3, type: 'infantry' });
+        this.updateTopBar();
+        alert(T`Yolda başıboş dolaşan bir <b>${T(w.name)}</b> gruba katıldı. Eski komutanını sormamak en iyisi.`);
+    },
+    declineWanderer() {
+        this._pendingWanderer = null;
+        this.closeModal();
+        alert(T('Adam omuz silkti ve yoluna devam etti.'));
     },
     addItem(id, qty) {
         let ex = state.player.inventory.find(i => i.id === id);
@@ -3784,7 +3924,9 @@ const Game = {
         if(!ev) return null;
         let text = ev.run(ctx);
         this.updateTopBar();
-        alert(`${ev.bad ? '🌧️' : '🌤️'} <b>${T`Günün Olayı`}</b><br><br>${text}`);
+        // An event whose run() opens its own window (a wanderer asking to join, #33)
+        // returns '' — skip the day-event alert so it doesn't clobber that window.
+        if(text) alert(`${ev.bad ? '🌧️' : '🌤️'} <b>${T`Günün Olayı`}</b><br><br>${text}`);
         return ev.id;
     },
 
@@ -3897,15 +4039,19 @@ const Game = {
         { id: 'storm', icon: '⛈️', when: c => c.party >= 1,
           text: () => T`Ufuktan gelen kara bulut yolu bir anda kapattı. Dolu taneleri miğferlerde çınlıyor.`,
           choices: [
-            { label: () => T`⛺ Sığınak ara, bekle (4 saat)`, run() {
-                Game.roadDelay(4); Game.addProficiencyXp('pathfinding', 30);
-                return T`Kaya dibinde kuru bir oyuk buldun. Fırtına geçene kadar kimse ıslanmadı.<br><b>Yol Bulma +30 tecrübe</b>.<br><i>4 saat kaybettin.</i>`;
+            { label: () => T`⛺ Sığınak ara, bekle (2 saat)`, run() {
+                Game.roadDelay(2); Game.addProficiencyXp('pathfinding', 25);
+                return T`Kaya dibinde kuru bir oyuk buldun. Fırtına geçene kadar kimse ıslanmadı.<br><b>Yol Bulma +25 tecrübe</b>.<br><i>2 saat kaybettin.</i>`;
+            }},
+            { label: c => T`🐴 Atları yatıştır, ağır ilerle (−${Math.min(2, c.food)} yiyecek)`, run() {
+                let n = Game.takeFood(2); Game.addMorale(-2);
+                return T`Hayvanların başını örttün, yürüyüşü yavaşlattın. Kimse yaralanmadı ama azık eridi.<br><b>−${n} yiyecek</b>, moral <b>−2</b>.`;
             }},
             { label: () => T`🌧️ Doluda yürümeye devam et`, run() {
-                Game.addMorale(-5);
-                let t = Math.random() < 0.5 ? Game.woundRandom(2) : null;
-                return t ? T`Islak taşta kayan <b>${Game.troopLabel(t)}</b> bileğini kırdı.<br>Moral <b>−5</b>, iki gün savaşa giremez.`
-                         : T`Herkes sırılsıklam oldu ama yol bitti.<br>Moral <b>−5</b>.`;
+                Game.addMorale(-4); Game.addProficiencyXp('athletics', 20);
+                let t = Math.random() < 0.25 ? Game.woundRandom(2) : null;
+                return t ? T`Islak taşta kayan <b>${Game.troopLabel(t)}</b> bileğini burktu, iki gün savaşa giremez.<br>Moral <b>−4</b>, <b>Atletizm +20 tecrübe</b>.`
+                         : T`Herkes sırılsıklam oldu ama yol kısaldı. Sağ salim çıktınız.<br>Moral <b>−4</b>, <b>Atletizm +20 tecrübe</b>.`;
             }}
           ]},
 
@@ -4734,6 +4880,16 @@ const Game = {
         // menu is immediately subtracted from the freshly cleared offset.
         this._camPx = state.player.x;
         this._camPy = state.player.y;
+    },
+
+    // #21 World-map zoom toggle: flips between the default view (~0.8) and 2× (1.6).
+    // The midpoint decides direction, so it still works after a wheel/pinch zoom.
+    toggleMapZoom() {
+        let base = 0.8, hi = 1.6;
+        let toHi = this.camera.zoom < (base + hi) / 2;
+        this.camera.targetZoom = Math.max(this.minZoom(), Math.min(3.0, toHi ? hi : base));
+        let btn = document.getElementById('btn-map-zoom');
+        if(btn) btn.textContent = toHi ? '2x' : '1x';
     },
 
     showScreen(screenId) {
@@ -8789,11 +8945,11 @@ const Game = {
 
     // The fief list used to live inside the diplomacy window only, four scrolls down past the wars
     // and the blood feuds, so a landed player never found it (#48). One builder, two screens.
-    fiefListHtml(withTravel = false) {
+    fiefListHtml(withTravel = false, heading = true) {
         let mine = this.myFiefs();
         if(!mine.length) return '';
         let inc = this.fiefIncome();
-        return `<h3 style="margin-top:1rem">${T`🏰 Tımarların`}</h3>` + mine.map(l =>
+        return `${heading ? `<h3 style="margin-top:1rem">${T`🏰 Tımarların`}</h3>` : ''}` + mine.map(l =>
             `<div style="display:flex;gap:0.6rem;align-items:baseline;flex-wrap:wrap;padding:0.3rem 0;border-bottom:1px solid var(--panel-border)">
                 <span style="min-width:150px;font-weight:600">${T(l.name)}</span>
                 <span style="color:var(--text-muted);min-width:70px">${l.type === 'city' ? T('Şehir') : l.type === 'castle' ? T('Kale') : T('Köy')}</span>
@@ -8809,7 +8965,7 @@ const Game = {
     showFiefs() {
         let mine = this.myFiefs(), tri = this.tributaries();
         this.showModal(`<h3>${T`🏰 Topraklarım`}</h3>
-        ${mine.length ? this.fiefListHtml(true)
+        ${mine.length ? this.fiefListHtml(true, false)
             : `<p style="color:var(--text-muted)">${T`Henüz toprağın yok. Bir şehir ya da kale fethedersen çevresindeki köyler de sana geçer;
                bir krallığa bağlıysan kralından tımar isteyebilirsin (${this.FIEF_GATE} nam).`}</p>`}
         ${tri.length ? `<h3 style="margin-top:1rem">${T`👑 Haraca bağladığın köyler`}</h3>` + tri.map(l =>
@@ -10255,7 +10411,9 @@ const Game = {
             wage += this.troopWage(t);                              // companion 20, lvl51 free
             if(t.isCompanion) { foodLow += this.FOOD_MAN; return; }
             if(t.level >= 51) return;
-            foodLow += t.level >= 20 ? this.FOOD_MAN * 1.5 : this.FOOD_MAN;
+            // Stronger troops eat more (#27): 1×→3× scaled by level, the toughest elite (~lvl50) at 3×.
+            let mult = Math.min(3, 1 + Math.min(t.level, 50) / 25);
+            foodLow += this.FOOD_MAN * mult;
             if(t.level >= 30) foodHigh += this.FOOD_MAN;
         });
         wage += this.fiefIncome().wage;   // a fief's garrison wage comes out of your pocket too (#23)
@@ -10472,9 +10630,18 @@ const Game = {
     },
     promoteTroop(oldName, newName, cost) {
         if(state.player.money < cost) { this.sfx('error'); return alert(T('Yeterli dinarın yok!')); }
+        // Cavalry promotions consume a mount from the stable/inventory (#30). The unique mare is spared.
+        let toCav = (TROOP_TYPES[newName] || {}).type === 'cavalry';
+        let horseIdx = toCav ? state.player.inventory.findIndex(i => i.type === 'horse' && (i.qty || 0) > 0 && !i.unique) : -1;
+        if(toCav && horseIdx === -1) { this.sfx('error'); return alert(T('Atlı birime terfi için ahırında en az bir at olmalı.')); }
         let troopIdx = state.player.party.findIndex(t => t.name === oldName && t.xp >= t.xpNext);
         if(troopIdx !== -1) {
             state.player.money -= cost;
+            if(horseIdx !== -1) {                                 // spend one horse on the mount
+                let h = state.player.inventory[horseIdx];
+                h.qty--;
+                if(h.qty <= 0) state.player.inventory.splice(horseIdx, 1);
+            }
             let t = state.player.party[troopIdx];
             t.name = newName;
             t.xp = 0;

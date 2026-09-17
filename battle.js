@@ -309,7 +309,7 @@ const Battle = {
                 // would run at two different speeds on the two sides. Morale scales HP and attack (the UI says so too).
                 speed: typeInfo.speed + lvlBonusSpd, attack: (typeInfo.attack + lvlBonusAtk) * debuff, defense: typeInfo.defense + lvlBonusDef,
                 type: typeInfo.type, mounted: typeInfo.type === 'cavalry' || typeInfo.speed > this.FOOT_MAX,
-                dmgType: typeInfo.dmgType, color: typeInfo.type === 'cavalry' ? '#33ddff' : typeInfo.type === 'archer' ? '#55ff55' : '#33aaff',
+                dmgType: typeInfo.dmgType, brace: typeInfo.brace, color: typeInfo.type === 'cavalry' ? '#33ddff' : typeInfo.type === 'archer' ? '#55ff55' : '#33aaff',
                 radius: typeInfo.type === 'cavalry' ? 7 : 5, atkCd: 0, level: p.level
             });
         });
@@ -325,7 +325,7 @@ const Battle = {
         for(let i=0; i<enemyCount; i++) {
             let name = 'Çapulcu';   // BAND_KINDS/TROOP_TYPES key — translated on screen via T()
             let hp = 24, speed = 52, attack = 6, defense = 0, type = 'infantry', color = '#ff4444', radius = 5;
-            let dmgType = (band && band.dmg) || 'cut';
+            let dmgType = (band && band.dmg) || 'cut', brace;
 
             if(!bossLevel && isBandit) {
                 // Band mix: each kind has its own units; a large band gets its leader up front
@@ -358,7 +358,7 @@ const Battle = {
                 let pool = Game.factionTroopPool(faction);
                 name = pool[Math.floor(Math.random() * pool.length)];
                 let ti = TROOP_TYPES[name];
-                hp = ti.hp; speed = ti.speed; attack = ti.attack; defense = ti.defense; type = ti.type; dmgType = ti.dmgType;
+                hp = ti.hp; speed = ti.speed; attack = ti.attack; defense = ti.defense; type = ti.type; dmgType = ti.dmgType; brace = ti.brace;
                 radius = type === 'cavalry' ? 7 : 5;
                 color = '#ff6666';
             }
@@ -403,7 +403,7 @@ const Battle = {
                                  : startEnemyX + Math.random()*80,
                 y: this.ambushed ? Math.max(20, Math.min(H-20, H/2 + Math.sin(i*2.4)*(130+Math.random()*110)))
                                  : 50 + Math.random()*(H-100),
-                speed: speed, attack: attack, defense: defense, dmgType: dmgType,
+                speed: speed, attack: attack, defense: defense, dmgType: dmgType, brace: brace,
                 type: type, mounted: type === 'cavalry' || speed > this.FOOT_MAX,
                 color: color, radius: radius, atkCd: Math.random()*0.6, level: enemyLvl
             });
@@ -584,8 +584,14 @@ const Battle = {
     // otherwise "damage you deal". At normal difficulty the multiplier is 1, so the balance table is unchanged.
     afterArmor(dmgType, raw, def, tgt) {
         let t = DMG_TYPES[dmgType] || DMG_TYPES.cut;
-        return Math.max(1, Math.round((raw * t.mult - (def || 0) * t.armor) * Game.dmgMult(tgt)));
+        // Armor blunts a blow but never trivializes it (#8): heavy plate used to drop a strong
+        // hit to the Math.max(1) floor — "1 damage" — so an axeman could not scratch a knight.
+        // A fraction of the type-adjusted raw always lands; armor scales how much between here and full.
+        let base = raw * t.mult;
+        let landed = Math.max(base - (def || 0) * t.armor, base * this.ARMOR_FLOOR);
+        return Math.max(1, Math.round(landed * Game.dmgMult(tgt)));
     },
+    ARMOR_FLOOR: 0.18,   // min share of a type-adjusted hit that pierces any armor (#8)
 
     // Block: an attack is cut off if it lands within the arc the shield faces (0 = full block)
     blockFactor(tgt, sx, sy) {
@@ -661,7 +667,15 @@ const Battle = {
     isBracer(u) {
         if(!u || u.hp <= 0 || u.beast || u.mounted || u.type !== 'infantry') return false;
         if(u.id === 'player') return this.playerWeaponType() === 'polearm';
-        return u.dmgType === 'pierce';
+        return u.dmgType === 'pierce' || !!u.brace;
+    },
+    // The brace bonus a unit lands on a charging horse (#109). Spears (pierce infantry) get the
+    // full 1.5; a shield troop can carry an explicit lighter brace (Rodok Kalkanlısı 1.25) so its
+    // anti-cavalry identity lives here, not in a damage type that would leak into every matchup.
+    braceMult(u) {
+        if(!this.isBracer(u)) return 1;
+        if(u.id === 'player') return 1.5;
+        return u.brace || 1.5;
     },
 
     // Melee damage from one place: blood, knockback, damage text, kill logging
@@ -671,7 +685,7 @@ const Battle = {
         // Bracing infantry bites harder into a charging horse — the counter to cavalry kiting
         // the whole line (#109). Cuts both ways: the same check on the other side of dealMelee's
         // caller means a lone rider can't just charge a spear wall down for free either.
-        if(tgt.type === 'cavalry' && !tgt.beast && this.isBracer(src)) raw *= 1.5;
+        if(tgt.type === 'cavalry' && !tgt.beast) raw *= this.braceMult(src);
         let dmg = this.afterArmor(src.dmgType, raw * bf * this.DAMAGE_PACE, tgt.defense, tgt);
         tgt.hp -= dmg;
         // Attributes grow through play: strength if the player lands the hit, vitality if the player takes it.

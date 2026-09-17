@@ -3,6 +3,26 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.21.0 — Yolların Kıyısı (2026-09-17)
+
+- **Savaş dengesi elden geçti.** Mızraklılar süvariye, kalkanlılar ağır süvariye karşı hak ettiği
+  üstünlüğü kazandı; zırh artık hiçbir vuruşu tamamen sıfırlamıyor (en az %18 hasar geçer),
+  kalkan tutan birimler süvari şarjını daha sert karşılıyor. Aynı seviyedeki birimler ölçülü
+  dövüşüyor, seviye atlayınca fark hissediliyor.
+- **Karşılaşma öncesi denge tahmini.** Bir orduyla karşılaşınca "Kolay / Dengeli / Zorlu / Çetin"
+  etiketi düşman gücüne göre gösteriliyor.
+- **Kurt sürüleri artık gerçekten sürü gibi.** Sıçrayışlarla koşuyor, yaralı/kanı akan avın kokusunu
+  uzaktan alıp yöneliyor, temizlenmiş yollardan uzak duruyor.
+- **Yolda tek başına dolaşan biri artık soruyor.** Otomatik katılmıyor; kabul mü red mi, sen karar
+  veriyorsun.
+- **Güçlü asker daha çok yer.** Seviye yükseldikçe iaşe artıyor (en güçlüde 3 kata kadar); seçkin
+  birimler ayrıca et istiyor.
+- **Atlı birime terfi için ahırında at gerekiyor.** Terfi bir at tüketiyor.
+- **Harita 2x yakınlaştırma** (Z tuşu veya haritadaki düğme). Kenara dayanınca "hedefi bırak?" sorusu.
+- **Yayaların arasında yürüyüş yavaşlıyor.** Dibinde biriken yaya kalabalığı hızı düşürüyor (taban %50).
+- **Dolu olayı yeniden tasarlandı** — üç anlamlı seçenek, daha az rastgele ceza.
+- **Tımarlarım penceresi tek başlığa indi**, uzun modallarda içerik kayması düzeldi.
+
 ## 1.20.0 — Dünya Nefes Alıyor (2026-09-17)
 
 - **Mareşal seferleri seyrekleşti.** Lordlar artık her fırsatta sefere çıkıp birbirini bozguna

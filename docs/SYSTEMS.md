@@ -466,7 +466,7 @@ Every day:
   Every foodstuff has its own shelf life (`ITEMS[].spoil` = days): grain 60, cheese 40, meat 30,
   bread 20. `Game.spoilFood()` subtracts `qty/spoil` every day (the fractional loss
   accumulates in `it.decay`), `foodStock().days` counts this in.
-  **The player eats too (#75)**: `upkeep()` starts with `foodLow = 1` — it used to count only
+  **The player eats too (#75)**: `upkeep()` starts with `foodLow = FOOD_PLAYER` (0.75) — it used to count only
   the party, so a solo party consumed no food at all and the badge showed `—`. Hunger's
   consequence used to be morale alone; since morale only affects troops (`moraleMult`), a
   player traveling alone was never touched by starving at all. Now every day spent hungry
@@ -477,29 +477,32 @@ Every day:
   left" badge shows a real number instead of `—` (a fresh character: **0 days**, red); a player
   traveling without buying food starves on **day 3**, health goes 50 → 41 by day 5 → 26 by day
   10 → 1 by day 20. The same player leaving with 30 bread lasts 12 days (1 consumption + 1.5
-  spoilage), first hunger on **day 17**. 10 troops + player = **6** units a day (see `FOOD_MAN`
-  below).
-#### A troop eats half a unit a day (`FOOD_MAN`)
+  spoilage), first hunger on **day 17**. 10 troops (lvl 10) + player = **7** units a day (see
+  `FOOD_MAN` below).
+#### A troop eats a fraction of a unit a day (`FOOD_MAN`), scaled by level (#27)
 1 unit per head was too much: a 20-strong army ate 21 units a day (~84 denars), so the
-**food bill ran double the wage bill** (the same army's wages were 40₺). One knob,
-`Game.FOOD_MAN` = **0.5**, sits right above `upkeep()`; consumption, the "how many days left"
-badge, the hunger penalty, and the tooltip breakdown all read from `upkeep()` already, so
-nothing else needed touching. The player's own belly stays at **1 unit** (`foodLow = 1`, #75)
-— the knob is only the troops' share. Elite tiers keep their ratio: lvl 20+ **×1.5** (0.75
-units), lvl 30+ additionally wants meat/cheese equal to `FOOD_MAN`, lvl 51 free.
+**food bill ran double the wage bill**. One knob, `Game.FOOD_MAN` = **0.4**, sits right above
+`upkeep()`; consumption, the "how many days left" badge, the hunger penalty, and the tooltip
+breakdown all read from `upkeep()` already, so nothing else needed touching. The player's own
+belly is `Game.FOOD_PLAYER` = **0.75** (#75) — the knob is only the troops' share.
+**Stronger troops eat more (#27)**: each troop's low-quality share is
+`FOOD_MAN × min(3, 1 + min(level, 50)/25)` — a level-10 recruit at 1.4× (0.56 units), a
+level-25 veteran at 2× (0.8), the toughest elite (~lvl 50) capped at **3×** (1.2). Lvl 30+
+additionally wants meat/cheese equal to `FOOD_MAN` (0.4); companions eat a flat `FOOD_MAN`;
+lvl 51 free.
 
-Measured (`upkeep()` directly):
+Measured (`upkeep()` directly, `need = ceil(foodLow)`):
 
-| Party | Daily units | Meat/cheese | Wages | Grain cost |
+| Party | Daily units (`need`) | Meat/cheese (`needHigh`) | Wages | Grain cost |
 |---|---|---|---|---|
 | solo | 1 | 0 | 0 | 4₺ |
-| 10 × lvl10 | **6** *(was 11)* | 0 | 20₺ | 24₺ |
-| 20 × lvl10 | **11** *(was 21)* | 0 | 40₺ | 44₺ |
-| 20 × lvl20 | 16 | 0 | 200₺ | 64₺ |
-| 10 × lvl30 | 9 | 5 | 150₺ | 36₺ |
+| 10 × lvl10 | **7** *(0.56 ea + 0.75)* | 0 | 20₺ | 28₺ |
+| 20 × lvl10 | **12** *(0.56 ea + 0.75)* | 0 | 40₺ | 48₺ |
+| 20 × lvl20 | 16 *(0.72 ea)* | 0 | 200₺ | 64₺ |
+| 10 × lvl30 | 10 *(0.88 ea)* | 4 | 150₺ | 40₺ |
 
-60 grain lasts a 10-person party **8 days, not 5**. Two `foodStock` assertions in
-`tools/test.js` encode these numbers (need 11→6, days 5→8, need 4→3, needHigh 2→1) — they went
+60 grain lasts a 10-person party (lvl 10) **7 days**. Two `foodStock` assertions in
+`tools/test.js` encode these numbers (need 7, days 7, need 3, needHigh 1) — they went
 red when the balance changed and were updated by hand, so the regression gate is doing its
 job.
 
@@ -683,15 +686,29 @@ alternative to the volunteer grind — the only way to turn money directly into 
   `chargeMult` already represents their lance. Bands are set with a single field
   (`BAND_KINDS[].dmg`) — marauders and mountain bandits use clubs (`blunt`), village militia
   and caravan guards use pitchforks/spears (`pierce`), everyone else is cutting.
-  - A mid-tier spear troop is now genuinely useful against armored elites. Measured
-    (`Battle.dealMelee`, 200 repeats, the target doesn't fight back): Rodok Mızraklısı takes
-    down a Nord Baltacısı (defense 13) in **84.9s → 24.8s**, Svadya Milisi takes down a Rodok
-    Kalkanlısı (defense 18) in **74.1s → 39.8s**. No difference against an unarmored target.
-  - Elite balance wasn't disturbed: Nord Baltacısı vs Rodok Kalkanlısı is still 100% (11.9s),
-    Nord Baltacısı vs Svadya Şövalyesi 69%. *An earlier attempt gave Rodok Kalkanlısı
-    `pierce`; combined with defense 18, that dropped its win rate against the axeman from
-    100% to 1% — a heavily-shielded infantry unit fights with a short sword (cutting) for a
-    reason.*
+#### The balance target is a range rule, not a win-rate table (Fable danisma 006)
+
+Troops are balanced to a rock-paper-scissors *shape*, not to fixed percentages: same-tier
+units land **40–60**, a one-tier gap **65–80**, two tiers **85+**, and a unit's *opposing type*
+(spear→cavalry, bow→light) gets **+10**. The triangle: plain infantry loses to elite cavalry,
+spears and shield lines beat cavalry, cavalry runs down archers.
+
+- **Armor floor (#8)**: `afterArmor` used to drop a strong hit against heavy defense to the
+  `Math.max(1)` floor — an axeman could not scratch a knight ("1 damage"). A fraction of the
+  type-adjusted raw (`ARMOR_FLOOR = 0.18`) now always lands, so armor blunts a blow without
+  trivializing it.
+- **Anti-cavalry lives in the brace, not the damage type (`Battle.braceMult`)**: a standing
+  infantry unit hits a charging horse harder. Spears (pierce infantry) get **×1.5**; a shield
+  troop carries an explicit lighter brace so its anti-cav identity doesn't leak into every
+  matchup — **Rodok Kalkanlısı 1.25** (10th column of its tree row → `u.brace`). *An earlier
+  attempt gave Kalkanlı `pierce` instead; pierce halves armor in **every** fight, not just
+  against horses, so it beat both the knight and the axeman 100%.* Kalkanlı stays `cut`.
+- Measured (`node tools/duel.js`, real engine, 50 fights; multi-unit for the archer rows so the
+  bow gets volleys off): Rodok Mızraklısı vs Kergit Süvarisi **57%**, Rodok Kalkanlısı vs Svadya
+  Şövalyesi **50%**, Nord Baltacısı vs Rodok Kalkanlısı **53%** (same-tier mirror), Nord Baltacısı
+  vs Svadya Şövalyesi **6%** (plain infantry can't beat elite cavalry head-on — bring spears),
+  Svadya Şövalyesi vs Rodok Tatar Yaylısı **100%** (cavalry reaches the bow line). Five anchor
+  assertions in `test.js` guard these bands.
   - A villager's club (`blunt`) is both slightly better against armor (Svadya Köylüsü →
     Svadya Milisi 38.7s → 30.5s) and stuns the enemy it downs: fighting a green army raises
     the capture rate from 45% to 90% (`stunned`, see "Taking prisoners").
