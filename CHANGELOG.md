@@ -3,6 +3,20 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.18.0 — Bosslar ve Nişanlar (2026-09-17)
+
+- **Dört benzersiz boss haritada beliriyor (#38).** Namın yükseldikçe Kurt Ana, Bozkır Hanı,
+  Demirci Dev ve Korsan Kral sırayla haritaya çıkıyor — kocaman ikonuyla, çevresinde muhafızlarıyla.
+  Her biri tek sefer yenilir; üstüne gidince ödülü önceden gösteren bir tanıtım açılıyor.
+- **Her bossun benzersiz bir ganimeti var.** Kurt Dişi Hançer, Han Kısrağı, Dev Örsü Zırhı ve
+  Fırtına Yayı — satılmayan, güçlü ama oyunu bozmayan eşyalar. Yanında bir de kalıcı nişan düşüyor.
+- **Nişanlar (relic) kalıcı efekt taşıyor (#37).** Kurt Kanı harita hızını, Bozkır Tuğu moral,
+  Demir Yürek canı, Fırtına Tılsımı ganimeti, Tüccar Mink ticaret payını artırıyor. Her çeşitten
+  bir tane; esarette kaybolmaz. Tüccar Mink hancıdan satın alınır, gerisi bosslardan gelir.
+- **Bossların bossu — oyunun sonu.** Dört nişanı toplayıp yeterli nama ulaşınca boss haritası
+  Savaş Tanrısı'nı açıyor; onu devirmek oyunu bitiriyor ve zafer ekranı geliyor.
+- **Her eşyaya açıklama eklendi.** Envanterde eşyanın ne işe yaradığı artık yazıyor.
+
 ## 1.17.0 — Mekân Sahneleri (2026-09-17)
 
 - **Köy, kale ve şehir artık birbirinden ayrılıyor (#100).** Her yerleşim türü kendi taş

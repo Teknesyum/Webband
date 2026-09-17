@@ -1781,6 +1781,58 @@ test('bandit lair: erodes the region, pays out when cleared, and is a band sourc
     assert.strictEqual(g.Game.bandCount(), 0, 'a band spawned with no lair present');
 });
 
+// --- Bosses and relics (#37, #38) ---
+// A boss appears on the map the day its renown gate is reached and not before; its relic
+// carries a permanent modifier; the boss-of-bosses map is gated behind all four relics AND renown.
+test('bosses: spawn at their renown gate, relics stack modifiers, the final map is doubly gated', () => {
+    const g = H.world({ seed: 6 });
+    const { Game, state, BOSSES, RELICS } = g;
+
+    // No boss is on the map at renown 0, and the cheapest one appears once its gate is crossed.
+    Game.ensureBosses();
+    assert.strictEqual(Game.bossSites().length, 0, 'a boss appeared before any renown was earned');
+    const cheapest = Object.keys(BOSSES).reduce((a, b) => BOSSES[a].renown <= BOSSES[b].renown ? a : b);
+    state.player.renown = state.player.maxRenown = BOSSES[cheapest].renown;
+    Game.ensureBosses();
+    assert.ok(Game.bossSites().some(s => s.bossKey === cheapest), 'the boss didn\'t spawn at its gate');
+    const before = Game.bossSites().length;
+    Game.ensureBosses();
+    assert.strictEqual(Game.bossSites().length, before, 'ensureBosses spawned the same boss twice');
+
+    // A killed boss never respawns.
+    state.bossKills[cheapest] = true;
+    state.sites = state.sites.filter(s => s.bossKey !== cheapest);
+    Game.ensureBosses();
+    assert.ok(!Game.bossSites().some(s => s.bossKey === cheapest), 'a slain boss came back');
+
+    // Relics: each is one-of-a-kind, gainRelic stores it, and relicMod sums the modifier.
+    const kk = RELICS.kurt_kani;
+    Game.gainRelic('kurt_kani');
+    assert.ok(Game.hasRelic('kurt_kani'), 'the relic wasn\'t granted');
+    assert.strictEqual(Game.relicMod('mapSpeed'), kk.mod.mapSpeed, 'relicMod didn\'t read the modifier');
+    const money = state.player.money;
+    Game.gainRelic('kurt_kani');   // duplicate pays coin, doesn't stack
+    assert.strictEqual(state.player.money, money + 1500, 'a duplicate relic didn\'t pay out');
+    assert.strictEqual(Game.relicMod('mapSpeed'), kk.mod.mapSpeed, 'a duplicate relic stacked its modifier');
+
+    // The final map: blocked until all four boss relics are held AND renown clears the gate.
+    Game.addItem('boss_map', 1);
+    const idx = state.player.inventory.findIndex(i => i.id === 'boss_map');
+    state.player.relics = {};
+    state.player.renown = state.player.maxRenown = Game.BOSS_RENOWN;
+    state.finalBoss = false;
+    Game.useItem(idx);
+    assert.ok(!state.finalBoss, 'the final boss opened without the four relics');
+    Object.keys(BOSSES).forEach(k => Game.gainRelic(BOSSES[k].relic));
+    state.player.renown = state.player.maxRenown = Game.BOSS_RENOWN - 1;
+    Game.useItem(idx);
+    assert.ok(!state.finalBoss, 'the final boss opened below the renown gate');
+    state.player.renown = state.player.maxRenown = Game.BOSS_RENOWN;
+    Game.useItem(idx);
+    assert.ok(state.finalBoss, 'the final boss stayed shut with relics and renown in hand');
+    g.Battle.active = false;
+});
+
 // --- Rumours (#71) ---
 // Information was free and instant before this: the guild ledger handed over every
 // price in the world for nothing. Three claims: the tavern charges coin AND hours,

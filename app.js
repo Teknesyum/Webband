@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.17.0', date: '2026-09-17', name: 'Mekân Sahneleri' };  // the version name is not translated
+const VERSION = { no: '1.18.0', date: '2026-09-17', name: 'Bosslar ve Nişanlar' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -273,37 +273,69 @@ const DMG_TYPES = {
 const ITEMS = {
     // spoil: how many days until the whole stock spoils (daily loss = qty/spoil).
     // Cheap food spoils fast, pricier food keeps — so stockpiling is a real choice.
-    wheat:  { id:'wheat',  name:'Tahıl',         type:'food',  quality:'low', basePrice:4,  icon:'🌾', spoil:60 },
-    bread:  { id:'bread',  name:'Ekmek',         type:'food',  quality:'low', basePrice:6,  icon:'🍞', spoil:20 },
-    meat:   { id:'meat',   name:'Kurutulmuş Et', type:'food',  quality:'high',basePrice:20, icon:'🥩', spoil:30, foodValue:2 },
-    cheese: { id:'cheese', name:'Peynir',        type:'food',  quality:'high',basePrice:16,  icon:'🧀', spoil:40 },
-    fish:   { id:'fish',   name:'Tütsülenmiş Balık', type:'food', quality:'high', basePrice:14, icon:'🐟', spoil:24 },
-    fruit:  { id:'fruit',  name:'Kuru Meyve',    type:'food',  quality:'low', basePrice:9,  icon:'🍎', spoil:45 },
-    butter: { id:'butter', name:'Tereyağı',      type:'food',  quality:'high',basePrice:18, icon:'🧈', spoil:14 },
-    honey:  { id:'honey',  name:'Bal',           type:'food',  quality:'high',basePrice:24, icon:'🍯', spoil:90 },
-    iron:   { id:'iron',   name:'Demir',         type:'trade', basePrice:150, icon:'⛏️' },
-    velvet: { id:'velvet', name:'Kadife',        type:'trade', basePrice:400, icon:'🧵' },
-    ale:    { id:'ale',    name:'Bira',          type:'trade', basePrice:50,  icon:'🍺' },
-    salt:   { id:'salt',   name:'Tuz',           type:'trade', basePrice:100, icon:'🧂' },
-    sword:  { id:'sword',  name:'Kılıç',         type:'weapon', weaponType:'oneHanded', dmgType:'cut',    basePrice:250, attack:15, icon:'⚔️' },
-    axe:    { id:'axe',    name:'Savaş Baltası', type:'weapon', weaponType:'twoHanded', dmgType:'cut',    basePrice:300, attack:20, icon:'🪓' },
-    mace:   { id:'mace',   name:'Topuz',         type:'weapon', weaponType:'oneHanded', dmgType:'blunt',  basePrice:220, attack:16, icon:'🔨' },
-    lance:  { id:'lance',  name:'Mızrak',        type:'weapon', weaponType:'polearm',   dmgType:'pierce', basePrice:200, attack:12, icon:'🔱' },
-    bow:    { id:'bow',    name:'Yay',           type:'weapon', weaponType:'bow',       dmgType:'pierce', basePrice:220, attack:10, icon:'🏹' },
-    shield: { id:'shield', name:'Kalkan',        type:'shield', basePrice:150, defense:10, icon:'🛡️' },
-    mail:   { id:'mail',   name:'Zincir Zırh',   type:'armor',  basePrice:500, defense:25, icon:'🦺' },
-    leather:{ id:'leather',name:'Deri Zırh',     type:'armor',  basePrice:280, defense:14, icon:'🥋' },
-    plate:  { id:'plate',  name:'Plaka Zırh',    type:'armor',  basePrice:900, defense:38, icon:'🦺' },
-    cap:    { id:'cap',    name:'Deri Başlık',   type:'helmet', basePrice:90,  defense:3,  icon:'🧢' },
-    nasal:  { id:'nasal',  name:'Burunluklu Miğfer', type:'helmet', basePrice:260, defense:8, icon:'⛑️' },
-    greathelm:{ id:'greathelm', name:'Büyük Miğfer', type:'helmet', basePrice:520, defense:14, icon:'🪖' },
-    gloves: { id:'gloves', name:'Deri Eldiven',  type:'gloves', basePrice:80,  defense:2,  icon:'🧤' },
-    gauntlets:{ id:'gauntlets', name:'Çelik Eldiven', type:'gloves', basePrice:300, defense:6, icon:'🧤' },
-    shoes:  { id:'shoes',  name:'Yol Çizmesi',   type:'boots',  basePrice:75,  defense:2,  icon:'🥾' },
-    greaves:{ id:'greaves',name:'Çelik Baldırlık',type:'boots', basePrice:340, defense:7,  icon:'🥾' },
-    horse:  { id:'horse',  name:'Savaş Atı',     type:'horse',  basePrice:600, icon:'🐴' },
-    boss_map: { id:'boss_map', name:'Boss Haritası', type:'special', basePrice:5000, icon:'🗺️' },
-    lvl51_token: { id:'lvl51_token', name:'Savaş Tanrısı Nişanı', type:'special', basePrice:10000, icon:'🏅' }
+    wheat:  { id:'wheat',  name:'Tahıl',         type:'food',  quality:'low', basePrice:4,  icon:'🌾', spoil:60, desc:'Çuval çuval öğütülmemiş tahıl. Ucuz doyurur ama çabuk küflenir.' },
+    bread:  { id:'bread',  name:'Ekmek',         type:'food',  quality:'low', basePrice:6,  icon:'🍞', spoil:20, desc:'Sıcakken güzel, bayatlayınca taş. Yol azığının temeli.' },
+    meat:   { id:'meat',   name:'Kurutulmuş Et', type:'food',  quality:'high',basePrice:20, icon:'🥩', spoil:30, foodValue:2, desc:'Tuzlanıp kurutulmuş et. Bir dilimi iki karın doyurur.' },
+    cheese: { id:'cheese', name:'Peynir',        type:'food',  quality:'high',basePrice:16,  icon:'🧀', spoil:40, desc:'Küçük ama besleyici. Askerin en sevdiği azık.' },
+    fish:   { id:'fish',   name:'Tütsülenmiş Balık', type:'food', quality:'high', basePrice:14, icon:'🐟', spoil:24, desc:'Dumanı tütmüş nehir balığı. Kıyı kasabalarında bol.' },
+    fruit:  { id:'fruit',  name:'Kuru Meyve',    type:'food',  quality:'low', basePrice:9,  icon:'🍎', spoil:45, desc:'Güneşte kurutulmuş meyve. Uzun yolda morali toplar.' },
+    butter: { id:'butter', name:'Tereyağı',      type:'food',  quality:'high',basePrice:18, icon:'🧈', spoil:14, desc:'Yağlı ve doyurucu ama sıcakta çabuk bozulur.' },
+    honey:  { id:'honey',  name:'Bal',           type:'food',  quality:'high',basePrice:24, icon:'🍯', spoil:90, desc:'Bozulmayan tatlı hazine. Hem azık hem ilaç.' },
+    iron:   { id:'iron',   name:'Demir',         type:'trade', basePrice:150, icon:'⛏️', desc:'Ham demir külçesi. Silah diyarlarında altın kadar değerli.' },
+    velvet: { id:'velvet', name:'Kadife',        type:'trade', basePrice:400, icon:'🧵', desc:'Soyluların bayıldığı ince kumaş. Şehirden şehre kâr eder.' },
+    ale:    { id:'ale',    name:'Bira',          type:'trade', basePrice:50,  icon:'🍺', desc:'Fıçı fıçı köpüklü bira. Her hanın vazgeçilmezi.' },
+    salt:   { id:'salt',   name:'Tuz',           type:'trade', basePrice:100, icon:'🧂', desc:'Eti bozulmaktan koruyan beyaz altın. Her yerde alıcısı var.' },
+    sword:  { id:'sword',  name:'Kılıç',         type:'weapon', weaponType:'oneHanded', dmgType:'cut',    basePrice:250, attack:15, icon:'⚔️', desc:'Dengeli tek elli çelik. Kalkanla birlikte güvenli seçim.' },
+    axe:    { id:'axe',    name:'Savaş Baltası', type:'weapon', weaponType:'twoHanded', dmgType:'cut',    basePrice:300, attack:20, icon:'🪓', desc:'İki elli ağır balta. Zırhı deler ama kalkan tutamazsın.' },
+    mace:   { id:'mace',   name:'Topuz',         type:'weapon', weaponType:'oneHanded', dmgType:'blunt',  basePrice:220, attack:16, icon:'🔨', desc:'Ezici demir başlı topuz. Öldürmez, bayıltır — esir toplamaya birebir.' },
+    lance:  { id:'lance',  name:'Mızrak',        type:'weapon', weaponType:'polearm',   dmgType:'pierce', basePrice:200, attack:12, icon:'🔱', desc:'Uzun menzilli mızrak. Atlıya karşı ve at üstünde ölümcül.' },
+    bow:    { id:'bow',    name:'Yay',           type:'weapon', weaponType:'bow',       dmgType:'pierce', basePrice:220, attack:10, icon:'🏹', desc:'Uzaktan vuran yay. Düşman yaklaşmadan zayiat verdirir.' },
+    shield: { id:'shield', name:'Kalkan',        type:'shield', basePrice:150, defense:10, icon:'🛡️', desc:'Meşe ve demirden kalkan. Oklara karşı en iyi dost.' },
+    mail:   { id:'mail',   name:'Zincir Zırh',   type:'armor',  basePrice:500, defense:25, icon:'🦺', desc:'Halka halka örülmüş zırh. İyi koruma, orta ağırlık.' },
+    leather:{ id:'leather',name:'Deri Zırh',     type:'armor',  basePrice:280, defense:14, icon:'🥋', desc:'Sertleştirilmiş deri. Hafif ve ucuz, yeni başlayana göre.' },
+    plate:  { id:'plate',  name:'Plaka Zırh',    type:'armor',  basePrice:900, defense:38, icon:'🦺', desc:'Dövme çelik plakalar. Sıradan çeliğin sağladığı en iyi koruma.' },
+    cap:    { id:'cap',    name:'Deri Başlık',   type:'helmet', basePrice:90,  defense:3,  icon:'🧢', desc:'Basit deri başlık. Hiç yoktan iyidir.' },
+    nasal:  { id:'nasal',  name:'Burunluklu Miğfer', type:'helmet', basePrice:260, defense:8, icon:'⛑️', desc:'Burun koruyuculu demir miğfer. Yüzü kılıçtan korur.' },
+    greathelm:{ id:'greathelm', name:'Büyük Miğfer', type:'helmet', basePrice:520, defense:14, icon:'🪖', desc:'Başı tümüyle saran ağır miğfer. Görüşü daraltır ama can kurtarır.' },
+    gloves: { id:'gloves', name:'Deri Eldiven',  type:'gloves', basePrice:80,  defense:2,  icon:'🧤', desc:'Kaba deri eldiven. Elleri yol yaralarından korur.' },
+    gauntlets:{ id:'gauntlets', name:'Çelik Eldiven', type:'gloves', basePrice:300, defense:6, icon:'🧤', desc:'Çelik plakalı eldiven. Kılıcı tutan eli güvene alır.' },
+    shoes:  { id:'shoes',  name:'Yol Çizmesi',   type:'boots',  basePrice:75,  defense:2,  icon:'🥾', desc:'Sağlam deri çizme. Uzun yolun yoldaşı.' },
+    greaves:{ id:'greaves',name:'Çelik Baldırlık',type:'boots', basePrice:340, defense:7,  icon:'🥾', desc:'Bacağı saran çelik zırh. Süvariye karşı bacakları korur.' },
+    horse:  { id:'horse',  name:'Savaş Atı',     type:'horse',  basePrice:600, icon:'🐴', desc:'Eğitimli savaş atı. Hem hızlı gezersin hem atlı savaşırsın.' },
+    // Boss unique drops (#38) — strong but capped (best base ×1.2); unsellable
+    kurt_disi_hancer: { id:'kurt_disi_hancer', name:'Kurt Dişi Hançeri', type:'weapon', weaponType:'oneHanded', dmgType:'cut', basePrice:4000, attack:17, icon:'🗡️', unique:true, unsellable:true, desc:'Kurt Ana\'nın ininden çıkan kemik saplı hançer. Tek elli çeliğin en keskini.' },
+    han_kisragi: { id:'han_kisragi', name:'Han Kısrağı', type:'horse', basePrice:5000, icon:'🐎', unique:true, unsellable:true, horseBonus:1.15, desc:'Bozkır Hanı\'nın kısrağı. Savaş atından %15 daha hızlı ve dayanıklı.' },
+    dev_orsu_zirhi: { id:'dev_orsu_zirhi', name:'Dev Örsü Zırhı', type:'armor', basePrice:6000, defense:44, icon:'🛡️', unique:true, unsellable:true, heavy:true, desc:'Demirci Dev\'in örsünde dövülen zırh. En sağlam koruma; ağırlığı harita hızını %5 düşürür.' },
+    firtina_yayi: { id:'firtina_yayi', name:'Fırtına Yayı', type:'weapon', weaponType:'bow', dmgType:'pierce', basePrice:7000, attack:22, icon:'🏹', unique:true, unsellable:true, desc:'Korsan Kral\'ın yayı. Fırtına gibi ok yağdırır — yayların en güçlüsü.' },
+    boss_map: { id:'boss_map', name:'Boss Haritası', type:'special', basePrice:15000, icon:'🗺️', desc:'Savaş Tanrısı\'na giden yolu gösterir. Kullanmak için dört bossun nişanı ve yüksek nam gerekir.' },
+    lvl51_token: { id:'lvl51_token', name:'Savaş Tanrısı Nişanı', type:'special', basePrice:10000, icon:'🏅', desc:'Bir askeri 51. seviyeye yükseltir. Tek kullanımlık.' }
+};
+
+// --- RELICS (#37) ---
+// Permanent, one-of-each effects held in state.player.relics (outside inventory → not lost in
+// captivity). Each relic adds one modifier, summed by Game.relicMod(name) — same pattern as perkMod.
+const RELICS = {
+    kurt_kani:      { id:'kurt_kani',      name:'Kurt Kanı',       icon:'🐺', boss:'kurt_ana',    desc:'Sürü senin adımına ayak uydurur. (Harita hızı +%15)',        mod:{ mapSpeed:15 } },
+    bozkir_tugu:    { id:'bozkir_tugu',    name:'Bozkır Tuğu',     icon:'🏇', boss:'bozkir_hani', desc:'Bozkır kanı damarlarda; ordu yılmaz. (Moral +10)',           mod:{ moraleBonus:10 } },
+    demir_yurek:    { id:'demir_yurek',    name:'Demir Yürek',     icon:'🛡️', boss:'demirci_dev', desc:'Ocakta dövülmüş bir yürek kolay durmaz. (Azami can +%20)',   mod:{ maxHpPct:20 } },
+    firtina_tilsimi:{ id:'firtina_tilsimi',name:'Fırtına Tılsımı', icon:'🌩️', boss:'korsan_kral', desc:'Her yağma bir fırtına sonrası gibi. (Ganimet +%25)',         mod:{ loot:25 } },
+    tuccar_mink:    { id:'tuccar_mink',    name:'Tüccar Mink',     icon:'📿', boss:null,          desc:'Her pazarda bir dost, her dostta bir indirim. (Ticaret marjı +%10)', mod:{ tradeEdge:10 } }
+};
+const RELIC_PRICE = 6000;   // Tüccar Mink is bought at the innkeeper; the rest drop from bosses
+
+// --- BOSSES (#38) ---
+// Four unique bosses appear on the map as renown-gated sites; the fifth (Savaş Tanrısı) is the
+// boss-of-bosses, opened by boss_map once all four relics are held. B = base boss level.
+const BOSS_BASE_LEVEL = 30;
+const BOSSES = {
+    kurt_ana:    { key:'kurt_ana',    name:'Kurt Ana',    icon:'🐺', renown:60,  dLevel:0,  guards:8,  item:'kurt_disi_hancer', relic:'kurt_kani',
+                   siteDesc:'Ormanın derinliğinde uluma dinmez. Sürünün anası burada avlanır.' },
+    bozkir_hani: { key:'bozkir_hani', name:'Bozkır Hanı', icon:'🏇', renown:130, dLevel:5,  guards:10, item:'han_kisragi', relic:'bozkir_tugu',
+                   siteDesc:'Bozkırın efendisi, atının üstünde doğup at üstünde ölecek bir han.' },
+    demirci_dev: { key:'demirci_dev', name:'Demirci Dev', icon:'⚒️', renown:200, dLevel:10, guards:12, item:'dev_orsu_zirhi', relic:'demir_yurek',
+                   siteDesc:'Dağ ocağının çekiç sesi vadiyi titretir. Devin örsü hiç soğumaz.' },
+    korsan_kral: { key:'korsan_kral', name:'Korsan Kral', icon:'🏴‍☠️', renown:280, dLevel:15, guards:12, item:'firtina_yayi', relic:'firtina_tilsimi',
+                   siteDesc:'Kıyı kalesinde bir korsanın bayrağı dalgalanır. Denizin de karanın da kralı olduğunu söyler.' }
 };
 
 // --- UPGRADE TREES & STATS ---
@@ -429,6 +461,9 @@ const state = {
     tourneyChampions: {},    // { cityId: { name, day } } — who the city last saw win
     mercPools: {},           // { locId: { day, list:[{name, level, count}] } }
     encounterCooldown: 0,
+    bossKills: {},           // { bossKey:true } — a boss is killed once, its site becomes "yıkık" (#38)
+    victory: false,          // Savaş Tanrısı beaten → win banner (#38)
+    victoryDay: null,
     player: {
         name: T('Maceracı'),
         gender: 'male',        // 'female' -> relations with lords start at −5, the marriage path goes through lords
@@ -470,6 +505,8 @@ const state = {
         },
         skills: { fastRun: 0, wideSwing: 0, fastArrow: 0, homingArrow: 0 },
         perks: [],             // owned skill-tree perk ids (#110)
+        relics: {},            // owned relics { id:true } — permanent, kept through captivity (#37)
+        currentBoss: null,     // key of the boss currently being fought (reward routing, #38)
         attackAngle: 30, // Base 30 degrees
         spouse: null,
         vassalOf: null,
@@ -1028,7 +1065,11 @@ const Game = {
         // It stays in `state.sites` because drawing, tooltips, clicks, targeting, and
         // saving already run through that array — a separate `state.lairs` would have meant a second loop in five different places.
         lair:  { icon: '☠️', name: 'Haydut İni', renew: 0, lair: true,
-                 desc: 'Kayaların arasına sinmiş bir kamp. Etraftaki yollarda kimse geceleyin yürümüyor.' }
+                 desc: 'Kayaların arasına sinmiş bir kamp. Etraftaki yollarda kimse geceleyin yürümüyor.' },
+        // A boss lair (#38): a unique, renown-gated giant. Not investigated, fought — like a lair,
+        // but each is one-of-a-kind. Its name/icon come from BOSSES via the site's own fields.
+        boss:  { icon: '💀', name: 'Boss', renew: 0, boss: true,
+                 desc: 'Efsanelerin anlattığı bir güç burada yaşıyor.' }
     },
 
     // Outcomes follow the same pattern as the daily event pool (DAY_EVENTS): a
@@ -1114,7 +1155,7 @@ const Game = {
 
     spawnSites() {
         state.sites = [];
-        let kinds = Object.keys(this.SITE_KINDS).filter(k => !this.SITE_KINDS[k].lair);
+        let kinds = Object.keys(this.SITE_KINDS).filter(k => !this.SITE_KINDS[k].lair && !this.SITE_KINDS[k].boss);
         for(let i = 0; i < this.SITE_COUNT; i++) {
             for(let k = 0; k < 200; k++) {
                 let a = Math.random() * Math.PI * 2;
@@ -1192,6 +1233,7 @@ const Game = {
                 loc.prosperity = Math.max(10, loc.prosperity - this.LAIR_DECAY);
         });
         if(l.length < this.LAIR_COUNT && state.time.day % this.LAIR_RESPAWN === 0) this.spawnLair();
+        this.ensureBosses();   // a boss appears the day its renown gate is reached (#38)
     },
     // Assaulting the lair: the purse is yours, the region breathes again, no more bands spawn from that lair.
     clearLair(id) {
@@ -1217,6 +1259,86 @@ const Game = {
         Battle.start(BAND_KINDS[l.band].name, Math.round(l.strength));
     },
 
+    // --- BOSS LAIRS (#38) ---
+    // Each of the four unique bosses appears on the map as its renown gate is reached and
+    // stays there until killed. They reuse the site machinery: `type:'site'`, so targeting,
+    // arrival and drawing already carry them; `enterSite` routes `k.boss` to `enterBoss`.
+    bossSites() { return (state.sites || []).filter(s => s.kind === 'boss'); },
+    bossBaseLevel() { return BOSS_BASE_LEVEL; },
+    ensureBosses() {
+        this.ensureSites();
+        let peak = this.peakRenown();
+        for(let key in BOSSES) {
+            let b = BOSSES[key];
+            if(state.bossKills[key]) continue;
+            if(peak < b.renown) continue;
+            if(this.bossSites().some(s => s.bossKey === key)) continue;
+            this.spawnBossSite(key);
+        }
+    },
+    spawnBossSite(key) {
+        let b = BOSSES[key];
+        for(let k = 0; k < 200; k++) {
+            let a = Math.random() * Math.PI * 2;
+            let R = this.getMapRadius(4500 + Math.cos(a), 4500 + Math.sin(a));
+            let p = { x: 4500 + Math.cos(a) * R * (0.25 + Math.random() * 0.6),
+                      y: 4500 + Math.sin(a) * R * (0.25 + Math.random() * 0.6) };
+            let farEnough = LOCATIONS.every(l => this.dist(l, p) >= this.SITE_MIN_GAP)
+                    && (state.sites || []).every(o => this.dist(o, p) >= this.SITE_MIN_GAP)
+                    && this.dist(p, state.player) >= this.SPAWN_SAFE;
+            if(!farEnough && k < 199) continue;
+            state.sites.push({ id: 'boss_' + key, kind: 'boss', type: 'site', bossKey: key,
+                name: b.name, icon: b.icon, x: p.x, y: p.y });
+            return;
+        }
+    },
+    enterBoss(s) {
+        let b = BOSSES[s.bossKey];
+        if(!b) return this.closeModal();
+        let item = ITEMS[b.item], relic = RELICS[b.relic];
+        this.showModal(`<h3>${b.icon} ${T(b.name)}</h3>
+            <p style="font-style:italic;color:var(--text-muted)">${T(b.siteDesc)}</p>
+            <p>${T`Bu benzersiz bir düşman — tek sefer yenilir. Yanında yaklaşık <b>${b.guards} koruma</b> var.`}</p>
+            <div style="background:rgba(0,0,0,0.3);border:1px solid var(--panel-border);border-radius:6px;padding:0.6rem;margin:0.6rem 0">
+                <div style="color:var(--primary);font-weight:bold;margin-bottom:0.3rem">${T`Ödül`}</div>
+                <div>${item.icon} <b>${T(item.name)}</b></div>
+                <div>${relic.icon} <b>${T(relic.name)}</b> — ${T(relic.desc)}</div>
+                <div>🏅 <b>${T('Savaş Tanrısı Nişanı')}</b> ×1</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;margin-top:1rem">
+                <button class="btn primary" onclick="Game.attackBoss('${s.id}')">${T`⚔️ Saldır`}</button>
+                <button class="btn" onclick="Game.closeModal()">${T`🚪 Yoluna Devam Et`}</button>
+            </div>`);
+    },
+    attackBoss(id) {
+        let s = (state.sites || []).find(x => x.id === id);
+        if(!s) return this.closeModal();
+        let b = BOSSES[s.bossKey];
+        this.closeModal();
+        state.player.currentEncounterNpcId = null;
+        state.player.currentBoss = s.bossKey;
+        Battle.start(T(b.name), b.guards, this.bossBaseLevel() + b.dLevel);
+    },
+    bossRelicCount() { return Object.keys(BOSSES).filter(k => state.player.relics[BOSSES[k].relic]).length; },
+
+    // --- RELICS (#37) ---
+    // Same accumulator as perkMod: sum the one modifier each owned relic carries.
+    relicMod(name) {
+        let sum = 0;
+        for(let id in (state.player.relics || {})) {
+            let r = RELICS[id];
+            if(r && r.mod[name] !== undefined) sum += r.mod[name];
+        }
+        return sum;
+    },
+    hasRelic(id) { return !!(state.player.relics && state.player.relics[id]); },
+    // Each relic is one-of-a-kind; a duplicate (only possible via a save edit) is paid out as coin instead.
+    gainRelic(id) {
+        if(!id || !RELICS[id]) return;
+        if(this.hasRelic(id)) { state.player.money += 1500; return; }
+        (state.player.relics = state.player.relics || {})[id] = true;
+    },
+
     // An investigated point is empty until it refills (if renew is 0 it's already been removed)
     siteReady(s) {
         let k = this.SITE_KINDS[s.kind];
@@ -1225,6 +1347,7 @@ const Game = {
 
     enterSite(s) {
         let k = this.SITE_KINDS[s.kind];
+        if(k.boss) return this.enterBoss(s);
         if(k.lair) return this.showModal(`<h3>${k.icon} ${T(k.name)}</h3>
             <p style="font-style:italic;color:var(--text-muted)">${T(k.desc)}</p>
             <p>${T`Nöbetçileri saydın: kabaca <b>${Math.round(s.strength)} kişi</b>.
@@ -1281,6 +1404,7 @@ const Game = {
 
     siteTipHtml(s) {
         let k = this.SITE_KINDS[s.kind];
+        if(k.boss) { let b = BOSSES[s.bossKey]; return `<i>${T(b.siteDesc)}</i><br>${T`💀 Benzersiz boss — ${b.guards} koruma`}`; }
         if(k.lair) return `<i>${T(k.desc)}</i><br>${T`⚔️ Kabaca ${Math.round(s.strength)} kişi`}`;
         return `<i>${T(k.desc)}</i><br>${this.siteReady(s)
             ? T('🔍 Henüz araştırılmadı')
@@ -2492,7 +2616,8 @@ const Game = {
         let mountBonus = this.getMountedRatio() * 0.5; // mounted ratio: on foot 1.0×, fully mounted 1.5×
         let nightMult = this.isNight() ? 0.85 : 1;      // travel is slower at night
         let terrain = this.getTerrainInfo(state.player.x, state.player.y);
-        let pathMult = 1 + (this.profLvl('pathfinding') - 1) * 0.02 + this.perkMod('mapSpeed') / 100;  // Pathfinding skill + Scout perks (#110)
+        let heavyPenalty = (state.player.equipment.armor && state.player.equipment.armor.heavy) ? 0.05 : 0;   // Dev Örsü Zırhı is heavy (#38)
+        let pathMult = 1 + (this.profLvl('pathfinding') - 1) * 0.02 + this.perkMod('mapSpeed') / 100 + this.relicMod('mapSpeed') / 100 - heavyPenalty;  // Pathfinding skill + Scout perks (#110) + Kurt Kanı relic (#37)
         let cargoMult = this.cargoMult();                             // overload (#78)
 
         return {
@@ -5078,16 +5203,16 @@ const Game = {
         // Discovery sites (#58): smaller and dimmer than a settlement — draws attention without crowding
         (state.sites || []).forEach(site => {
             if(!this.lairSeen(site)) return;    // an undiscovered lair isn't on the map (#68)
-            let k = this.SITE_KINDS[site.kind], ik = this.iconScale(), big = 30 * ik;
+            let k = this.SITE_KINDS[site.kind], ik = this.iconScale(), big = (k.boss ? 46 : 30) * ik;
             let fresh = this.siteReady(site);
             ctx.beginPath();
             ctx.ellipse(site.x, site.y + 12, big*0.5, big*0.2, 0, 0, Math.PI*2);
             ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
             ctx.globalAlpha = fresh ? 0.95 : 0.45;
-            this.emoji(ctx, k.icon, site.x, site.y + 10, big);
+            this.emoji(ctx, site.icon || k.icon, site.x, site.y + 10, big);
             ctx.globalAlpha = 1;
             // Only label when zoomed in: 14 long names crowded out settlement names at the continent view
-            if(fresh && this.camera.zoom > 0.18) this.mapLabel(ctx, T(k.name), site.x, site.y - big*0.75 - 10, '#cbbf9a', '#8a7b52');
+            if((fresh || k.boss) && this.camera.zoom > 0.18) this.mapLabel(ctx, T(site.name || k.name), site.x, site.y - big*0.75 - 10, k.boss ? '#e0b0b0' : '#cbbf9a', k.boss ? '#7a2a2a' : '#8a7b52');
         });
 
         // Draw locations
@@ -5331,7 +5456,7 @@ const Game = {
             for(let site of (state.sites || [])) {
                 if(site.kind === 'lair' && !site.seen) continue;
                 if(this.dist(site, {x:mx,y:my}) < 30) {
-                    found = { name: this.SITE_KINDS[site.kind].icon + ' ' + T(site.name), sub: this.siteTipHtml(site) };
+                    found = { name: (site.icon || this.SITE_KINDS[site.kind].icon) + ' ' + T(site.name), sub: this.siteTipHtml(site) };
                     break;
                 }
             }
@@ -6750,7 +6875,7 @@ const Game = {
         let it = ITEMS[id] || state.player.inventory.find(i => i.id === id);
         if(!it) return null;
         // Trade skill: a discount when buying, a premium when selling (25% cap)
-        let edge = Math.min(0.40, (this.profLvl('trade') - 1) * 0.02 + this.perkMod('tradeEdge') / 100);
+        let edge = Math.min(0.40, (this.profLvl('trade') - 1) * 0.02 + this.perkMod('tradeEdge') / 100 + this.relicMod('tradeEdge') / 100);
         let loc = this._marketLoc;
         let mult = (loc ? this.priceMult(loc, id) : 1) * (selling ? 0.7 * (1 + edge) : 1 - edge);
         // A village that has heard what you do to villages doesn't haggle kindly (#104)
@@ -6786,6 +6911,7 @@ const Game = {
         this.setHtml('market-status', this.marketStatusHtml());
         let buy = document.getElementById('market-buy'); buy.innerHTML = '';
         Object.values(ITEMS).forEach(item => {
+            if(item.unique) return;   // unique boss drops are earned, never bought (#38)
             let price = this.marketPrice(item.id);
             let li = document.createElement('li'); li.style.marginBottom = '0.5rem';
             li.id = 'mrow-buy-' + item.id;   // the row is rebuilt on every refresh; the flash effect finds it by id
@@ -7568,8 +7694,25 @@ const Game = {
             });
         }
 
+        // Tüccar Mink (#37): the one relic you can buy — a trade edge, sold by a wandering merchant at the inn
+        html += `<hr style="border-color:var(--panel-border);margin:1.2rem 0">
+            <h4 style="color:var(--primary)">${T`📿 Tüccar Mink`}</h4>
+            <p style="font-size:var(--fs-md);color:var(--text-muted)">${T`"Köşedeki masada bir tüccar oturuyor. Boynundaki nişanı işaret ediyor: her pazarda bir dost demek."`}</p>`;
+        if(this.hasRelic('tuccar_mink')) html += `<button class="btn" disabled style="opacity:0.4">${T`Tüccar Mink Nişanı (sende var)`}</button>`;
+        else html += `<button class="btn primary" onclick="Game.buyMinkRelic('${loc.id}')">${T`Nişanı Al (${RELIC_PRICE} Dinar)`}</button>`;
+
         this.showModal(html, '600px', this.sceneBg('tavern'));   // tavern interior (#60)
         this._tavernLoc = loc;
+    },
+    buyMinkRelic(locId) {
+        if(this.hasRelic('tuccar_mink')) return;
+        if(state.player.money < RELIC_PRICE) return alert(T`Kesen yetmiyor: ${RELIC_PRICE} dinar gerekir.`);
+        state.player.money -= RELIC_PRICE;
+        this.gainRelic('tuccar_mink');
+        this.updateTopBar();
+        alert(T`📿 <b>Tüccar Mink</b> nişanı senin. Ticaret marjın %10 arttı.`);
+        let loc = LOCATIONS.find(l => l.id === locId);
+        if(loc) this.openTavern(loc);
     },
     // The mercenary pool refreshes every 3 days per city
     mercPool(loc) {
@@ -9934,7 +10077,8 @@ const Game = {
             'Maaş borcu': p.wageDebt > 0 ? -Math.min(40, 10 + Math.floor(p.wageDebt / Math.max(1, this.upkeep().wage)) * 10) : 0,
             'Kapasite aşımı': -over * 2,
             'Aşırı yük': -this.cargoMoraleHit(),
-            'Komuta perkleri': this.perkMod('moraleBonus')
+            'Komuta perkleri': this.perkMod('moraleBonus'),
+            'Bozkır Tuğu': this.relicMod('moraleBonus')
         };
         p.moraleInfo = parts;
         let t = Object.keys(parts).reduce((a, k) => a + parts[k], 0);
@@ -10312,18 +10456,31 @@ const Game = {
             html += '</div>';
         }
         html += '</div></div>';
+        let owned = Object.keys(state.player.relics || {}).filter(id => RELICS[id]);
+        if(owned.length) {
+            html += `<div style="margin-top:1rem"><h3 style="color:var(--primary)">${T('Nişanlar')} <span style="font-size:var(--fs-sm);color:var(--text-muted)">${owned.length}/${Object.keys(RELICS).length}</span></h3>
+                <div style="display:flex;gap:0.8rem;flex-wrap:wrap;">`;
+            owned.forEach(id => { let r = RELICS[id];
+                html += `<div style="padding:0.7rem;background:rgba(60,40,20,0.35);border:1px solid #7a5c2a;border-radius:6px;width:150px;text-align:center;">
+                    <div style="font-size:1.5rem">${r.icon}</div>
+                    <div style="font-weight:bold;font-size:var(--fs-md);margin-top:0.3rem;color:#e0c070">${T(r.name)}</div>
+                    <div style="font-size:var(--fs-xs);color:#cbb26b;line-height:1.25;margin-top:0.2rem">${T(r.desc)}</div>
+                </div>`; });
+            html += '</div></div>';
+        }
         document.getElementById('inventory-content').innerHTML = html;
     },
     BOSS_RENOWN: 300,   // the renown gate for the boss map (#55 item 9)
     // The weapon's damage-type tooltip — its behavior against armor shows up here
     itemNote(item) {
         if(!item) return '';
-        if(item.id === 'boss_map') return T`Kullanmak için ${this.BOSS_RENOWN} nam gerekir (sende ${this.peakRenown()})`;
+        if(item.id === 'boss_map') return T`${this.bossRelicCount()}/4 nişan · ${this.BOSS_RENOWN} nam gerekir (sende ${this.peakRenown()})`;
         let bits = [];
         if(item.attack) bits.push(T`+${item.attack} saldırı`);
         if(item.defense) bits.push(T`+${item.defense} savunma`);
         let t = DMG_TYPES[item.dmgType];
         if(t) bits.push(T`${T(t.name)} — düşman savunması %${Math.round(t.armor*100)} etkili, hasar ×${t.mult}${t.knock ? T(', bayıltır (esir)') : ''}`);
+        if(item.desc) bits.push(T(item.desc));
         return bits.join(' · ');
     },
 
@@ -10367,21 +10524,45 @@ const Game = {
     useItem(idx) {
         let item = state.player.inventory[idx];
         if(item.id === 'boss_map') {
-            // The game's strongest reward shouldn't be bought with money alone (#55 item 9): the gate also asks for renown
+            // The boss-of-bosses (#38): the four boss relics are the real key; renown and the map are only the gate.
+            let have = this.bossRelicCount();
+            if(have < 4) {
+                alert(`${T`🗺️ Harita bir yol tarif ediyor ama sonundaki kapı henüz açılmıyor.`}<br><br>`
+                    + `${T`Savaş Tanrısı'nın önüne çıkmak için dört bossun nişanı gerekir (sende ${have}/4).`}`);
+                return;
+            }
             if(this.peakRenown() < this.BOSS_RENOWN) {
-                alert(`${T`🗺️ Harita bir yol tarif ediyor ama sonundaki kapı herkese açılmıyor.`}<br><br>`
+                alert(`${T`🗺️ Nişanlar tamam ama kapının bekçileri seni tanımıyor.`}<br><br>`
                     + `${T`Savaş Tanrısı'nın önüne çıkmak için <b>${this.BOSS_RENOWN} nam</b> gerekir (sende ${this.peakRenown()}).`}`);
                 return;
             }
-            state.bossEntries = (state.bossEntries || 0) + 1;
-            if(state.bossEntries > 4) { alert(T("Boss haritasını daha fazla kullanamazsın!")); return; }
             item.qty--;
             if(item.qty <= 0) state.player.inventory.splice(idx, 1);
             this.renderInventoryScreen();
-            
-            let bossLevel = 30 + (state.bossEntries - 1) * 5; // 30 on the first entry, harder after
-            Battle.start(T('Savaş Tanrısı (Boss)'), 15 + state.bossEntries * 5, bossLevel);
+            state.finalBoss = true;
+            state.player.currentBoss = null;
+            Battle.start(T('Savaş Tanrısı'), (BOSSES.korsan_kral.guards) * 2, this.bossBaseLevel() + 25);
         }
+    },
+    // The boss-of-bosses is dead: the game is won (#38). A single self-contained banner —
+    // the player keeps their save and may play on, so there's no reset, only a mark.
+    showVictory() {
+        state.victory = true;
+        state.victoryDay = state.time.day;
+        Game.gainRenown(50);
+        let killed = Object.keys(BOSSES).filter(k => state.bossKills[k]).map(k => T(BOSSES[k].name)).join(', ');
+        this.showModal(`<div style="text-align:center">
+            <h2 style="color:#ffcc00;font-size:2.2rem;text-shadow:0 0 14px rgba(255,204,0,0.5);margin-bottom:0.5rem">⚔️ ${T('Zafer!')} ⚔️</h2>
+            <p style="color:var(--text-muted);margin-bottom:1rem">${T('Savaş Tanrısı\'nı dize getirdin. Adın destanlara geçti.')}</p>
+            <div style="background:rgba(0,0,0,0.3);padding:1.2rem;border-radius:10px;text-align:left;line-height:1.7;font-size:1.1rem;margin-bottom:1.2rem">
+                <p><b>${T('Gün')}:</b> ${state.time.day}</p>
+                <p><b>${T('Nam')}:</b> ${Math.round(state.player.renown)} 👑</p>
+                <p><b>${T('Altın')}:</b> ${Math.round(state.player.money)} 💰</p>
+                <p><b>${T('Yenilen bosslar')}:</b> ${killed || '—'}, ${T('Savaş Tanrısı')}</p>
+            </div>
+            <p style="color:#9fe0a0;margin-bottom:1rem">${T('Dünya senin. İstersen oynamaya devam edebilirsin.')}</p>
+            <button class="btn primary" style="font-size:1.2rem;padding:0.8rem 2rem" onclick="Game.closeModal(); Game.checkLevelUp(); Game.updateTopBar()">${T('Devam Et')}</button>
+        </div>`);
     },
     unequipItem(slot, reRender = true) {
         let item = state.player.equipment[slot];
@@ -10400,7 +10581,7 @@ const Game = {
         let e = state.player.equipment;
         let defense = ['shield','armor','helmet','gloves','boots']
             .reduce((n, slot) => n + ((e[slot] || {}).defense || 0), 0);
-        s.maxHp = 50 + (s.level - 1) * 10 + Math.round((this.attr('vit') - 10) * 5) + defense + this.perkMod('maxHpBonus');
+        s.maxHp = Math.round((50 + (s.level - 1) * 10 + Math.round((this.attr('vit') - 10) * 5) + defense + this.perkMod('maxHpBonus')) * (1 + this.relicMod('maxHpPct') / 100));   // Demir Yürek relic (#37)
         if(s.hp > s.maxHp) s.hp = s.maxHp;
     },
 
@@ -10515,6 +10696,10 @@ const Save = {
         }
         let pl = (((d || {}).state || {}).player);      // #110: old saves had no perks array
         if(pl && !Array.isArray(pl.perks)) pl.perks = [];
+        if(pl && typeof pl.relics !== 'object') pl.relics = {};   // #37: relics
+        if(pl && pl.currentBoss === undefined) pl.currentBoss = null;
+        let st = ((d || {}).state);                      // #38: boss kills / victory
+        if(st) { if(typeof st.bossKills !== 'object') st.bossKills = {}; if(st.victory === undefined) st.victory = false; }
         return d;
     },
 
@@ -10586,6 +10771,7 @@ const Save = {
         Game.ensureTraders();    // old saves had no caravans/convoys
         Game.ensureSites();      // old saves had no exploration sites (#58)
         Game.ensureLairs();      // old saves had no bandit lairs (#68)
+        Game.ensureBosses();     // boss lairs appear at their renown gate (#38)
         Game.startGameLoop();
     },
 

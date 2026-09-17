@@ -1973,9 +1973,26 @@ skill matches your equipped weapon's type, and an extra 60% of that amount is wr
 old path didn't restore `_duelParty`, so a player withdrawing from the match had their party
 permanently deleted.)*
 
-### Boss
-Using the `boss_map` item (5000 denars from the market) opens the **War God** fight. It can be
-entered at most 4 times, the boss's level rising +5 each time. Winning drops the lvl 51 medal.
+### Bosses and relics (#37, #38)
+Four unique bosses (`BOSSES` in `app.js`) surface on the map as peak renown climbs:
+Kurt Ana (60), Bozkır Hanı (130), Demirci Dev (200), Korsan Kral (280). `Game.ensureBosses()`
+(called from `lairTick` and on save-load) spawns a `kind:'boss'` site the day its renown gate
+is reached and never respawns a killed one (`state.bossKills`). Each boss fights with a guard
+retinue at `BOSS_BASE_LEVEL (30) + dLevel`, is beaten once, and drops: a **unique item**
+(`unique:true, unsellable:true` — Kurt Dişi Hançer / Han Kısrağı / Dev Örsü Zırhı / Fırtına Yayı,
+never sold in the market, never buyable), a **relic**, and a lvl-51 medal.
+
+**Relics** (`RELICS`) are one-of-a-kind (`state.player.relics`, no stacking, kept through
+captivity). `Game.relicMod(name)` sums the owned relics' one modifier each, mirroring `perkMod`:
+Kurt Kanı `mapSpeed 15`, Bozkır Tuğu `moraleBonus 10`, Demir Yürek `maxHpPct 20`,
+Fırtına Tılsımı `loot 25`, Tüccar Mink `tradeEdge 10`. Tüccar Mink is bought at the innkeeper
+for `RELIC_PRICE (6000)`; the other four drop from bosses. A duplicate (only via a save edit)
+pays 1500 coin instead of stacking.
+
+**Boss of bosses.** The `boss_map` item (15000 denars) opens the **Savaş Tanrısı** fight, but is
+doubly gated: all four boss relics (`bossRelicCount() === 4`) **and** `Game.BOSS_RENOWN = 300`
+peak renown. Killing it sets `state.finalBoss` → `Game.showVictory()` (victory banner, +50
+renown; the save survives so play continues).
 
 ### Daily event pool (#35)
 So a campaign isn't just staring at a silent table, `Game.dailyEvent()` rolls a die at the end

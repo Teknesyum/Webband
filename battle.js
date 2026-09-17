@@ -259,6 +259,8 @@ const Battle = {
 
         // Mount: if there's a horse the player enters as cavalry — the engine already knows cavalry (and being unhorsed)
         let mounted = !!state.player.equipment.horse;
+        let horseBonus = mounted ? (state.player.equipment.horse.horseBonus || 1) : 1;   // Han Kısrağı: +15% (#38)
+        armorDef = Math.round(armorDef * horseBonus);
         // The quiver fills per battle; zero if there's no bow
         // Skill tree #110: Ranger perks add flat arrows
         this.arrows = this.playerHasBow() ? 24 + this.prof('bow') * 2 + Game.perkMod('arrowCount') : 0;
@@ -270,7 +272,7 @@ const Battle = {
             hp: state.player.stats.hp, maxHp: state.player.stats.maxHp,
             x: startPlayerX, y: H/2,
             // Skill tree #110: Ranger perks scale riding/foot speed
-            speed: mounted ? (95 + Game.attr('agi') * 0.5 + (this.prof('riding') - 1) * 3) * (1 + Game.perkMod('ridingSpeed'))
+            speed: mounted ? (95 + Game.attr('agi') * 0.5 + (this.prof('riding') - 1) * 3) * (1 + Game.perkMod('ridingSpeed')) * horseBonus
                            : this.footSpeed(),
             attack: 10 + Game.attr('str') + weaponAtk,
             defense: armorDef, type: mounted ? 'cavalry' : 'infantry', mounted,
@@ -2330,7 +2332,7 @@ const Battle = {
             let loot = this.units.filter(u => !u.isPlayerTeam)
                 .reduce((a, u) => a + (u.beast ? 6 : 10) + (u.level || 1) * (u.beast ? 3 : 5), 0);  // looting a hide pays less
             // Skill tree #110: Raid perks add a loot percentage
-            let moneyGain = Math.floor(loot * (0.85 + Math.random()*0.3) * (1 + (Game.profLvl('looting') - 1) * 0.04 + Game.perkMod('loot') / 100));
+            let moneyGain = Math.floor(loot * (0.85 + Math.random()*0.3) * (1 + (Game.profLvl('looting') - 1) * 0.04 + Game.perkMod('loot') / 100 + Game.relicMod('loot') / 100));
 
             // Bandit hunting shouldn't stay profitable forever
             let rScale = this.isBossFight ? 1 : this.rewardScale();
@@ -2344,12 +2346,25 @@ const Battle = {
             }
             
             if(this.isBossFight) {
-                moneyGain += 1000 + state.bossEntries * 500;
-                xpGain += 500 + state.bossEntries * 200;
-                let token = ITEMS.lvl51_token;
-                let ex = state.player.inventory.find(i => i.id === token.id);
-                if(ex) ex.qty++; else state.player.inventory.push({...token, qty:1});
-                alert(T('Tebrikler! Savaş Tanrısı\'nı yendin. Savaş Tanrısı Nişanı (Lvl 51 Upgrade) kazandın!'));
+                moneyGain += 1500;
+                xpGain += 700;
+                let bossKey = state.player.currentBoss;
+                state.player.currentBoss = null;
+                let boss = bossKey ? BOSSES[bossKey] : null;
+                if(state.finalBoss) {
+                    // The boss-of-bosses: the game is won (#38)
+                    state.finalBoss = false;
+                    this._bossWin = { final: true };
+                } else if(boss) {
+                    // A unique boss: its one-of-a-kind drop, its relic, and a level-51 token
+                    state.bossKills[bossKey] = true;
+                    state.sites = (state.sites || []).filter(s => s.id !== 'boss_' + bossKey);
+                    Game.addItem(boss.item, 1);
+                    Game.gainRelic(boss.relic);
+                    Game.addItem('lvl51_token', 1);
+                    Game.gainRenown(30);
+                    this._bossWin = { boss: bossKey };
+                }
             }
             
             // Letting the fleeing go: you chose honor over loot. Since the fleeing were already
@@ -2446,6 +2461,15 @@ const Battle = {
                 }
             }
 
+            // Boss drop line (#38): the unique item + relic + level-51 token, shown in the summary
+            let bossTxt = '';
+            if(this._bossWin && this._bossWin.boss) {
+                let b = BOSSES[this._bossWin.boss];
+                bossTxt = '<b>' + T(b.name) + ' ' + T('yenildi!') + '</b> '
+                    + ITEMS[b.item].icon + ' ' + T(ITEMS[b.item].name) + ' · '
+                    + RELICS[b.relic].icon + ' ' + T(RELICS[b.relic].name) + ' · 🏅 ' + T('Savaş Tanrısı Nişanı');
+            }
+
             // #120: the detail tab reads the same numbers the summary already computed.
             let detailHtml = this.buildDetailTab(moneyGain, cargoTxt, captured);
 
@@ -2464,6 +2488,7 @@ const Battle = {
                     ${spareHonor ? `<p style="margin-top:0.8rem;color:#9fe0a0">🕊️ <b>${T`${this.spared} kaçağı bıraktın.`}</b> ${T`Şeref`} <span style="color:#9fe0a0">+${spareHonor}</span> <span style="font-size:var(--fs-sm);color:var(--text-muted)">${T`(kovalasaydın ganimet ve esir olurdu)`}</span></p>` : ''}
                     ${conquestTxt ? `<p style="margin-top:0.8rem;color:#e59b3d">🏰 ${conquestTxt}</p>` : ''}
                     ${lairTxt ? `<p style="margin-top:0.8rem;color:#e59b3d">☠️ ${lairTxt}</p>` : ''}
+                    ${bossTxt ? `<p style="margin-top:0.8rem;color:#e0b0b0">💀 ${bossTxt}</p>` : ''}
                     ${cargoTxt ? `<p style="margin-top:0.8rem"><b>${T`Yük Ganimeti:`}</b> <span style="color:#e0b062">${cargoTxt}</span> 🐪</p>` : ''}
                     ${nobleTaken ? `<p style="margin-top:0.8rem;color:#e59b3d"><b>${T`👑 ${nobleTaken} esir alındı!`}</b> <span style="font-size:var(--fs-sm);color:var(--text-muted)">${T`Grup ekranından fidye iste ya da salıver.`}</span></p>` : ''}
                 </div>
@@ -2477,7 +2502,8 @@ const Battle = {
                 <div id="bres-pane-ozet">${summaryHtml}</div>
                 <div id="bres-pane-detay" style="display:none">${detailHtml}</div>
             </div>`;
-            Game.showModal(resultHtml);
+            if(this._bossWin && this._bossWin.final) { this._bossWin = null; Game.showVictory(); }
+            else { this._bossWin = null; Game.showModal(resultHtml); }
         } else {
             // We lost the battle — taken prisoner.
             // Renown loss must be computed before the party disbands: the strength ratio comes from it.
