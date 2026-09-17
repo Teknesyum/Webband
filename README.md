@@ -1,26 +1,92 @@
 # WebBand
 
-> **Archived.** A one-weekend prototype from July 2026, kept for history. It receives no updates.
+[![test](https://github.com/srknzl/Webband/actions/workflows/test.yml/badge.svg)](https://github.com/srknzl/Webband/actions/workflows/test.yml)
 
-A browser-based strategy-layer prototype in the spirit of *Mount & Blade: Warband*, set in
-Kalradya: kingdoms, lords, castles, turn-based days, recruiting, battles and sieges, all in
-one page of vanilla JavaScript. No build step, no server, no dependencies.
+**[▶ Play it here](https://serkanozel.me/webband/)**
 
-## Run
+![A battle in progress](docs/screenshots/battle.png)
 
-Open `index.html` in a browser.
+| The world map | A town |
+|---|---|
+| ![Campaign map](docs/screenshots/map.png) | ![Town screen](docs/screenshots/town.png) |
 
-## Layout
+A single-page, Mount & Blade: Warband-style RPG that runs entirely in the browser.
+Turkish, English and Bahasa Indonesia UI, chosen on first launch. No build step, no
+dependencies, no server.
 
+```bash
+git clone https://github.com/srknzl/Webband.git
 ```
-index.html   the page
-app.js       game state, turn loop, battles, sieges
-style.css    layout
-*.jpg        map, crests and portraits
+
+Then open `index.html` in a browser. That's the whole install. Saves are per-origin, so
+the hosted game and your local copy keep separate saves.
+
+On a phone, open the [hosted game](https://serkanozel.me/webband/) and use your browser's
+**Add to Home Screen** — it installs as a full-screen app with its own icon and keeps
+working with no connection.
+
+For a real Android or iOS package, the `native` workflow builds one on every push: grab
+`webband-android-apk` from the
+[Actions tab](https://github.com/srknzl/Webband/actions/workflows/native.yml) and sideload
+it. The iOS job builds for the Simulator — an installable iPhone build needs a paid Apple
+Developer membership, so until then it is a local Xcode step. To build either locally:
+
+```bash
+cd native && npm install && npm run sync && npx cap open android
 ```
 
-## License
+On Windows, one line in the repo folder puts it on the desktop:
 
-AGPL-3.0-or-later — see [LICENSE](LICENSE).
+```powershell
+$s = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:USERPROFILE\Desktop\WebBand.lnk"); $s.TargetPath = "$PWD\index.html"; $s.Save()
+```
 
-Copyright (C) 2026 Teknesyum
+## Controls
+
+Mouse and keyboard on desktop: click the map to move, `M`/`C`/`P`/`I`/`Q` switch screens,
+`Esc` closes a window, `Enter` presses its main button.
+
+On a touch screen the game switches to two sticks in battle: **the left stick walks, the
+right stick aims your sword** — where you pull is where you strike, lift to swing. The
+yellow arc in front of you shows where the blade will land.
+
+## What's in it
+
+Procedural map of Calradia with five kingdoms, 23 lords and 12 ladies, roads, rivers and
+forests. Real-time top-down battles with formations, morale, damage types, shields and
+sieges. A market with per-good supply and demand, caravans and villager convoys that
+bandits hunt. Quests, tournaments with betting, arenas, courtship and marriage, village
+raiding, fiefs, vassals — and a war that keeps running whether you take part or not.
+
+Saves live in `localStorage`: three manual slots plus a rolling autosave, exportable as
+JSON from the 💾 Kayıtlar screen.
+
+## Files
+
+| File | Contents |
+|---|---|
+| `index.html` | DOM skeleton for every screen |
+| `app.js` | Core: map, time, settlements, diplomacy, saves (`Debug`, `Input`, `Game`, `Save`, `state`) |
+| `battle.js` | Battle arena and tournament minigame (`Battle`, `TournamentMinigame`) |
+| `nobles.js` | Lords, ladies, companions, courtship, feasts |
+| `quests.js` | Quest definitions and the quest engine |
+| `i18n.js` | Language layer; the Turkish source text is the key |
+| `lang-en.js`, `lang-id.js` | English and Bahasa Indonesia dictionaries (generated) |
+| `style.css` | Glassmorphism theme |
+| `sw.js`, `manifest.webmanifest`, `fonts/` | Offline cache, install metadata, self-hosted fonts |
+| `native/` | Capacitor shell that turns the same files into Android and iOS apps |
+| `tools/` | Headless test, simulation and balance tools, run by CI |
+| `docs/` | Design plans, system notes and measurements (Turkish) |
+| `CLAUDE.md` | Design notes and measured numbers (Turkish) |
+| `CHANGELOG.md` | Player-facing change log (Turkish) |
+
+## Reporting a bug
+
+Open an issue with the template. The two fields that matter most are the **version stamp**
+(bottom-right of the start screen) and the **debug report** (⚙️ Ayarlar → 🐞 Debug Raporu →
+copy to clipboard) — it carries the browser, the measured refresh rate, the last frame
+timings and the captured errors.
+
+## Licence
+
+AGPL-3.0-or-later. See [LICENSE](LICENSE).

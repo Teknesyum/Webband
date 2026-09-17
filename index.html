@@ -2,14 +2,39 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>WebBand - Kalradya</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Bağlantı paylaşılınca boş kart çıkıyordu (#88) -->
+    <meta name="description" content="Mount & Blade: Warband-style RPG that runs entirely in the browser. No build, no server.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="WebBand">
+    <meta property="og:description" content="Mount & Blade: Warband-style RPG that runs entirely in the browser. No build, no server.">
+    <meta property="og:image" content="https://serkanozel.me/webband/kingdom_crests.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9876;</text></svg>">
+    <!-- Installable on the phone (#91): the same files that serve the site are the app.
+         Fonts are self-hosted in style.css now, so nothing here hits the network. -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0a0a0e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WebBand">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="game-container">
         <!-- Character Creation / Start Screen -->
+        <!-- İlk açılışta dil sorulur; seçim localStorage'da durur, bir daha sorulmaz -->
+        <div id="lang-ask" class="hidden">
+            <div class="lang-ask-box">
+                <h2>WebBand</h2>
+                <p>Dil · Language · Bahasa</p>
+                <div id="lang-ask-row"></div>
+            </div>
+        </div>
+
         <div id="start-screen" class="screen active">
             <div class="title-container">
                 <div class="ornament top-ornament"></div>
@@ -20,41 +45,134 @@
             <div class="form-group">
                 <label>Karakter Adı:</label>
                 <div class="input-container">
-                    <input type="text" id="char-name" value="Maceracı" placeholder="İsmini gir...">
+                    <input type="text" id="char-name" data-tr-value="Maceracı" value="Maceracı" placeholder="İsmini gir...">
                 </div>
                 <button id="start-btn" class="btn primary">Maceraya Başla</button>
             </div>
             
-            <div style="position: absolute; bottom: 40px; display:flex; gap: 2rem; justify-content:center; width:100%;">
+            <div class="start-actions">
                 <button class="btn hex-btn-small" onclick="Game.showLore('lords')">🏇 Lordlar</button>
                 <button class="btn hex-btn-small" onclick="Game.showLore('kingdoms')">🏰 Krallıklar</button>
+                <button class="btn hex-btn-small" onclick="Save.continueGame()">📂 Kayıttan Devam</button>
+                <button class="btn hex-btn-small" onclick="Save.open()">💾 Kayıtlar</button>
+                <!-- Install button (#93): hidden until the browser says the game is
+                     installable. Chrome/Android and desktop fire `beforeinstallprompt`
+                     and let us hold onto it; iOS never does, so on iPhone this stays
+                     hidden and Safari's Share sheet is the only route. -->
+                <button class="btn hex-btn-small hidden" id="install-btn" onclick="Game.install()">📲 Yükle</button>
             </div>
+            <!-- Dil seçimi: ilk açılışta `#lang-ask` perdesi sorar, sonrasında
+                 bu sıra başlangıç ekranında durur ve her an değiştirilebilir. -->
+            <div id="lang-row"></div>
+            <!-- Sürüm damgası (#55 madde 8): hata raporunda hangi kod konuşuluyor -->
+            <div id="ver-tag"></div>
         </div>
 
         <!-- Main Game UI -->
         <div id="main-ui" class="screen">
             <header id="top-bar" class="glass-panel">
-                <div class="stat"><span class="icon">📅</span> Gün: <span id="ui-day">1</span></div>
-                <div class="stat"><span class="icon">💰</span> Dinar: <span id="ui-money">500</span></div>
-                <div class="stat"><span class="icon">⭐</span> Nam: <span id="ui-renown">0</span></div>
-                <div class="stat"><span class="icon">👥</span> Grup: <span id="ui-party">1/50</span></div>
-                <div class="stat"><span class="icon">❤️</span> Can: <span id="ui-hp">50/50</span></div>
-                <div class="stat tooltip-container">
-                    <span class="icon">🐎</span> Hız: <span id="ui-speed">50</span>
-                    <div class="tooltip-content" id="ui-speed-breakdown">
-                        Temel: 50<br>At Bonusu: Yok
-                    </div>
+                <!-- Sefer takvimi: gün + saat + günün vakti -->
+                <div class="hud-chip tooltip-container" id="chip-time" onclick="Game.cycleTimeScale()">
+                    <span class="hud-ico" id="ui-daypart">🌅</span>
+                    <span class="hud-col">
+                        <span class="hud-val" id="ui-day">—</span>
+                        <span class="hud-sub" id="ui-clock">08:00</span>
+                    </span>
+                    <div class="tooltip-content" id="tip-time"></div>
                 </div>
-                <div class="stat"><span class="icon">⬆️</span> Lvl: <span id="ui-level">1</span></div>
+
+                <div class="hud-sep"></div>
+
+                <div class="hud-chip tooltip-container"><span class="hud-ico">💰</span>
+                    <span class="hud-col"><span class="hud-val" id="ui-money">500</span><span class="hud-sub">dinar</span></span>
+                    <div class="tooltip-content" id="tip-money"></div>
+                </div>
+                <div class="hud-chip tooltip-container" id="chip-food"><span class="hud-ico">🍞</span>
+                    <span class="hud-col"><span class="hud-val" id="ui-food">—</span><span class="hud-sub" id="ui-food-sub">erzak</span></span>
+                    <div class="tooltip-content" id="tip-food"></div>
+                </div>
+                <div class="hud-chip tooltip-container"><span class="hud-ico">⭐</span>
+                    <span class="hud-col"><span class="hud-val" id="ui-renown">0</span><span class="hud-sub">nam</span></span>
+                    <div class="tooltip-content" id="tip-renown"></div>
+                </div>
+
+                <div class="hud-sep"></div>
+
+                <div class="hud-chip tooltip-container"><span class="hud-ico">❤️</span>
+                    <span class="hud-col">
+                        <span class="hud-val" id="ui-hp">50/50</span>
+                        <span class="hud-bar"><i id="bar-hp" class="fill-hp" style="width:100%"></i></span>
+                    </span>
+                    <div class="tooltip-content" id="tip-hp"></div>
+                </div>
+                <div class="hud-chip tooltip-container" id="chip-party"><span class="hud-ico">👥</span>
+                    <span class="hud-col">
+                        <span class="hud-val" id="ui-party">1/50</span>
+                        <span class="hud-bar"><i id="bar-party" class="fill-party" style="width:2%"></i></span>
+                    </span>
+                    <div class="tooltip-content" id="tip-party"></div>
+                </div>
+                <div class="hud-chip tooltip-container" id="chip-cargo"><span class="hud-ico">📦</span>
+                    <span class="hud-col">
+                        <span class="hud-val" id="ui-cargo">3/45</span>
+                        <span class="hud-bar"><i id="bar-cargo" class="fill-cargo" style="width:6%"></i></span>
+                    </span>
+                    <div class="tooltip-content" id="tip-cargo"></div>
+                </div>
+                <div class="hud-chip tooltip-container"><span class="hud-ico">🎺</span>
+                    <span class="hud-col">
+                        <span class="hud-val" id="ui-morale">60</span>
+                        <span class="hud-bar"><i id="bar-morale" class="fill-morale" style="width:60%"></i></span>
+                    </span>
+                    <div class="tooltip-content" id="tip-morale"></div>
+                </div>
+                <div class="hud-chip tooltip-container"><span class="hud-ico">⬆️</span>
+                    <span class="hud-col">
+                        <span class="hud-val">Sv. <span id="ui-level">1</span></span>
+                        <span class="hud-bar"><i id="bar-xp" class="fill-xp" style="width:0%"></i></span>
+                    </span>
+                    <div class="tooltip-content" id="tip-level"></div>
+                </div>
+
+                <div class="hud-chip tooltip-container" id="chip-speed">
+                    <span class="hud-ico" id="ui-speed-ico">🥾</span>
+                    <span class="hud-col">
+                        <span class="hud-val" id="ui-speed">50</span>
+                        <span class="hud-sub" id="ui-speed-mode">yaya</span>
+                    </span>
+                    <div class="tooltip-content" id="ui-speed-breakdown"></div>
+                </div>
             </header>
 
             <div class="content-area">
                 <!-- Sidebar Menus -->
                 <aside id="sidebar" class="glass-panel">
-                    <button class="menu-btn active" onclick="Game.showScreen('map')">Harita</button>
-                    <button class="menu-btn" onclick="Game.showScreen('character')">Karakter</button>
-                    <button class="menu-btn" onclick="Game.showScreen('party')">Grup</button>
-                    <button class="menu-btn" onclick="Game.showScreen('inventory')">Envanter</button>
+                    <div class="sb-title">Sefer</div>
+                    <button class="menu-btn active" data-view="map" onclick="Game.showScreen('map')">
+                        <span class="mb-ico">🗺️</span><span class="mb-lbl">Harita</span><kbd>M</kbd></button>
+                    <button class="menu-btn" data-view="character" onclick="Game.showScreen('character')">
+                        <span class="mb-ico">🛡️</span><span class="mb-lbl">Karakter</span><kbd>C</kbd></button>
+                    <button class="menu-btn" data-view="party" onclick="Game.showScreen('party')">
+                        <span class="mb-ico">⚔️</span><span class="mb-lbl">Grup</span><kbd>P</kbd></button>
+                    <button class="menu-btn" data-view="inventory" onclick="Game.showScreen('inventory')">
+                        <span class="mb-ico">🎒</span><span class="mb-lbl">Envanter</span><kbd>İ</kbd></button>
+                    <button class="menu-btn sb-extra" data-view="quests" onclick="Game.showScreen('quests')">
+                        <span class="mb-ico">📜</span><span class="mb-lbl">Görevler</span><kbd>Q</kbd></button>
+                    <div style="flex:1"></div>
+                    <div class="sb-title">Kayıt</div>
+                    <button class="menu-btn sb-extra" onclick="Save.open()">
+                        <span class="mb-ico">💾</span><span class="mb-lbl">Kayıtlar</span></button>
+                    <button class="menu-btn sb-extra" onclick="Game.toggleMute()">
+                        <span class="mb-ico" id="mute-ico">🔊</span><span class="mb-lbl" id="mute-lbl">Ses Açık</span></button>
+                    <button class="menu-btn sb-extra" onclick="Game.showSettings()">
+                        <span class="mb-ico">⚙️</span><span class="mb-lbl">Ayarlar</span></button>
+                    <!-- Dar ekranda 8 düğme 372 px'lik şeride sığmıyordu (#86):
+                         dördü kalır, gerisi bu düğmenin arkasına iner. Masaüstünde
+                         CSS bunu gizler, şerit olduğu gibi durur. -->
+                    <button class="menu-btn sb-more" onclick="Game.showMoreMenu()">
+                        <span class="mb-ico">⋯</span><span class="mb-lbl">Daha</span></button>
+                    <button class="menu-btn" id="fs-btn" onclick="Game.toggleFullscreen()" title="Tam ekran">
+                        <span class="mb-ico" id="fs-ico">⛶</span><span class="mb-lbl">Tam Ekran</span></button>
                 </aside>
 
                 <!-- Views Container -->
@@ -63,11 +181,19 @@
                     <div id="map-view" class="view active">
                         <canvas id="map-canvas"></canvas>
                         <div id="map-tooltip" class="glass-panel hidden"></div>
+                        <!-- Grup künyesi: arazi + birlik dağılımı (Warband'ın grup penceresi gibi) -->
+                        <div id="map-hud" class="glass-panel">
+                            <div id="map-terrain"><span class="mh-ico">🧭</span><span id="map-terrain-txt">Düzlük</span></div>
+                            <div id="map-comp"></div>
+                            <button id="btn-map-zoom" onclick="Game.toggleMapZoom()" title="Haritayı yakınlaştır/uzaklaştır (Z)">1x</button>
+                        </div>
                     </div>
 
                     <!-- Settlement View (City/Castle/Village) -->
                     <div id="settlement-view" class="view glass-panel">
                         <h2 id="settlement-name">Şehir Adı</h2>
+                        <!-- Yerleşim sahnesi (#60): düğmelerin kendisi burada bina olarak çizilir -->
+                        <canvas id="scene-canvas" width="900" height="280"></canvas>
                         <div id="settlement-actions" class="action-list">
                         </div>
                     </div>
@@ -90,13 +216,34 @@
                         <div id="inventory-content"></div>
                     </div>
 
+                    <!-- Quest View -->
+                    <div id="quests-view" class="view glass-panel">
+                        <h2>📜 Görevler</h2>
+                        <div id="quest-list"></div>
+                    </div>
+
                     <!-- Battle View -->
                     <div id="battle-view" class="view">
                         <canvas id="battle-canvas"></canvas>
                         <div id="battle-ui">
-                            <div id="battle-log-left" class="battle-logs" style="position:absolute; bottom:60px; left:20px; width:350px; display:flex; flex-direction:column-reverse; gap:5px; pointer-events:none; z-index:10; text-align:left;"></div>
-                            <div id="battle-log-right" class="battle-logs" style="position:absolute; bottom:60px; right:20px; width:350px; display:flex; flex-direction:column-reverse; gap:5px; pointer-events:none; z-index:10; text-align:right;"></div>
-                            <button class="btn" style="border-color:#cc8800;color:#cc8800; position:absolute; top:20px; right:20px; z-index:20;" onclick="Battle.surrender()">🏳️ Teslim Ol</button>
+                            <div id="battle-log-left" class="battle-logs" style="left:20px; text-align:left;"></div>
+                            <div id="battle-log-right" class="battle-logs" style="right:20px; text-align:right;"></div>
+                            <button class="btn" id="btn-surrender" onclick="Battle.surrender()">🏳️ Teslim Ol</button>
+                            <!-- Dokunmatik savaş kumandası (#65): CSS `pointer: coarse`
+                                 olmayan cihazda gizler, yani fare kullanıcısı hiç görmez. -->
+                            <div id="touch-ui">
+                                <div id="tstick"><div id="tstick-knob"></div></div>
+                                <div id="tcmds">
+                                    <button onclick="Game.touchCommand('1')">Takip</button>
+                                    <button onclick="Game.touchCommand('2')">Hücum</button>
+                                    <button onclick="Game.touchCommand('3')">Mevzi</button>
+                                </div>
+                                <div id="tbtns">
+                                    <button id="tb-block">🛡️</button>
+                                </div>
+                                <!-- Sağ çubuk (#88): kılıca yön verir, bırakınca savurur -->
+                                <div id="tastick"><div id="tastick-knob"></div></div>
+                            </div>
                         </div>
                     </div>
                 </main>
@@ -104,27 +251,83 @@
         </div>
     </div>
     
-    <!-- Esir Pranga İkonu -->
-    <div id="prisoner-icon" style="display:none; position:fixed; bottom:20px; left:20px; font-size:4rem; pointer-events:none; z-index:50;">⛓️</div>
-
-    <!-- Esaret Yönetim Arayüzü -->
-    <div id="prisoner-ui" class="glass-panel hidden" style="position:fixed; bottom:20px; right:20px; z-index:60; text-align:center; min-width: 250px;">
-        <h3 style="color:#ff6666; margin-top:0; margin-bottom: 0.5rem;">⛓️ Esaret Altındasın</h3>
-        <div style="font-size: 0.9rem; margin-bottom: 1rem;">
-            Kaçma Olasılığı: <strong id="ui-escape-chance" style="color:var(--primary); font-size:1.2rem;">0%</strong>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:0.5rem;">
+    <!-- Esaret paneli: durum + kaçış. Ayrı duran dev ⛓️ ikonu harita künyesinin
+         üstüne biniyordu, panelin başlığına taşındı. -->
+    <div id="prisoner-ui" class="glass-panel hidden">
+        <h3>⛓️ Esaret Altındasın</h3>
+        <div id="prisoner-info"></div>
+        <div class="pr-chance">Kaçma Olasılığı: <strong id="ui-escape-chance">0%</strong></div>
+        <div class="pr-actions">
             <button id="btn-escape-plan" class="btn" onclick="Game.toggleEscapePlan()">Kaçış Planı Yap</button>
-            <button id="btn-escape-attempt" class="btn" style="border-color:#ff6666; color:#ff6666;" onclick="Game.attemptEscape()">Kaçmaya Çalış</button>
+            <button id="btn-escape-attempt" class="btn" onclick="Game.attemptEscape()">Kaçmaya Çalış</button>
         </div>
+    </div>
+    <!-- Kuşatma kampı paneli: hazırlık günleri, açlık, saldırı emri (#25) -->
+    <div id="siege-ui" class="glass-panel hidden">
+        <h3>🏰 Kuşatma Kampı</h3>
+        <div id="siege-info"></div>
+        <div class="pr-actions" style="margin-top:0.6rem">
+            <button id="btn-siege-assault" class="btn" onclick="Game.assaultSiege()">⚔️ Saldırıya Geç</button>
+            <button class="btn" onclick="Game.liftSiege()">🚪 Kuşatmayı Kaldır</button>
+        </div>
+    </div>
+    <!-- Yağma paneli: 15 saniyelik ambar boşaltma, ilerleme ve yetişen lord (#49) -->
+    <div id="raid-ui" class="glass-panel hidden">
+        <h3>🔥 Yağma</h3>
+        <div id="raid-info"></div>
+        <div class="pr-actions" style="margin-top:0.6rem">
+            <button class="btn" onclick="Game.abortRaid()">🚪 Yağmayı Bırak</button>
+        </div>
+    </div>
+    <!-- Kamp paneli: bekleme süresi ve iptal (#53 madde 1.1) -->
+    <div id="wait-ui" class="glass-panel hidden">
+        <h3>⏳ Kamp</h3>
+        <div id="wait-info"></div>
+        <div class="pr-actions" style="margin-top:0.6rem">
+            <button class="btn" onclick="Game.stopWait()">🚶 Kampı Topla</button>
+        </div>
+    </div>
+    <!-- Hata rozeti (#55 madde 2): oyun sessizce ölmesin, konsolu açmayan da görsün -->
+    <div id="err-badge" class="hidden" onclick="Debug.open()"></div>
+    <!-- Duraklatma şeridi (#113): saat durduğunda görünür bir işaret olsun, yoksa
+         oyuncu oyunun donduğunu sanar. Metnini Game.setPaused yazar. -->
+    <div id="pause-bar" class="hidden"></div>
+    <!-- Tam ekran ipucu (#kenar menüleri): göster/gizle app.js işi, id burada hazır -->
+    <div id="f11-hint" class="hidden glass-panel">
+        <span id="f11-hint-text">🖥️ Tam ekran için <kbd>F11</kbd></span>
+        <button id="f11-hint-close" aria-label="Kapat">&times;</button>
     </div>
     <!-- Modals -->
     <div id="modal-overlay" class="hidden">
         <div id="modal-content" class="glass-panel">
+            <!-- Başlığı Game.showModal yazar (Game.canDismiss() false ise gizlenir) -->
+            <button id="modal-close" onclick="Game.dismissModal()">&times;</button>
             <div id="modal-body"></div>
         </div>
     </div>
 
+    <script src="i18n.js"></script>
+    <script src="lang-en.js"></script>
+    <script src="lang-id.js"></script>
     <script src="app.js"></script>
+    <script src="battle.js"></script>
+    <script src="nobles.js"></script>
+    <script src="quests.js"></script>
+    <!-- Offline copy. The native app now loads the live site (capacitor.config.json's
+         `server.url`), so it wants the worker too — that is what keeps it playable with
+         no signal. The one case to skip is Capacitor serving its own bundled copy from
+         capacitor://localhost: a worker there would shadow the assets already on disk. -->
+    <script>
+        if('serviceWorker' in navigator && location.protocol.startsWith('http')
+           && !(window.Capacitor && location.hostname === 'localhost'))
+            addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+        // A shell that draws under the status bar while reporting a 0 top inset looks
+        // exactly like a flat screen to CSS, so style.css cannot tell them apart on its
+        // own. Measured here instead, and the fixed fallback is only switched on when the
+        // value really is 0 inside a native shell — a phone that reports its notch keeps
+        // its own number (#95).
+        if(window.Capacitor && !parseFloat(Game.safeArea()[0]))
+            document.documentElement.classList.add('native-shell');
+    </script>
 </body>
 </html>

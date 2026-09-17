@@ -1,0 +1,15 @@
+{
+  "appId": "me.serkanozel.webband",
+  "appName": "WebBand",
+  "webDir": "www",
+  "server": {
+    "url": "https://serkanozel.me/webband/"
+  },
+  "android": {
+    "webContentsDebuggingEnabled": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false
+  }
+}

@@ -1,3 +1,101 @@
+/* --- FONTS (#91) ---
+   Cinzel and Inter used to arrive from fonts.googleapis.com — the only network
+   dependency the game had. Offline, under file:// and inside the native WebView it
+   silently fell back to serif, so the app looked different from the site. The woff2
+   subsets now sit in fonts/ (both SIL OFL) and the @font-face blocks below are Google's
+   own, URLs rewritten: latin + latin-ext, because Turkish needs latin-ext. The
+   unicode-range split is kept, so a latin-only page never fetches the ext file. */
+/* latin-ext */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/cinzel-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/cinzel-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/cinzel-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/cinzel-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
     --primary: #d4af37; /* Lüks Altın */
     --primary-hover: #f5d76e;
@@ -8,19 +106,35 @@
     --text-muted: #94a3b8;
     --danger: #ef4444;
     --success: #22c55e;
+    /* Açıklama puntoları tek yerden (#73). Arayüzün her yerine serpilmiş inline
+       0.68–0.92rem değerleri bu üç değişkene bağlandı; taban yükseldi ve artık
+       tek satır değiştirerek büyütülüyor. Ayarlardaki yazı ölçeği kök puntoyu
+       çarptığı için ikisi birlikte çalışır. */
+    --fs-xs: 0.82rem;
+    --fs-sm: 0.92rem;
+    --fs-md: 1rem;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* iOS'ta `100vh` araç çubukları GİZLİYKENKİ yüksekliktir (ölçüldü: iPhone'da
+   ekran 844, görünen pencere 669). Yani sayfa görünenden ~80 px uzun kalıyor ve
+   telefon "kendi kendine" kayıyordu. `dvh` görünen yüksekliği verir; `vh` satırı
+   desteklemeyen tarayıcı için yedek olarak önce durur. `overscroll-behavior`
+   lastik bandı da keser. */
+html { height: 100%; overflow: hidden; overscroll-behavior: none; }
 
 body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-dark);
     color: var(--text-color);
     height: 100vh;
+    height: 100dvh;
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: hidden;
+    overscroll-behavior: none;
 }
 
 h1, h2, h3 {
@@ -42,22 +156,39 @@ h1, h2, h3 {
 #game-container {
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     position: relative;
 }
 
 .screen {
     position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+    /* iOS draws under the notch (viewport-fit=cover + black-translucent status bar), so the
+       HUD sat beneath the clock and the battery. The inset used to live on #game-container
+       as padding, on the reasoning that a screen is positioned against its padding box —
+       but that box's origin is the *border* edge, so padding never moves an absolutely
+       positioned child at all. Measured: 59px of padding there shifts #top-bar by 0px; the
+       same 59px here shifts it by 59. That is why the notch survived both 0.89 and 0.93
+       (#95). The bottom stays 0: --tui-lift already adds safe-area-inset-bottom, and
+       counting it twice would lift the touch controls off the screen. */
+    inset: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
     display: none;
     flex-direction: column;
 }
+/* A shell that draws under the status bar while reporting a 0 inset cannot be told apart
+   from a flat screen in CSS, so index.html measures it and only then adds the class. 59px
+   is the tallest iPhone status bar (Dynamic Island); a plain notch wants 44-48. */
+.native-shell .screen { top: 59px; }
 .screen.active { display: flex; }
 
 /* --- START SCREEN REDESIGN --- */
 #start-screen {
-    justify-content: center;
+    /* `safe center` centers while there is room and falls back to flex-start when there
+       is not — plain `center` overflows *both* ends of a scroll container, so on a short
+       window the title was cut off above and unreachable (#94). */
+    justify-content: safe center;
     align-items: center;
+    overflow-y: auto;
+    padding-block: 1.5rem;
     background: radial-gradient(circle at center, rgba(15,20,25,0.2) 0%, rgba(5,5,8,0.9) 100%), url('bg_hdr.jpg');
     background-size: cover;
     background-position: center;
@@ -118,6 +249,15 @@ h1, h2, h3 {
     flex-direction: column;
     align-items: center;
 }
+/* The start screen's action row. It used to be absolutely positioned at the bottom of
+   the screen, which parked it on top of the in-flow language row the moment a fifth
+   button joined (#93). In the normal flow it just stacks and wraps. */
+.start-actions {
+    display: flex; flex-wrap: wrap;
+    gap: 1rem; justify-content: center;
+    width: 100%; margin-top: 1.8rem;
+}
+
 #start-screen .form-group label {
     display: block; margin-bottom: 0.8rem; font-size: 1.1rem; color: #fff; font-weight: bold; text-shadow: 0 0 5px rgba(0,0,0,0.8);
 }
@@ -264,7 +404,7 @@ input[type="text"]:focus {
     box-shadow: 0 4px 15px rgba(0,0,0,0.8);
     width: max-content;
     z-index: 200;
-    transition: all 0.2s;
+    transition: opacity 0.2s, visibility 0.2s;
     font-size: 0.9rem;
     font-weight: normal;
     color: #fff;
@@ -347,12 +487,20 @@ input[type="text"]:focus {
 }
 #map-tooltip {
     position: absolute;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0.9rem;
     pointer-events: none;
     z-index: 10;
     white-space: nowrap;
-    font-size: 1rem;
+    font-size: 0.88rem;
+    line-height: 1.45;
     border: 1px solid var(--primary);
+}
+#map-tooltip strong {
+    display: block;
+    margin-bottom: 0.2rem;
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    color: var(--primary);
 }
 
 /* Battle */
@@ -381,7 +529,7 @@ input[type="text"]:focus {
     overflow: hidden;
     display: flex;
     flex-direction: column-reverse; /* Yeni mesajlar altta */
-    font-size: 0.85rem;
+    font-size: var(--fs-sm);
     color: #fff;
     pointer-events: none;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 40%, black 100%);
@@ -425,6 +573,22 @@ input[type="text"]:focus {
     text-align: center;
     border-radius: 8px;
 }
+/* Gövdesine kendi düğmesini koymayan pencere çıkışsız görünüyordu (#70): Esc ve dışa
+   tıklama çalışıyordu ama ekranda "buradan çıkılır" diyen tek piksel yoktu. `sticky`,
+   uzun pencere kaydırılınca da × köşede kalsın diye — `absolute` olsa yukarı kaçardı. */
+#modal-close {
+    position: sticky; top: 0; z-index: 3;
+    display: block; margin: -1.2rem -1.2rem 0 auto;
+    width: 2.4rem; height: 2.4rem; padding: 0;
+    /* Uzun pencere kaydırılınca metin arkadan sızıp × üstüne biniyordu — sticky
+       kalan düğme kendi zemini olmadan okunaksız oluyordu. */
+    background: rgba(10, 10, 15, 0.85);
+    border: none; border-radius: 6px;
+    color: var(--text-muted); font-size: 1.9rem; line-height: 2.2rem;
+    cursor: pointer;
+}
+#modal-close:hover { color: var(--primary); background: rgba(212, 175, 55, 0.18); }
+
 #modal-body { margin-bottom: 1.5rem; text-align: left; line-height: 1.6; font-size: 1.05rem; }
 
 .hidden { display: none !important; }
@@ -479,3 +643,1025 @@ input[type="text"]:focus {
 ::-webkit-scrollbar-track { background: rgba(0,0,0,0.4); border-radius: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary-hover); }
+
+/* ==========================================================================
+   RENOVASYON — genel görsel elden geçirme
+   ========================================================================== */
+
+body {
+    background:
+        radial-gradient(ellipse at 50% -10%, rgba(212,175,55,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 110%, rgba(60,90,140,0.06) 0%, transparent 55%),
+        var(--bg-dark);
+}
+
+/* Panellere hafif iç doku ve üst tepe ışığı */
+.glass-panel {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0) 32%),
+        var(--panel-bg);
+    box-shadow:
+        0 10px 34px rgba(0,0,0,0.65),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* ============ SEFER ÇUBUĞU (HUD) ============ */
+#top-bar {
+    justify-content: center;
+    align-items: stretch;
+    gap: 0.35rem;
+    padding: 0.45rem 0.8rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(212,175,55,0.35);
+    background:
+        linear-gradient(180deg, rgba(46,38,24,0.95), rgba(12,11,14,0.96));
+    box-shadow: 0 6px 18px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07);
+}
+.hud-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015));
+    border: 1px solid rgba(212,175,55,0.22);
+    white-space: nowrap;
+    transition: border-color .2s, background .2s;
+}
+.hud-chip:hover { border-color: rgba(212,175,55,0.5); }
+.hud-ico { font-size: 1.15rem; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
+.hud-col { display: inline-flex; flex-direction: column; gap: 2px; min-width: 52px; }
+.hud-val {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 0.92rem;
+    line-height: 1;
+    color: #f0e3c0;
+    text-shadow: 0 1px 2px rgba(0,0,0,.8);
+}
+.hud-sub { font-size: 0.63rem; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); line-height: 1; }
+.hud-bar {
+    display: block;
+    height: 4px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.55);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.8);
+    overflow: hidden;
+}
+.hud-bar > i { display: block; height: 100%; border-radius: 3px; transition: width .25s ease; }
+.fill-hp    { background: linear-gradient(90deg, #7d2020, #e05353); }
+.fill-party { background: linear-gradient(90deg, #2b5f7a, #59b6e0); }
+.fill-xp    { background: linear-gradient(90deg, #8a6a1c, #f0cd5c); }
+.fill-morale{ background: linear-gradient(90deg, #7a4a12, #e59b3d); }
+.fill-cargo { background: linear-gradient(90deg, #4a3a1c, #b99a4e); }
+.hud-sep { width: 1px; align-self: stretch; margin: 0 0.2rem; background: linear-gradient(180deg, transparent, rgba(212,175,55,0.35), transparent); }
+#chip-time .hud-col { min-width: 62px; }
+#chip-speed { cursor: help; }
+/* Üst çubuk kendi yığın bağlamını kuruyor; ipucu içeriğin altında kalmasın */
+#top-bar { position: relative; z-index: 60; }
+.tooltip-container .tooltip-content { top: 118%; }
+/* Taşma Game.initTooltipClamp() ile tek yerden hallediliyor — rozet rozet
+   elle hizalama (eski #chip-speed / #chip-time istisnaları) kaldırıldı. */
+.tooltip-container .tooltip-content { white-space: normal; overflow-wrap: anywhere; }
+
+/* ============ HARİTA ODAKLI DÜZEN (#40) ============
+   Map view only (body.view-map): the map canvas fills the whole viewport and the chrome
+   floats over it as translucent glass edge panels. Other views keep the flow layout.
+   showScreen() re-runs resizeCanvases() when the class flips, so the canvas picks up the
+   new full-viewport box. The nav is a vertically-centred icon strip so it never collides
+   with the wrapping (variable-height) top bar. */
+body.view-map #view-container { position: fixed; inset: 0; z-index: 1; }
+body.view-map #top-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+    opacity: 0.9; transition: opacity .2s;
+}
+body.view-map #top-bar:hover { opacity: 1; }
+body.view-map #sidebar {
+    position: fixed; left: 8px; top: 50%; transform: translateY(-50%);
+    width: auto; height: auto; max-height: calc(100vh - 96px);
+    overflow-y: auto; overflow-x: hidden;
+    border-radius: 12px; padding: 0.35rem 0.3rem; gap: 0.1rem; z-index: 40;
+    opacity: 0.9; transition: opacity .2s;
+}
+body.view-map #sidebar:hover { opacity: 1; }
+body.view-map #sidebar .sb-title { display: none; }
+body.view-map #sidebar .mb-lbl, body.view-map #sidebar kbd { display: none; }
+body.view-map #sidebar .menu-btn { justify-content: center; padding: 0.5rem; }
+body.view-map #sidebar > div[style*="flex"] { display: none; }
+body.view-map #map-hud { left: 66px; }
+
+/* ============ KENAR MENÜSÜ ============ */
+#sidebar {
+    width: 170px;
+    padding: 0.7rem 0.55rem;
+    gap: 0.15rem;
+    background: linear-gradient(180deg, rgba(30,26,18,0.92), rgba(12,12,16,0.94));
+}
+.sb-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.62rem;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: rgba(212,175,55,0.55);
+    padding: 0.35rem 0.6rem 0.3rem;
+    border-bottom: 1px solid rgba(212,175,55,0.14);
+    margin-bottom: 0.3rem;
+}
+.menu-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.95rem;
+    letter-spacing: 0.5px;
+    border-left-width: 3px;
+    border-radius: 0 7px 7px 0;
+}
+.mb-ico { font-size: 1.05rem; width: 1.3rem; text-align: center; filter: grayscale(0.4); transition: filter .2s, transform .2s; }
+.mb-lbl { flex: 1; text-align: left; }
+.menu-btn kbd {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.09);
+}
+.menu-btn:hover .mb-ico { filter: grayscale(0); transform: translateX(1px); }
+.menu-btn.active {
+    background: linear-gradient(90deg, rgba(212,175,55,0.24), rgba(212,175,55,0.03));
+    text-shadow: 0 0 12px rgba(212,175,55,0.5);
+}
+.menu-btn.active .mb-ico { filter: grayscale(0) drop-shadow(0 0 5px rgba(212,175,55,.6)); }
+.menu-btn.active kbd { color: var(--primary); border-color: rgba(212,175,55,0.4); }
+
+/* ============ HARİTA KÜNYESİ ============ */
+#map-hud {
+    position: absolute;
+    left: 14px; bottom: 14px;
+    z-index: 12;
+    padding: 0.5rem 0.7rem;
+    border-radius: 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.76rem;
+    pointer-events: none;
+    background: rgba(8,9,12,0.86);
+    border: 1px solid rgba(212,175,55,0.25);
+}
+#map-terrain {
+    display: flex; align-items: center; gap: 0.35rem;
+    font-family: 'Cinzel', serif; font-weight: 700;
+    color: #f0e3c0; letter-spacing: .5px;
+}
+#map-comp { display: flex; gap: 0.5rem; }
+#map-comp span { display: inline-flex; align-items: center; gap: 3px; color: var(--text-muted); }
+#map-comp b { color: #e8dcbb; font-weight: 600; }
+#btn-map-zoom {
+    pointer-events: auto; align-self: flex-start;
+    background: rgba(212,175,55,0.12); border: 1px solid rgba(212,175,55,0.35);
+    color: #f0e3c0; font-family: inherit; font-size: 0.72rem; font-weight: 600;
+    padding: 2px 10px; border-radius: 5px; cursor: pointer;
+}
+#btn-map-zoom:hover { background: rgba(212,175,55,0.25); }
+
+/* --- Başlıklar: altın ince çizgi --- */
+.view > h2 {
+    position: relative;
+    padding-bottom: 0.55rem;
+    margin-bottom: 1.1rem;
+    letter-spacing: 1px;
+}
+.view > h2::after {
+    content: '';
+    position: absolute;
+    left: 0; bottom: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, var(--primary), rgba(212,175,55,0.05));
+}
+
+/* Dar ekranda karakter/grup sütunları alt alta insin */
+#char-stats > div { flex-wrap: wrap; }
+#char-stats > div > div { min-width: 250px; }
+.view { overflow: auto; }
+
+/* --- Butonlar --- */
+.btn {
+    background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+}
+.btn:hover {
+    border-color: rgba(212,175,55,0.6);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.55), 0 0 14px rgba(212,175,55,0.18);
+}
+.btn:active { transform: translateY(0); }
+
+/* --- Harita çerçevesi --- */
+#map-view {
+    border: 2px solid rgba(212,175,55,0.35);
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.55);
+}
+
+/* --- Savaş arayüzü --- */
+#battle-view { border-radius: 12px; border: 2px solid rgba(212,175,55,0.3); }
+#battle-ui { padding: 0.5rem 0.8rem; }
+.battle-logs {
+    position: absolute;
+    bottom: 62px;
+    /* İki kütük asla çakışmasın: her biri yarım genişlik eksi kenar payı */
+    width: min(330px, calc(50% - 28px));
+    max-height: 32%;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 4px;
+    pointer-events: none;
+    z-index: 10;
+    -webkit-mask-image: linear-gradient(to top, black 60%, transparent 100%);
+    mask-image: linear-gradient(to top, black 60%, transparent 100%);
+}
+.battle-logs .log-msg {
+    background: rgba(6,8,10,0.88) !important;
+    border: 1px solid rgba(212,175,55,0.18);
+    border-radius: 6px;
+}
+/* Bozgun teklifi: savaş sürerken beliren tek düğme. Kovalamak varsayılan —
+   hiçbir şey yapmazsan peşlerindesin; bu düğme onlara yol verir. */
+#rout-prompt {
+    margin-left: auto;
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    color: #9fe0a0;
+    font-size: 0.92rem;
+}
+#rout-prompt .btn {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.92rem;
+    border-color: rgba(159,224,160,0.7);
+    color: #9fe0a0;
+}
+#rout-prompt + #btn-surrender { margin-left: 0.6rem; }
+#btn-surrender {
+    margin-left: auto;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.92rem;
+    border-color: rgba(204,136,0,0.7);
+    color: #e8a825;
+}
+
+/* --- Modal --- */
+#modal-content {
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.10), transparent 60%),
+        linear-gradient(180deg, #1b1b25 0%, #08080d 100%);
+    border-radius: 12px;
+    max-width: min(700px, 92vw);
+    min-width: min(450px, 88vw);
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+/* --- Geri bildirim #33: üst çubuk künyeleri (her rozetin ne olduğu ve etkisi) --- */
+#top-bar .hud-chip.tooltip-container { cursor: help; }
+#top-bar #chip-time { cursor: pointer; }
+#top-bar .tooltip-content { max-width: min(340px, calc(100vw - 24px)); }
+
+/* Map HUD buttons — the badge is pointer-events:none, so they switch it back on.
+   Selected by their container, not by id: a fifth button was being added to four
+   separate id lists, which is how one of them ends up unstyled. */
+#map-comp button {
+    pointer-events: auto;
+    margin-left: 0.4rem;
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(212,175,55,0.12);
+    border: 1px solid rgba(212,175,55,0.35);
+    color: #f0e3c0;
+    font-family: inherit; font-size: 0.72rem;
+    padding: 1px 7px; border-radius: 5px; cursor: pointer;
+}
+#map-comp button:hover { background: rgba(212,175,55,0.25); }
+
+/* Harcanmamış nitelik/odak puanı rozeti (#35): dikkat çeker ama sıçramaz — yalnız ışık nefes alır */
+#map-comp #btn-points {
+    color: #ffe9a8; font-weight: 600;
+    background: rgba(212,175,55,0.22); border-color: rgba(212,175,55,0.65);
+    animation: pointsGlow 2.2s ease-in-out infinite;
+}
+@keyframes pointsGlow {
+    0%, 100% { box-shadow: 0 0 0 rgba(212,175,55,0); }
+    50%      { box-shadow: 0 0 10px rgba(212,175,55,0.75); }
+}
+/* Klavyesiz cihazda kenar menüsünün tuş rozetleri yalan (#65).
+   Dar ekran kuralı yetmiyordu: tablet geniş ama parmakla sürülür. */
+body.touch .menu-btn kbd { display: none; }
+#map-comp kbd {
+    font-size: 0.62rem; padding: 0 4px; border-radius: 3px;
+    background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.15); color: var(--text-muted);
+}
+
+/* --- PERFORMANS ---
+   backdrop-filter, altındaki alan her karede değiştiğinde blur'u baştan hesaplar.
+   Hareketli tuvalin (harita/savaş) üstündeki panellerde bu her kare demek:
+   ölçüldü, 344x513'lük savaş tuvalinde bile 54 fps / p95 33.3 ms -> 60 fps / p95 18.2 ms.
+   Bu paneller camsı görünümü blur yerine daha opak zeminle koruyor. */
+#map-tooltip, #map-hud, #prisoner-ui, #siege-ui, #raid-ui, #wait-ui, .battle-logs .log-msg {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+#map-tooltip, #prisoner-ui, #siege-ui, #raid-ui, #wait-ui { background: rgba(12,14,18,0.93); }
+
+/* Esaret paneli */
+#prisoner-ui {
+    position: fixed; right: 20px; bottom: 20px; z-index: 60;
+    width: 250px; padding: 0.8rem 0.9rem;
+    font-size: var(--fs-sm); line-height: 1.5;
+}
+#prisoner-ui h3 { margin: 0 0 0.5rem; color: #ff8f82; font-size: 1rem; text-align: center; }
+#prisoner-info { color: var(--text-muted); }
+#prisoner-info b { color: #e8e2d4; }
+#prisoner-ui .pr-chance {
+    margin: 0.6rem 0; text-align: center;
+    border-top: 1px solid var(--panel-border); padding-top: 0.6rem;
+}
+#prisoner-ui .pr-chance strong { color: var(--primary); font-size: 1.15rem; }
+#prisoner-ui .pr-actions { display: flex; flex-direction: column; gap: 0.4rem; }
+#prisoner-ui .btn { padding: 0.4rem; font-size: var(--fs-sm); }
+
+/* Kuşatma kampı paneli — esaret paneliyle aynı köşede, aynı ölçüde (#25) */
+#siege-ui {
+    position: fixed; right: 20px; bottom: 20px; z-index: 60;
+    width: 250px; padding: 0.8rem 0.9rem;
+    font-size: var(--fs-sm); line-height: 1.5;
+}
+#siege-ui h3 { margin: 0 0 0.5rem; color: var(--primary); font-size: 1rem; text-align: center; }
+#siege-info { color: var(--text-muted); }
+#siege-info b { color: #e8e2d4; }
+#siege-ui .pr-actions { display: flex; flex-direction: column; gap: 0.4rem; }
+#siege-ui .btn { padding: 0.4rem; font-size: var(--fs-sm); }
+#btn-siege-assault { border-color: var(--primary); color: var(--primary); }
+
+/* Yağma paneli — kuşatma paneliyle aynı köşede, aynı ölçüde (#49) */
+#raid-ui {
+    position: fixed; right: 20px; bottom: 20px; z-index: 60;
+    width: 250px; padding: 0.8rem 0.9rem;
+    font-size: var(--fs-sm); line-height: 1.5;
+}
+#raid-ui h3 { margin: 0 0 0.5rem; color: #ff8f52; font-size: 1rem; text-align: center; }
+#raid-info { color: var(--text-muted); }
+#raid-info b { color: #e8e2d4; }
+#raid-ui .hud-bar { display: block; width: 100%; height: 7px; }
+#raid-ui .pr-actions { display: flex; flex-direction: column; gap: 0.4rem; }
+#raid-ui .btn { padding: 0.4rem; font-size: var(--fs-sm); }
+#btn-escape-attempt { border-color: #ff6666; color: #ff6666; }
+
+/* Kamp paneli — yağma paneliyle aynı köşede, aynı ölçüde (#53) */
+#wait-ui {
+    position: fixed; right: 20px; bottom: 20px; z-index: 60;
+    width: 250px; padding: 0.8rem 0.9rem;
+    font-size: var(--fs-sm); line-height: 1.5;
+}
+#wait-ui h3 { margin: 0 0 0.5rem; color: #9fd0ff; font-size: 1rem; text-align: center; }
+#wait-info { color: var(--text-muted); }
+#wait-info b { color: #e8e2d4; }
+#wait-ui .pr-actions { display: flex; flex-direction: column; gap: 0.4rem; }
+#wait-ui .btn { padding: 0.4rem; font-size: var(--fs-sm); }
+
+/* Erzak rozeti: 3 günden az kaldıysa kırmızıya döner */
+/* Uyarı hâli her rozette aynı görünür (erzak, çanta, ...) */
+.hud-chip.warn { border-color: rgba(224,70,58,0.65); background: rgba(90,20,16,0.35); }
+.hud-chip.warn .hud-val, .hud-chip.warn .hud-sub { color: #ff8f82; }
+
+
+/* İşlem geri bildirimi (#45): satır parlaması + dinar rozetinde uçan delta */
+@keyframes fxFlash {
+    0%   { background: rgba(107, 191, 89, 0.45); box-shadow: 0 0 12px rgba(107, 191, 89, 0.5); }
+    100% { background: transparent; box-shadow: none; }
+}
+@keyframes fxFlashBad {
+    0%   { background: rgba(200, 60, 50, 0.45); box-shadow: 0 0 12px rgba(200, 60, 50, 0.5); }
+    100% { background: transparent; box-shadow: none; }
+}
+.fx-flash     { animation: fxFlash 0.6s ease-out; border-radius: 6px; }
+.fx-flash-bad { animation: fxFlashBad 0.6s ease-out; border-radius: 6px; }
+
+@keyframes fxFloat {
+    0%   { opacity: 0; transform: translate(-50%, 4px) scale(0.9); }
+    18%  { opacity: 1; transform: translate(-50%, -6px) scale(1.08); }
+    100% { opacity: 0; transform: translate(-50%, -46px) scale(1); }
+}
+.fx-float {
+    position: fixed; z-index: 200; pointer-events: none;
+    font-family: 'Cinzel', serif; font-weight: 700; font-size: 1.05rem;
+    color: var(--success); text-shadow: 0 2px 6px #000, 0 0 10px rgba(0,0,0,0.8);
+    animation: fxFloat 0.95s ease-out forwards;
+}
+.fx-float.bad { color: var(--danger); }
+
+/* ---- Sürüm damgası, hata rozeti, erişilebilirlik (#55) ---- */
+/* In the flow, not pinned to a corner: #start-screen scrolls now, so an absolutely
+   positioned stamp sits at the bottom of the *content* and lands on the button row
+   (#94) — the same collision .start-actions had. Mobile already did it this way. */
+#ver-tag {
+    margin-top: 1rem; text-align: center;
+    font-size: var(--fs-xs); color: rgba(255,255,255,0.45); letter-spacing: .05em;
+    pointer-events: none;
+}
+#err-badge {
+    position: fixed; right: 14px; bottom: 12px; z-index: 150; cursor: pointer;
+    background: rgba(120, 20, 20, 0.92); border: 1px solid #e0463a; color: #ffd9d5;
+    padding: 0.35rem 0.7rem; border-radius: 6px; font-size: 0.78rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+#err-badge:hover { background: rgba(160, 30, 30, 0.95); }
+
+/* Duraklatma şeridi (#113). Modalın (z-index 1000) da üstünde durur: duraklatma
+   menüsü açıkken de "DURAKLATILDI" görünsün. Tıklamayı yemez. */
+#pause-bar {
+    position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+    z-index: 1100; pointer-events: none;
+    padding: 0.28rem 1.3rem;
+    background: rgba(20, 20, 25, 0.93);
+    border: 1px solid var(--primary); border-top: none; border-radius: 0 0 8px 8px;
+    color: var(--primary); font-family: 'Cinzel', serif; font-weight: 700;
+    font-size: var(--fs-sm); letter-spacing: 0.16em;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+}
+#pause-bar.hidden { display: none; }
+
+/* Hareket azaltma: sistem tercihi ya da ayarlar ekranı. Animasyon ve geçişler
+   kapanır — canvas tarafındaki karşılığı Game.reduceMotion() ile okunur. */
+body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::after {
+    animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+}
+
+/* Müzik yükleniyor rozeti (#131). Parçalar worker önbelleğinde gelmiyor, ilk çalışta
+   gerçekten indiriliyor; 400 ms'den uzun sürerse bu rozet çıkıyor. Dönme animasyonunu
+   yukarıdaki reduced-motion kuralı kapatıyor, halka duruyor ama rozet yine okunuyor. */
+#music-load {
+    position: fixed; right: 12px; bottom: 12px; z-index: 60;
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.35rem 0.7rem; border-radius: 999px;
+    background: rgba(10, 10, 14, 0.82); border: 1px solid var(--border-color);
+    color: var(--text-muted); font-size: var(--fs-xs); pointer-events: none;
+}
+#music-load i {
+    width: 0.9em; height: 0.9em; border-radius: 50%;
+    border: 2px solid rgba(212, 175, 55, 0.25); border-top-color: var(--primary);
+    animation: music-spin 0.8s linear infinite;
+}
+@keyframes music-spin { to { transform: rotate(360deg); } }
+
+/* Yerleşim sahnesi (#60): düğmelerin bina olarak çizildiği tuval */
+#scene-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0 0 1rem;
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.55), 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+/* Görev ekranının parşömen zemini (#61): soluk gri `--text-muted` kahverengi kâğıt üstünde
+   3.2:1'e düşüyordu. Değişken ekrana özel sıcak açık tona çekilir — zemin kalır, yazı okunur. */
+#quests-view { --text-muted: #e6dcc2; }
+
+/* ============================================================
+   DOKUNMATİK VE MOBİL (#65)
+   Tek kural: giriş yolu `pointer: coarse`, yerleşim `max-width`.
+   İkisi ayrı sorular — tabletin geniş ekranı da parmakla sürülür.
+   ============================================================ */
+
+/* Tuvaller tarayıcının kendi kaydırma/zoom jestini yemesin; pan ve pinch bizde */
+#map-canvas, #battle-canvas, #scene-canvas { touch-action: none; }
+/* Pinch-zooming the whole UI breaks the game (panel sizes are computed from the
+   screen, so after a zoom nothing sits where it belongs). Scrolling stays free, pinch
+   is gone, and `pan-x pan-y` closes the double-tap zoom with it.
+   The selector is `*`, not `html, body`: touch-action is **not inherited**, so a rule on
+   the body never reached the buttons and panels inside it — they kept the initial `auto`
+   and a quick double-tap on any button still zoomed the page (#91). The canvases above,
+   the sliders below and the sticks all override this with `none`; an id or class selector
+   outranks `*`. */
+* { touch-action: pan-x pan-y; -webkit-tap-highlight-color: transparent; }
+
+/* A finger holds a button to open its tooltip (`Game.clampTip`); iOS answered the same
+   hold with its own selection magnifier and callout menu on top of it. Both are inherited
+   properties, so `body` covers the tree; the two text fields take theirs back. */
+body { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+input, textarea { -webkit-user-select: text; user-select: text; }
+
+/* Sürgüler `pan-x pan-y`yi miras alıyordu: parmak sürüklemesi biraz dikey olunca
+   tarayıcı jesti kaydırma sanıp sürgüden çalıyordu — gönüllü/paralı asker sayısı
+   "bazen" seçilemiyordu. `none` sürgüde jest pazarlığını bitirir; yükseklik de
+   parmağın ıskalamaması için büyütüldü. */
+input[type="range"] { touch-action: none; height: 2.4rem; }
+
+/* --- Savaş kumandası: yalnız parmakla oynanan cihazda --- */
+#touch-ui { display: none; }
+@media (pointer: coarse) {
+    #touch-ui { display: block; }
+
+    /* `:hover` parmakta yok — künye dokunmayla açılır (Game.initTouchUI) */
+    .tooltip-container:hover .tooltip-content { visibility: hidden; opacity: 0; }
+    .tooltip-container.tip-open .tooltip-content { visibility: visible; opacity: 1; }
+
+    /* Dokunma hedefi en az 44 px (WCAG 2.5.5) — yalnız yükseklik yetmiyordu:
+       karakter ekranındaki `+` 21 px, envanterdeki "Çıkar" 24 px genişti (#86) */
+    .btn, .menu-btn, #settlement-actions button, .action-list button,
+    #map-hud button, #map-acts button, #modal-body button { min-height: 44px; min-width: 44px; }
+
+    /* Kütük kumandanın üstünde başlar. Sabit 236 px, kumanda ölçüsü değişince
+       (ve kısa tuvalde) emir şeridinin üstüne biniyordu (#86): artık kumandadan türer. */
+    .battle-logs {
+        bottom: calc(var(--tui-lift) + var(--tui-stick) + 56px);
+        max-height: 20%; font-size: 0.7rem;
+    }
+}
+
+/* --- Savaşta tam ekran (#86) ---
+   Telefonda sefer çubuğu + menü şeridi 664 px'in 228'ini yiyordu; savaşta ikisi de
+   işe yaramıyor (menüye savaş içinde girilemez zaten). Yalnız parmakla oynanan
+   cihazda gizlenir — masaüstünde yerleşim aynı kalır. */
+@media (pointer: coarse) {
+    body.in-battle #top-bar, body.in-battle #sidebar { display: none; }
+    body.in-battle .content-area { padding: 0; gap: 0; }
+    body.in-battle #battle-view { border-radius: 0; border-width: 0; }
+
+    /* Savaş kütüğü telefonda tek satır (#89). İki köşe yığını 46vw × %20'ydi: ölüm
+       satırları, komutan repliği ve emir yazıları arenanın alt yarısını kaplıyor,
+       oyuncu kendi silüetini göremiyordu. Artık güç çubuğunun altında, tam enine
+       tek satır; `battle.js` orada yalnız son mesajı bırakıyor. Sağ kütük kapanır —
+       taraf bilgisi zaten renkte. */
+    body.in-battle #battle-log-right { display: none; }
+    body.in-battle .battle-logs {
+        left: 8px !important; right: 8px !important; width: auto; max-width: none;
+        top: 62px; bottom: auto; max-height: 20px;
+        text-align: center !important;
+        -webkit-mask-image: none; mask-image: none;
+    }
+    body.in-battle .battle-logs .log-msg {
+        padding: 1px 8px !important;
+        font-size: 0.68rem; line-height: 1.5;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* Komutan repliği `display:block` + 1.1rem ile iki satır açıyordu — şeritte hepsi
+       tek satırın parçası. */
+    body.in-battle .battle-logs .log-msg * {
+        display: inline !important; font-size: inherit !important; margin: 0 !important;
+    }
+}
+
+/* Alt şeritte "Teslim Ol" düğmesi duruyor: kumanda onun **üstünde** başlar,
+   yoksa ⚔️ düğmesi teslim düğmesini eziyordu (ölçüldü: şerit 59 px). */
+/* Kumanda ölçüsü tek yerde (#86): 116/74 px 345 px'lik bir arenanın alt yarısını
+   kaplıyordu. Arena artık tam ekran ama kumanda yine de parmağa göre, ekrana göre
+   değil — büyüyen ekranda büyümesi gerekmiyor. */
+:root {
+    --tui-lift: calc(66px + env(safe-area-inset-bottom));
+    --tui-stick: 92px;
+    --tui-btn: 60px;
+}
+#tstick {
+    position: absolute;
+    left: 18px; bottom: var(--tui-lift);
+    width: var(--tui-stick); height: var(--tui-stick);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,175,55,0.14), rgba(0,0,0,0.42));
+    border: 2px solid rgba(212,175,55,0.45);
+    touch-action: none;
+    z-index: 30;
+}
+#tastick {
+    position: absolute;
+    right: 18px; bottom: var(--tui-lift);
+    width: var(--tui-stick); height: var(--tui-stick);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,120,90,0.16), rgba(0,0,0,0.42));
+    border: 2px solid rgba(255,140,110,0.5);
+    touch-action: none;
+    z-index: 30;
+}
+/* Ne işe yaradığı çubuğun üstünde yazsın — düğmeden yazı sökülmez kuralının çubuk hâli */
+#tastick::after {
+    content: '⚔️';
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem; opacity: 0.35; pointer-events: none;
+}
+#tstick-knob, #tastick-knob {
+    position: absolute; left: 50%; top: 50%;
+    width: calc(var(--tui-stick) * 0.42); height: calc(var(--tui-stick) * 0.42);
+    margin: calc(var(--tui-stick) * -0.21) 0 0 calc(var(--tui-stick) * -0.21);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #f0e3c0, #8a6a1c);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.7);
+    pointer-events: none;
+}
+#tbtns {
+    position: absolute;
+    /* Sağ çubuk sağ köşede durduğu için blok düğmesi onun soluna geçti (#88) */
+    right: calc(18px + var(--tui-stick) + 14px); bottom: var(--tui-lift);
+    display: flex; gap: 14px;
+    z-index: 30;
+}
+#tbtns button {
+    width: var(--tui-btn); height: var(--tui-btn);
+    border-radius: 50%;
+    font-size: 1.55rem;
+    border: 2px solid rgba(212,175,55,0.5);
+    background: rgba(20,18,14,0.62);
+    color: #f0e3c0;
+    touch-action: none;
+}
+#tbtns #tb-block.on { background: rgba(90,150,220,0.55); border-color: #9fd0ff; }
+/* Emirler çubuk ile düğmelerin **üstünde** tek sıra: sağ sütun hâlinde
+   dururken savaş kütüğünü ve arenanın yarısını kapatıyordu */
+#tcmds {
+    position: absolute;
+    left: 0; right: 0; bottom: calc(var(--tui-lift) + var(--tui-stick) + 12px);
+    display: flex; justify-content: center; gap: 8px;
+    z-index: 30;
+}
+#tcmds button {
+    min-width: 92px; min-height: 44px;   /* WCAG 2.5.5 — savaşın ortasında ıskalanmasın (#86) */
+    font-size: 0.78rem;
+    border: 1px solid rgba(212,175,55,0.4);
+    background: rgba(20,18,14,0.62);
+    color: #e8dcc0;
+    border-radius: 7px;
+}
+
+/* "Daha" düğmesi yalnız dar ekranın alt şeridinde işe yarar (#86) */
+.sb-more { display: none; }
+
+/* --- Dar ekran yerleşimi --- */
+@media (max-width: 820px) {
+    :root { font-size: 15px; }
+
+    /* Kenar menüsü alta açılan şerit olur: dikey yer ekrana kalsın */
+    .content-area { flex-direction: column-reverse; gap: 0.5rem; padding: 0.5rem; }
+    #sidebar {
+        width: auto;
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 0.35rem;
+        padding: 0.35rem;
+        border-radius: 12px;
+    }
+    #sidebar .sb-title, #sidebar > div[style*="flex:1"] { display: none; }
+    /* Alt şeritte 8 sekme çok: Harita/Karakter/Grup/Envanter kalır, gerisi
+       "⋯ Daha" sayfasına iner (#86) — telefon uygulamalarının standart deseni. */
+    #sidebar .sb-extra { display: none; }
+    .sb-more { display: flex; }
+    .menu-btn {
+        flex-direction: column;
+        gap: 2px;
+        border-left-width: 0;
+        border-bottom: 3px solid transparent;
+        border-radius: 7px;
+        padding: 0.4rem 0.55rem;
+        min-width: 60px;
+    }
+    .menu-btn.active { border-bottom-color: var(--primary); }
+    .menu-btn kbd { display: none; }
+    .mb-lbl { font-size: 0.66rem; text-align: center; }
+    .mb-ico { font-size: 1.35rem; width: auto; }
+
+    /* Map view on a phone: chrome floats over a full-viewport map. The nav drops from the
+       left-centre strip to the standard bottom bar; the top bar pins to the top edge. */
+    body.view-map #sidebar {
+        left: 0; right: 0; top: auto; bottom: 0; transform: none;
+        width: auto; max-height: none; flex-direction: row;
+        border-radius: 0; padding: 0.35rem;
+        padding-bottom: calc(0.35rem + env(safe-area-inset-bottom));
+    }
+    body.view-map #sidebar .mb-lbl { display: block; }
+    body.view-map #sidebar .menu-btn { flex-direction: column; padding: 0.4rem 0.55rem; }
+    /* Lift the corner badge above the bottom nav strip so it isn't hidden behind it. */
+    body.view-map #map-hud { left: 14px; bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+    /* Sefer çubuğu sarmalanır, rozetler küçülür */
+    #top-bar { padding: 0.35rem 0.4rem; gap: 0.25rem; }
+    /* Bottom-right is the bottom nav on a phone — the badge was sitting on top of it. */
+    #err-badge { bottom: var(--tui-lift); }
+    #top-bar .hud-sep { display: none; }
+    .hud-chip { padding: 0.25rem 0.45rem; gap: 0.3rem; }
+    .hud-col { min-width: 40px; }
+    #chip-time .hud-col { min-width: 52px; }
+    .hud-val { font-size: 0.82rem; }
+    .hud-sub { font-size: 0.56rem; }
+
+    /* Modal dar ekranda neredeyse tam genişlik ve kendi içinde kayar */
+    #modal-content, .modal-content {
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        max-height: 88vh;
+        overflow-y: auto;
+    }
+    .view.glass-panel { padding: 0.7rem; }
+    /* Pazarın iki sütunu 375 px'te 165 px'e düşüyor, satırlar sarıyordu: alt alta */
+    #market-cols { flex-direction: column; gap: 1rem !important; }
+    #scene-canvas { width: 100%; height: auto; }
+    .battle-logs { max-width: min(46vw, 220px); font-size: 0.72rem; }
+    /* Künyedeki düğme sırası dar ekranda sığmıyordu: künye tam ene yayılır, satır sarar */
+    #map-hud { max-width: calc(100vw - 28px); }
+    #map-comp { flex-wrap: wrap; }
+    #map-tooltip { max-width: 78vw; }
+    /* Sabit köşe panelleri dar ekranda birbirini ezmesin */
+    #prisoner-ui, #siege-ui, #raid-ui, #wait-ui { max-width: calc(100vw - 20px); }
+}
+
+/* --- Dar telefon (iPhone 14 ve altı): 390 px'e sığdır (#86) ---
+   Ölçüldü: sefer çubuğu 123 px (pencerenin %19'u, 8 rozet 3 satır), menü şeridi
+   scrollWidth 530 / clientWidth 372 — son üç düğme (Kayıtlar/Ses/Ayarlar) ekran
+   dışındaydı ve kaydırma işareti yoktu. */
+@media (max-width: 430px) {
+    /* Rozetin alt yazısı (dinar/nam/erzak) ikonun yanında zaten belli; yalnız
+       saat kalır, çünkü gün numarası tek başına saati söylemiyor. */
+    .hud-sub { display: none; }
+    #chip-time .hud-sub { display: block; }
+    #top-bar { padding: 0.25rem 0.3rem; gap: 0.2rem; }
+    .hud-chip { padding: 0.2rem 0.35rem; gap: 0.25rem; }
+    .hud-col { min-width: 0; }
+    #chip-time .hud-col { min-width: 44px; }
+
+    /* Beş sekme şeridi eşit böler: 364 px içerik → düğme başına ~72 px, hepsi görünür
+       (eskiden 8 düğme scrollWidth 530 / clientWidth 372 idi, üçü ekran dışındaydı) */
+    #sidebar { gap: 2px; padding: 0.2rem; }
+    .menu-btn { flex: 1 1 0; min-width: 44px; padding: 0.3rem 0.1rem; }
+    .mb-lbl { font-size: 0.62rem; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .mb-ico { font-size: 1.25rem; }
+
+    /* Harita künyesi 407 px'lik tuvalin 137'sini yiyordu (#86): punto küçülünce
+       dört düğme de tek satıra iner, metinleri yerinde kalır (ikona indirmek
+       "düğmede yazı yok" demekti). Dokunma hedefi yine 44 px. */
+    #map-hud { font-size: 0.66rem; padding: 0.3rem 0.4rem; }
+    #map-comp { gap: 1px; }
+    #map-comp button {
+        font-size: 0.6rem; margin-left: 0.15rem; padding: 1px 4px; gap: 2px;
+    }
+}
+
+/* Yatay tutulan telefon: dikey yer çok az, üst çubuk daha da incelir */
+@media (max-height: 480px) and (pointer: coarse) {
+    #top-bar { padding: 0.2rem 0.35rem; }
+    .hud-sub { display: none; }
+    #sidebar { padding: 0.2rem; }
+    .mb-lbl { display: none; }
+}
+
+/* --- Başlangıç ekranı dar ekranda --- */
+@media (max-width: 820px) {
+    #start-screen { padding: 1rem; justify-content: flex-start; padding-top: 2.5rem; }
+    #start-screen h1 { font-size: clamp(2.6rem, 15vw, 5rem); letter-spacing: 3px; }
+    #start-screen .title-container { margin-bottom: 1.5rem; }
+    #start-screen p { font-size: 1.25rem; }
+    .ornament { width: min(100%, 340px); height: 26px; margin: 10px auto; }
+    #start-screen .form-group { padding: 1.3rem; width: 100%; max-width: 420px; }
+    #start-screen .form-group > div[style] {
+        position: static !important;
+        flex-wrap: wrap;
+        gap: 0.5rem !important;
+    }
+    .start-actions { gap: 0.5rem; margin-top: 1.2rem; }
+    #start-screen .hex-btn-small { font-size: 0.92rem; padding: 0.7rem 0.9rem; }
+}
+
+/* ============================================================
+   DİL SEÇİCİ
+   ============================================================ */
+#lang-ask {
+    position: fixed; inset: 0; z-index: 500;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(6,8,10,0.92);
+}
+#lang-ask.hidden { display: none; }
+.lang-ask-box { text-align: center; padding: 1.5rem; }
+.lang-ask-box h2 {
+    font-family: 'Cinzel', serif; font-size: 2.6rem;
+    color: var(--primary); letter-spacing: 3px; margin-bottom: 0.3rem;
+}
+.lang-ask-box p { color: var(--text-muted); margin-bottom: 1.6rem; letter-spacing: 1px; }
+#lang-ask-row, #lang-row { display: flex; gap: 0.9rem; justify-content: center; flex-wrap: wrap; }
+#lang-row { margin-top: 1.2rem; }
+.lang-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+    min-width: 96px; min-height: 44px;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid rgba(212,175,55,0.35);
+    border-radius: 10px;
+    background: rgba(20,18,14,0.6);
+    color: #e8dcc0;
+    cursor: pointer;
+    font-size: var(--fs-md);
+}
+.lang-btn .lang-flag { font-size: 2rem; line-height: 1; }
+.lang-btn:hover { border-color: var(--primary); background: rgba(40,34,20,0.7); }
+.lang-btn.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
+/* Başlangıç ekranındaki sıra daha küçük: oyunu değil ayarı temsil eder */
+#lang-row .lang-btn { min-width: 68px; padding: 0.5rem 0.6rem; font-size: 0.8rem; }
+#lang-row .lang-flag { font-size: 1.3rem; }
+
+/* --- HAFİF MOD (body.lite) ---
+   `Game.applySettings()` sınıfı koyar; tek anahtar `Game.opt('lite')` ("Cihaza göre"
+   telefon/tablette kendiliğinden açar). Buradaki iş tamamen compositor'a bakar:
+   telefonda kasmanın kaynağı JS değil, her karede yeniden hesaplanan blur ve
+   büyük yayılımlı gölgelerdir. Cam görünüm blur yerine daha opak zeminle korunur. */
+body.lite .glass-panel,
+body.lite #modal-overlay,
+body.lite #start-screen .form-group,
+body.lite #top-bar,
+body.lite #sidebar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+body.lite .glass-panel { background: rgba(16,17,22,0.94); box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+body.lite #modal-overlay { background: rgba(6,6,10,0.82); }
+/* Sürekli dönen animasyonlar kare başına bir kompozit katmanı demek */
+body.lite #map-comp #btn-points, body.lite .fx-flash, body.lite .fx-flash-bad { animation: none; }
+body.lite #map-view, body.lite #battle-view { box-shadow: none; }
+
+/* --- Öğretici (#87) ---
+   Işık halkası 9999px'lik kutu gölgesiyle yapılır: hem hedefi çerçeveler hem
+   ekranın geri kalanını karartır, ayrı bir perde elemanı gerekmez. */
+#coach-ring {
+    position: fixed;
+    border: 2px solid var(--primary, #d4af37);
+    border-radius: 10px;
+    box-shadow: 0 0 0 9999px rgba(4,5,9,0.66), 0 0 18px rgba(212,175,55,0.55);
+    pointer-events: none;          /* halka tıklamayı yutmaz, altındaki arayüz görünür kalır */
+    z-index: 300;
+}
+#coach-box {
+    position: fixed;
+    z-index: 301;
+    width: min(330px, calc(100vw - 24px));
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(212,175,55,0.55);
+    border-radius: 12px;
+    background: rgba(18,19,26,0.97);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+#coach-box.mid { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+#coach-box h4 { color: var(--primary, #d4af37); margin-bottom: 0.4rem; font-size: 1.05rem; }
+#coach-box p { font-size: var(--fs-sm); line-height: 1.45; color: #e7e2d4; }
+#coach-box .coach-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-top: 0.9rem;
+}
+#coach-box .coach-row span { flex: 1; font-size: var(--fs-xs); color: var(--text-muted); }
+#coach-box .coach-row .btn { min-height: 44px; padding: 0.4rem 0.9rem; }
+
+/* Turnuva eşleşme cetveli (#122). Four columns, each a round; the last is the champion.
+   Wide on a phone, so the whole board scrolls inside itself instead of the page. */
+.tbr {
+    display: flex; gap: 6px; overflow-x: auto; padding: 0.4rem 0 0.6rem;
+    margin: 0.6rem 0; -webkit-overflow-scrolling: touch;
+}
+.tbr-col { display: flex; flex-direction: column; min-width: 112px; flex: 1; }
+.tbr-cells { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 4px; }
+.tbr-hd {
+    font-size: var(--fs-xs); letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted); text-align: center; margin-bottom: 2px;
+}
+.tbr-c {
+    display: flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.45rem; border: 1px solid var(--panel-border); border-radius: 5px;
+    background: rgba(255,255,255,0.03); font-size: var(--fs-xs); min-height: 30px;
+}
+.tbr-c .tbr-n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbr-c .tbr-l { color: var(--text-muted); }
+.tbr-c.me { border-color: var(--primary); color: var(--primary); background: rgba(212,175,55,0.10); }
+.tbr-c.out { opacity: 0.4; text-decoration: line-through; }
+.tbr-c.tbr-empty { border-style: dashed; opacity: 0.25; }
+/* The win visibly moves into the box above: the cell drops into place from the column before. */
+.tbr-c.adv { animation: tbr-adv 0.45s ease-out both; }
+@keyframes tbr-adv {
+    from { opacity: 0; transform: translate(-16px, 10px); }
+    to   { opacity: 1; transform: none; }
+}
+/* On a phone the four columns must all fit: a champion column parked off the right edge is
+   the one box the player actually wants to see. Names truncate, the shape survives. */
+@media (max-width: 430px) {
+    .tbr { gap: 3px; }
+    .tbr-col { min-width: 66px; }
+    .tbr-c { padding: 0.25rem 0.3rem; gap: 0.2rem; font-size: 10px; }
+    .tbr-hd { font-size: 9px; letter-spacing: 0.02em; }
+}
+
+/* --- Pazar iskeleti (#103) ---
+   Satırların ve durum panelinin görünümü burada hazır; app.js `openMarket`/`renderMarket`
+   bu class/id'leri satır üretirken kullanacak (JS bağlaması ayrı iş). */
+.market-status-bar {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    margin-bottom: 1rem; padding: 0.6rem 0.8rem;
+    background: rgba(0,0,0,0.3); border: 1px solid var(--panel-border); border-radius: 8px;
+}
+.market-status-chip {
+    display: flex; flex-direction: column; align-items: center;
+    min-width: 64px; flex: 1;
+    font-size: var(--fs-xs); color: var(--text-muted);
+}
+.market-status-chip b { font-size: var(--fs-md); color: var(--text-color); }
+.market-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.3rem; border-bottom: 1px solid var(--panel-border);
+}
+.market-row-name { flex: 1; font-size: var(--fs-sm); }
+.market-row-price { font-size: var(--fs-xs); color: var(--text-muted); min-width: 56px; text-align: right; }
+.market-qty-btns { display: flex; gap: 0.3rem; }
+.market-qty-btn {
+    min-width: 2.4rem; min-height: 2rem; padding: 0.2rem 0.5rem;
+    font-size: var(--fs-xs); border-radius: 6px;
+    background: rgba(212,175,55,0.1); border: 1px solid var(--panel-border);
+    color: var(--text-color); cursor: pointer;
+}
+.market-qty-btn:hover { background: rgba(212,175,55,0.22); border-color: var(--primary); }
+.market-qty-btn.active { background: rgba(212,175,55,0.3); border-color: var(--primary); color: var(--primary); }
+
+/* --- Envanter equip silüeti (#kenar menüleri) ---
+   5 kare yerine insan + at silüeti üzerinde konumlanan drop-zone slotlar. Slot
+   kimlikleri equipment nesnesiyle birebir: weapon/shield/armor/helmet/gloves/boots/horse.
+   app.js DOM'u basıp `data-slot` içine ekipman ikonunu koyacak, sürükle-bırak JS'i ayrı iş. */
+.equip-figures {
+    display: flex; gap: 1.2rem; flex-wrap: wrap;
+    justify-content: center; margin-bottom: 1rem;
+}
+.equip-figure {
+    position: relative;
+    width: 180px; height: 320px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--panel-border); border-radius: 10px;
+}
+.equip-figure::before {
+    content: '🧍';
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9rem; opacity: 0.18; pointer-events: none;
+}
+.equip-figure.horse::before { content: '🐴'; }
+.equip-slot {
+    position: absolute;
+    width: 46px; height: 46px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+    background: rgba(0,0,0,0.4);
+    border: 2px dashed var(--panel-border);
+    border-radius: 8px;
+    cursor: pointer;
+}
+.equip-slot:hover, .equip-slot.drag-over { border-color: var(--primary); background: rgba(212,175,55,0.16); }
+.equip-slot.filled { border-style: solid; border-color: var(--primary); }
+.equip-slot[data-slot="helmet"] { top: 8px; left: 50%; transform: translateX(-50%); }
+.equip-slot[data-slot="armor"]  { top: 118px; left: 50%; transform: translateX(-50%); }
+.equip-slot[data-slot="weapon"] { top: 118px; right: 10px; }
+.equip-slot[data-slot="shield"] { top: 118px; left: 10px; }
+.equip-slot[data-slot="gloves"] { top: 190px; left: 10px; }
+.equip-slot[data-slot="boots"]  { bottom: 12px; left: 50%; transform: translateX(-50%); }
+.equip-slot[data-slot="horse"]  { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; font-size: 1.8rem; }
+@media (max-width: 430px) {
+    .equip-figure { width: 148px; height: 260px; }
+    .equip-figure::before { font-size: 7rem; }
+    .equip-slot { width: 38px; height: 38px; font-size: 1.15rem; }
+    .equip-slot[data-slot="armor"] { top: 96px; }
+    .equip-slot[data-slot="weapon"], .equip-slot[data-slot="shield"] { top: 96px; }
+    .equip-slot[data-slot="gloves"] { top: 150px; }
+}
+
+/* --- F11 tam ekran ipucu ---
+   Göster/gizle app.js işi (#f11-hint'in .hidden'ını Game açar/kapar); burada yalnız yer var. */
+#f11-hint {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 10px);
+    left: 50%; transform: translateX(-50%);
+    z-index: 250;
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.7rem 0.5rem 1rem;
+    font-size: var(--fs-sm);
+    border-radius: 10px;
+}
+#f11-hint.hidden { display: none; }
+#f11-hint kbd {
+    font-family: inherit; font-size: var(--fs-xs);
+    padding: 0.1rem 0.4rem; border: 1px solid var(--panel-border); border-radius: 4px;
+    background: rgba(0,0,0,0.35);
+}
+#f11-hint-close {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0 0.2rem;
+}
+#f11-hint-close:hover { color: var(--primary); }
+@media (max-width: 820px), (pointer: coarse) {
+    /* Dokunmatikte F11 anlamsız (tam ekran API'si farklı çalışır): app.js göstermesin diye
+       CSS burada zorlamıyor, sadece dar ekranda ipucu haritayı örtmesin diye üst şeride iner. */
+    #f11-hint { top: auto; bottom: calc(env(safe-area-inset-bottom) + 8px); }
+}
