@@ -35,7 +35,7 @@ function between(actual, lo, hi, what) {
 // Loading once is enough: all of these functions read `state` and none of
 // them need a world (settlement layout, NPCs). Tests set up their own state.
 const g = H.load({ seed: 1 });
-const { Game, Battle, Save, state } = g;
+const { Game, Battle, Save, state, PERKS, PERK_BY_ID } = g;
 
 // Resets the player to a known starting point — tests shouldn't see each other's state
 function reset() {
@@ -108,6 +108,57 @@ test('getPartyCapacity: marriage adds a household retinue allowance', () => {
     p.spouse = 'lady_test';
     assert.strictEqual(Game.getPartyCapacity(), 17);
     p.spouse = null;
+});
+
+test('perks: point economy is floor(level/2)', () => {
+    const p = reset(); p.perks = [];
+    p.stats.level = 1; assert.strictEqual(Game.perkPointsTotal(), 0);
+    p.stats.level = 4; assert.strictEqual(Game.perkPointsTotal(), 2);
+    p.stats.level = 40; assert.strictEqual(Game.perkPointsTotal(), 20);
+});
+test('perks: every id is unique and maps to a branch/tier', () => {
+    const seen = new Set();
+    PERKS.forEach(br => br.tiers.forEach((pair, ti) => {
+        assert.strictEqual(pair.length, 2, br.id + ' tier ' + ti + ' must be a pair');
+        pair.forEach(pk => { assert.ok(!seen.has(pk.id), 'dup ' + pk.id); seen.add(pk.id);
+            assert.strictEqual(PERK_BY_ID[pk.id].branch, br.id); assert.strictEqual(PERK_BY_ID[pk.id].tier, ti); });
+    }));
+    assert.strictEqual(seen.size, 60);
+});
+test('perks: gates block, then a taken perk feeds perkMod', () => {
+    const p = reset(); p.perks = [];
+    p.stats.level = 40; p.stats.eff.str = 20;
+    p.proficiencies.oneHanded = { level: 10 };
+    // tier 0 melee A is now reachable
+    assert.strictEqual(Game.perkBlock('melee_edge_a'), null);
+    // tier 1 is still blocked until tier 0 is taken
+    assert.ok(Game.perkBlock('melee_heavy_a'));
+    Game.takePerk('melee_edge_a');
+    assert.ok(Game.hasPerk('melee_edge_a'));
+    assert.ok(Math.abs(Game.perkMod('dmg1h') - 0.10) < 1e-9);
+    // the opposing perk in the same tier is now locked out
+    assert.ok(Game.perkBlock('melee_guard_b'));
+    p.perks = [];
+});
+test('perks: low level/attr/prof block a tier', () => {
+    const p = reset(); p.perks = [];
+    p.stats.level = 1; p.stats.eff.str = 10; p.proficiencies.oneHanded = { level: 1 };
+    assert.ok(Game.perkBlock('melee_edge_a'));   // level too low
+    p.stats.level = 40;
+    assert.ok(Game.perkBlock('melee_edge_a'));   // str/prof still too low
+});
+test('perks: intelligence point grants a focus point', () => {
+    const p = reset(); p.stats.attributePoints = 1; p.stats.focusPoints = 0;
+    Game.addStat('int');
+    assert.strictEqual(p.stats.focusPoints, 1);
+});
+test('perks: foodUse stacks multiplicatively via upkeep', () => {
+    const p = reset(); p.perks = ['scout_ration_a'];   // 0.90
+    const base = Game.upkeep().foodLow;
+    p.perks = [];
+    const raw = Game.upkeep().foodLow;
+    assert.ok(Math.abs(base - raw * 0.90) < 1e-6);
+    p.perks = [];
 });
 
 test('prisonerValue: type multiplier, noble ransom', () => {

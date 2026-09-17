@@ -5,7 +5,7 @@
 // Version stamp (#55 item 8): shown in the bug report and in the corner of the
 // start screen. The player's desktop shortcut pulls the repo to `main` on every
 // launch, so this is the only answer to "which code are we even talking about" — bumped by hand every turn.
-const VERSION = { no: '1.15.0', date: '2026-09-17', name: 'Muharebe Merceği' };  // the version name is not translated
+const VERSION = { no: '1.16.0', date: '2026-09-17', name: 'Yetenek Ağacı' };  // the version name is not translated
 
 // --- ERROR BUFFER AND DEBUG REPORT (#52) ---
 // Give the player more than just a screenshot: errors pile up in a ring buffer,
@@ -469,6 +469,7 @@ const state = {
             trainer:   { level: 1, xp: 0, next: 100, focus: 0 }
         },
         skills: { fastRun: 0, wideSwing: 0, fastArrow: 0, homingArrow: 0 },
+        perks: [],             // owned skill-tree perk ids (#110)
         attackAngle: 30, // Base 30 degrees
         spouse: null,
         vassalOf: null,
@@ -645,6 +646,91 @@ const ACHIEVEMENTS = [
     { id: 'quests_50',   tier: 'gold',   name: 'Diyarın Hizmetkârı', desc: '50 görev tamamladın.',                       cond: () => (state.career && state.career.quests || 0) >= 50 },
     { id: 'prof_master', tier: 'silver', name: 'Bir Dalda Usta',     desc: 'Bir yeterlilikte 5. kademeye ulaştın.',      cond: () => Object.values(state.player.proficiencies || {}).some(p => (p.level || 1) >= 5) },
 ];
+
+// --- SKILL TREE (#110) ---
+// 6 branches x 5 tiers x 2 opposing perks = 60. Designed with Fable (docs/danisma/002).
+// Each perk contributes to Game.perkMod(name); foodUse stacks multiplicatively (perkFoodMult).
+// Tier n needs: the previous tier in the branch, level >= REQ_LVL[n], the branch attribute
+// >= REQ_ATTR[n], and the branch proficiency >= REQ_PROF[n] — so no single stat unlocks a whole tree.
+const PERK_REQ_LVL  = [4, 7, 10, 13, 16];
+const PERK_REQ_ATTR = [11, 13, 15, 17, 19];
+const PERK_REQ_PROF = [2, 4, 6, 8, 10];
+const PERKS = [
+    { id: 'melee', name: 'Kılıç Ustalığı', attr: 'str', prof: 'oneHanded', tiers: [
+        [{ id:'melee_edge_a',    name:'Keskin Kenar',    desc:'Tek el silah hasarı artar.',           mod:{ dmg1h:0.10 } },
+         { id:'melee_guard_b',   name:'Sağlam Duruş',    desc:'Savuşturma açısı genişler.',           mod:{ blockAngle:15 } }],
+        [{ id:'melee_heavy_a',   name:'Ağır Darbe',      desc:'Çift el silah hasarı artar.',          mod:{ dmg2h:0.12 } },
+         { id:'melee_swift_b',   name:'Hızlı Bilek',     desc:'Yakın dövüş vuruş hızı artar.',        mod:{ meleeSpeed:0.08 } }],
+        [{ id:'melee_spear_a',   name:'Mızrak Dikişi',   desc:'Mızrak hasarı artar.',                 mod:{ dmgPolearm:0.12 } },
+         { id:'melee_parry_b',   name:'Savuşturucu',     desc:'Savuşturma açısı daha da genişler.',   mod:{ blockAngle:20 } }],
+        [{ id:'melee_fury_a',    name:'Öfke',            desc:'Tek ve çift el hasarı birlikte artar.',mod:{ dmg1h:0.10, dmg2h:0.10 } },
+         { id:'melee_ironskin_b',name:'Demir Ten',       desc:'Azami can artar.',                     mod:{ maxHpBonus:20 } }],
+        [{ id:'melee_master_a',  name:'Silah Ustası',    desc:'Üç yakın dövüş silahı da güçlenir.',   mod:{ dmg1h:0.15, dmg2h:0.15, dmgPolearm:0.15 } },
+         { id:'melee_bulwark_b', name:'Kale',            desc:'Savuşturma ve can birlikte artar.',    mod:{ blockAngle:30, maxHpBonus:15 } }]
+    ] },
+    { id: 'ranger', name: 'Süvari ve Okçu', attr: 'agi', prof: 'bow', tiers: [
+        [{ id:'ranger_quiver_a', name:'Geniş Sadak',     desc:'Savaş başına ok sayısı artar.',        mod:{ arrowCount:8 } },
+         { id:'ranger_saddle_b', name:'Sağlam Eyer',     desc:'Atlı savaş hızı artar.',               mod:{ ridingSpeed:0.08 } }],
+        [{ id:'ranger_aim_a',    name:'Keskin Nişan',    desc:'Ok hasarı artar.',                     mod:{ dmgBow:0.10 } },
+         { id:'ranger_lance_b',  name:'Mızrak Şarjı',    desc:'Atlı şarj hasarı artar.',              mod:{ chargeDmg:0.25 } }],
+        [{ id:'ranger_fleet_a',  name:'Hafif Ayak',      desc:'Yaya savaş hızı artar.',               mod:{ footSpeed:0.10 } },
+         { id:'ranger_horseman_b',name:'Doğuştan Binici',desc:'Atlı savaş hızı daha da artar.',       mod:{ ridingSpeed:0.12 } }],
+        [{ id:'ranger_volley_a', name:'Yaylım',          desc:'Ok hasarı ve ok sayısı birlikte artar.',mod:{ dmgBow:0.10, arrowCount:6 } },
+         { id:'ranger_shock_b',  name:'Şok Hücumu',      desc:'Atlı şarj hasarı büyük ölçüde artar.', mod:{ chargeDmg:0.40 } }],
+        [{ id:'ranger_eagle_a',  name:'Kartal Göz',      desc:'Okçuluğun zirvesi: hasar ve sadak.',   mod:{ dmgBow:0.20, arrowCount:10 } },
+         { id:'ranger_stormrider_b',name:'Fırtına Binicisi',desc:'Süvariliğin zirvesi: hız ve şarj.', mod:{ ridingSpeed:0.15, chargeDmg:0.30 } }]
+    ] },
+    { id: 'cmd', name: 'Komuta', attr: 'cha', prof: 'leadership', tiers: [
+        [{ id:'cmd_banner_a',    name:'Sancak',          desc:'Grup kapasitesi artar.',               mod:{ partyCap:6 } },
+         { id:'cmd_thrift_b',    name:'Tutumlu Kâhya',   desc:'Maaş gideri azalır.',                  mod:{ wageReduce:8 } }],
+        [{ id:'cmd_spirit_a',    name:'Ocak Başı',       desc:'Grup morali artar.',                   mod:{ moraleBonus:6 } },
+         { id:'cmd_drill_b',     name:'Talim',           desc:'Her gün daha çok asker XP alır.',      mod:{ trainXp:3 } }],
+        [{ id:'cmd_host_a',      name:'Kalabalık Ordu',  desc:'Grup kapasitesi daha da artar.',       mod:{ partyCap:10 } },
+         { id:'cmd_fame_b',      name:'Nam Salan',       desc:'Nam kazanımı artar.',                  mod:{ renownGain:15 } }],
+        [{ id:'cmd_veterans_a',  name:'Gaziler',         desc:'Eğitim ve moral birlikte artar.',      mod:{ trainXp:5, moraleBonus:3 } },
+         { id:'cmd_paymaster_b', name:'Hazinedar',       desc:'Maaş gideri daha da azalır.',          mod:{ wageReduce:12 } }],
+        [{ id:'cmd_warlord_a',   name:'Savaş Beyi',      desc:'Büyük ordu, yüksek moral.',            mod:{ partyCap:15, moraleBonus:5 } },
+         { id:'cmd_legend_b',    name:'Efsane',          desc:'Nam ve tasarruf birlikte.',            mod:{ renownGain:25, wageReduce:8 } }]
+    ] },
+    { id: 'med', name: 'Sıhhiye ve Zindan', attr: 'int', prof: 'surgery', tiers: [
+        [{ id:'med_bandage_a',   name:'Sargı',           desc:'Ölen askerin yaralı kurtulma şansı artar.',mod:{ healChance:8 } },
+         { id:'med_tough_b',     name:'Sert Deri',       desc:'Azami can artar.',                     mod:{ maxHpBonus:15 } }],
+        [{ id:'med_rest_a',      name:'Dinlenme',        desc:'Can yenilenme hızı artar.',            mod:{ hpRegen:20 } },
+         { id:'med_chains_b',    name:'Zincirler',       desc:'Esir kapasitesi artar.',               mod:{ prisonerCap:6 } }],
+        [{ id:'med_surgeon_a',   name:'Alan Cerrahı',    desc:'Kurtulma şansı daha da artar.',        mod:{ healChance:10 } },
+         { id:'med_warden_b',    name:'Gardiyan',        desc:'Esir kaçış şansı azalır.',             mod:{ escapeReduce:20 } }],
+        [{ id:'med_vigor_a',     name:'Kuvvet',          desc:'Can ve yenilenme birlikte artar.',     mod:{ maxHpBonus:25, hpRegen:10 } },
+         { id:'med_dungeon_b',   name:'Zindan',          desc:'Esir kapasitesi ve tutma birlikte artar.',mod:{ prisonerCap:10, escapeReduce:15 } }],
+        [{ id:'med_miracle_a',   name:'Mucize',          desc:'Sıhhiyenin zirvesi.',                  mod:{ healChance:15, hpRegen:25 } },
+         { id:'med_slaver_b',    name:'Esirci',          desc:'Zindancılığın zirvesi.',               mod:{ prisonerCap:15, escapeReduce:25 } }]
+    ] },
+    { id: 'scout', name: 'İz Sürme', attr: 'int', prof: 'pathfinding', tiers: [
+        [{ id:'scout_stride_a',  name:'Uzun Adım',       desc:'Harita hızı artar.',                   mod:{ mapSpeed:5 } },
+         { id:'scout_eye_b',     name:'Keskin Bakış',    desc:'Görüş menzili artar.',                 mod:{ vision:40 } }],
+        [{ id:'scout_ration_a',  name:'Kısa Kumanya',    desc:'Yemek tüketimi azalır.',               mod:{ foodUse:0.90 } },
+         { id:'scout_runner_b',  name:'Koşucu',          desc:'Yaya savaş hızı artar.',               mod:{ footSpeed:0.08 } }],
+        [{ id:'scout_trail_a',   name:'Patika Bilgisi',  desc:'Harita hızı daha da artar.',           mod:{ mapSpeed:8 } },
+         { id:'scout_watch_b',   name:'Nöbetçi',         desc:'Görüş menzili daha da artar.',         mod:{ vision:60 } }],
+        [{ id:'scout_forage_a',  name:'Toplayıcı',       desc:'Yemek tüketimi belirgin azalır.',      mod:{ foodUse:0.85 } },
+         { id:'scout_pace_b',    name:'Zorlu Yürüyüş',   desc:'Harita ve yaya hızı birlikte artar.',  mod:{ mapSpeed:6, footSpeed:0.06 } }],
+        [{ id:'scout_ghost_a',   name:'Hayalet',         desc:'Hızlı ve az yiyen grup.',              mod:{ mapSpeed:12, foodUse:0.90 } },
+         { id:'scout_hawk_b',    name:'Şahin',           desc:'Uzağı gören, hızlı savaşan.',          mod:{ vision:100, footSpeed:0.08 } }]
+    ] },
+    { id: 'raid', name: 'Çapul ve Ticaret', attr: 'cha', prof: 'trade', tiers: [
+        [{ id:'raid_pillage_a',  name:'Yağma',           desc:'Savaş ganimeti artar.',                mod:{ loot:8 } },
+         { id:'raid_haggle_b',   name:'Pazarlık',        desc:'Alış-satış marjı artar.',              mod:{ tradeEdge:4 } }],
+        [{ id:'raid_stockpile_a',name:'Ambar',           desc:'Yemek tüketimi azalır.',               mod:{ foodUse:0.92 } },
+         { id:'raid_bookkeeper_b',name:'Defterdar',      desc:'Alış-satış marjı daha da artar.',      mod:{ tradeEdge:5 } }],
+        [{ id:'raid_plunder_a',  name:'Talan',           desc:'Ganimet belirgin artar.',              mod:{ loot:12 } },
+         { id:'raid_caravan_b',  name:'Kervan Ağı',      desc:'Marj daha da artar.',                  mod:{ tradeEdge:6 } }],
+        [{ id:'raid_notorious_a',name:'Adı Çıkmış',      desc:'Ganimet ve nam birlikte artar.',       mod:{ loot:8, renownGain:10 } },
+         { id:'raid_merchant_b', name:'Tüccar Prens',    desc:'Marj ve nam birlikte artar.',          mod:{ tradeEdge:6, renownGain:10 } }],
+        [{ id:'raid_chieftain_a',name:'Çapulcu Reisi',   desc:'Çapulun zirvesi.',                     mod:{ loot:15, renownGain:10 } },
+         { id:'raid_magnate_b',  name:'Ticaret Baronu',  desc:'Ticaretin zirvesi.',                   mod:{ tradeEdge:8, foodUse:0.90 } }]
+    ] }
+];
+const PERK_BY_ID = {};
+PERKS.forEach(br => br.tiers.forEach((pair, ti) => pair.forEach(pk => { pk.branch = br.id; pk.tier = ti; PERK_BY_ID[pk.id] = pk; })));
 
 // --- GAME ---
 const Game = {
@@ -2085,7 +2171,7 @@ const Game = {
     },
 
     // Vitality: HP regen isn't in jumps of 5, it's steps of 1 HP per hour.
-    hpRegenHours() { return Math.max(1, 8 - Math.floor((this.attr('vit') - 10) / 2)); },
+    hpRegenHours() { return Math.max(1, Math.round((8 - Math.floor((this.attr('vit') - 10) / 2)) * (1 - this.perkMod('hpRegen') / 100))); },
 
     // A new character is limited to 12 people; the army grows with attributes, skill, AND renown.
     // Renown counts too, because troops in numbers follow a commander with a name.
@@ -2096,7 +2182,7 @@ const Game = {
         // ("15/15.785700000000002"). The fraction is truncated at the source so the
         // comparison, the info-card readout, and the badge all see the same whole number (#43).
         return 12 + Math.floor((cha - 10) * 3) + (leadership - 1) * 4 + Math.floor((state.player.renown || 0) / 40)
-            + (state.player.spouse ? 5 : 0);
+            + (state.player.spouse ? 5 : 0) + this.perkMod('partyCap');
     },
 
     // Unpaid wages cost 1 morale every hour and the debt accumulates. It's paid off
@@ -2406,7 +2492,7 @@ const Game = {
         let mountBonus = this.getMountedRatio() * 0.5; // mounted ratio: on foot 1.0×, fully mounted 1.5×
         let nightMult = this.isNight() ? 0.85 : 1;      // travel is slower at night
         let terrain = this.getTerrainInfo(state.player.x, state.player.y);
-        let pathMult = 1 + (this.profLvl('pathfinding') - 1) * 0.02;  // Pathfinding skill
+        let pathMult = 1 + (this.profLvl('pathfinding') - 1) * 0.02 + this.perkMod('mapSpeed') / 100;  // Pathfinding skill + Scout perks (#110)
         let cargoMult = this.cargoMult();                             // overload (#78)
 
         return {
@@ -4129,7 +4215,7 @@ const Game = {
             // Prisoners look for a chance: a small escape chance each day.
             // ponytail: nobles don't flee — we leave the ransom decision to the player.
             let pmLvl = (state.player.proficiencies.prisonerMgmt || { level: 1 }).level;
-            let escChance = Math.max(0.01, 0.06 - pmLvl * 0.005);
+            let escChance = Math.max(0.01, (0.06 - pmLvl * 0.005) * (1 - this.perkMod('escapeReduce') / 100));
             state.player.prisoners = state.player.prisoners.filter(pr => pr.noble || Math.random() > escChance);
         }
 
@@ -6509,7 +6595,7 @@ const Game = {
         let it = ITEMS[id] || state.player.inventory.find(i => i.id === id);
         if(!it) return null;
         // Trade skill: a discount when buying, a premium when selling (25% cap)
-        let edge = Math.min(0.25, (this.profLvl('trade') - 1) * 0.02);
+        let edge = Math.min(0.40, (this.profLvl('trade') - 1) * 0.02 + this.perkMod('tradeEdge') / 100);
         let loc = this._marketLoc;
         let mult = (loc ? this.priceMult(loc, id) : 1) * (selling ? 0.7 * (1 + edge) : 1 - edge);
         // A village that has heard what you do to villages doesn't haggle kindly (#104)
@@ -9378,6 +9464,56 @@ const Game = {
         });
         profHtml += `</div>`;
         document.getElementById('char-stats').innerHTML += profHtml;
+        document.getElementById('char-stats').innerHTML += this.perkTreeHtml();
+    },
+
+    // Skill tree (#110): 6 branches, 5 tiers of opposing perks. Tiers unlock with level +
+    // the branch attribute + the branch proficiency, so no single stat opens a whole tree.
+    perkTreeHtml() {
+        let left = this.perkPointsLeft(), total = this.perkPointsTotal();
+        let modLine = m => Object.keys(m).map(k => {
+            if(k === 'foodUse') return T`yiyecek ×${m[k]}`;
+            let names = { dmg1h:'kılıç', dmg2h:'çift el', dmgPolearm:'mızrak', dmgBow:'ok', arrowCount:'ok sayısı',
+                meleeSpeed:'yakın hız', footSpeed:'yaya hız', ridingSpeed:'atlı hız', chargeDmg:'şarj',
+                partyCap:'kapasite', moraleBonus:'moral', prisonerCap:'esir kap.', escapeReduce:'kaçış−',
+                healChance:'şifa', mapSpeed:'harita hız', vision:'görüş', tradeEdge:'ticaret', loot:'ganimet',
+                trainXp:'talim', maxHpBonus:'can', hpRegen:'yenilenme', wageReduce:'maaş−', renownGain:'nam',
+                blockAngle:'savuşturma' };
+            let v = m[k]; let plus = v > 0 ? '+' : '';
+            return `${T(names[k] || k)} ${plus}${v}`;
+        }).join(', ');
+
+        let html = `<h3 style="color:var(--primary);margin-top:1.5rem;">${T`Yetenek Ağacı ${left > 0 ? `<span style="color:#2d2;font-size:var(--fs-md)">${T`(${left}/${total} Perk Puanı)`}</span>` : `<span style="color:var(--text-muted);font-size:var(--fs-md)">${T`(${total} puandan ${this.perkPointsSpent()} kullanıldı)`}</span>`}`}</h3>
+        <p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:1rem;">${T`Her 2 seviyede 1 perk puanı. Her kademede iki karşıt perkten birini seç. Üst kademeler seviye, nitelik ve yeterlilik ister — tek statı yığmak yetmez.`}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;">`;
+
+        PERKS.forEach(br => {
+            html += `<div style="background:rgba(0,0,0,0.28);border-radius:8px;padding:0.7rem;width:31%;min-width:230px;">
+                <div style="font-weight:bold;color:#cbb26b;margin-bottom:0.5rem;">${T(br.name)}
+                <span style="font-size:var(--fs-xs);color:var(--text-muted);font-weight:normal">(${T(this.ATTRS[br.attr].name)})</span></div>`;
+            br.tiers.forEach((pair, k) => {
+                html += `<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px;">`;
+                pair.forEach(pk => {
+                    let owned = this.hasPerk(pk.id);
+                    let block = owned ? null : this.perkBlock(pk.id);
+                    let bg = owned ? 'rgba(45,160,70,0.35)' : block ? 'rgba(0,0,0,0.35)' : 'rgba(80,110,160,0.30)';
+                    let bd = owned ? '#2da046' : block ? 'var(--panel-border)' : '#6f8fd0';
+                    let col = block && !owned ? 'var(--text-muted)' : 'var(--text)';
+                    let click = (!owned && !block) ? `onclick="Game.takePerk('${pk.id}')"` : '';
+                    let cursor = (!owned && !block) ? 'pointer' : 'default';
+                    html += `<div ${click} title="${owned ? T('Alındı') : (block || T('Almak için tıkla'))}"
+                        style="background:${bg};border:1px solid ${bd};border-radius:5px;padding:0.35rem 0.5rem;cursor:${cursor};color:${col};font-size:var(--fs-xs);line-height:1.35;">
+                        <b>${owned ? '✓ ' : ''}${T(pk.name)}</b> <span style="color:#8fb98f">${modLine(pk.mod)}</span>
+                        <div style="color:var(--text-muted)">${T(pk.desc)}</div>
+                        ${block && !owned ? `<div style="color:#e08a5a">🔒 ${block}</div>` : ''}
+                    </div>`;
+                });
+                html += `</div>`;
+            });
+            html += `</div>`;
+        });
+        html += `</div>`;
+        return html;
     },
     addFocus(id) {
         let p = state.player;
@@ -9441,7 +9577,7 @@ const Game = {
     // Vision from a single source: intelligence + Spotting skill. It used to be that
     // state.player.visibility only updated when an intelligence point was spent.
     getVisibility() {
-        let v = 500 + (this.attr('int') - 10) * 30 + (this.profLvl('spotting') - 1) * 25;
+        let v = 500 + (this.attr('int') - 10) * 30 + (this.profLvl('spotting') - 1) * 25 + this.perkMod('vision');
         return this.towerReveal ? v * this.TOWER_REVEAL_MUL : v;   // #125: the watchtower's few seconds
     },
 
@@ -9450,10 +9586,61 @@ const Game = {
         if(s.attributePoints && s.attributePoints > 0) {
             s[type]++;
             s.attributePoints--;
+            // Intelligence grants a focus point on the spot (#110 feedback): investing in the mind
+            // buys faster learning, so a player can't just dump every point into one combat stat.
+            if(type === 'int') s.focusPoints = (s.focusPoints || 0) + 1;
             this.updateStatsFromEquip();
             this.renderCharacterScreen();
             this.updateTopBar();
         }
+    },
+
+    // --- SKILL TREE (#110) ---
+    // Perk points: floor(level/2). Additive mods sum; foodUse is multiplicative (perkFoodMult).
+    perkPointsTotal() { return Math.floor((state.player.stats.level || 1) / 2); },
+    perkPointsSpent() { return (state.player.perks || []).length; },
+    perkPointsLeft()  { return this.perkPointsTotal() - this.perkPointsSpent(); },
+    hasPerk(id) { return (state.player.perks || []).includes(id); },
+    perkMod(name) {
+        let sum = 0;
+        (state.player.perks || []).forEach(id => { let p = PERK_BY_ID[id]; if(p && p.mod[name] !== undefined) sum += p.mod[name]; });
+        return sum;
+    },
+    // foodUse perks are stored as multipliers (0.90 = -10%); they stack multiplicatively.
+    perkFoodMult() {
+        let m = 1;
+        (state.player.perks || []).forEach(id => { let p = PERK_BY_ID[id]; if(p && p.mod.foodUse !== undefined) m *= p.mod.foodUse; });
+        return Math.max(0.6, m);
+    },
+    // Renown gains route through here so the Command/Raid renownGain perks bite (#110).
+    gainRenown(n) {
+        if(n <= 0) return n;
+        let g = n * (1 + this.perkMod('renownGain') / 100);
+        state.player.renown = Math.max(0, (state.player.renown || 0) + g);
+        return g;
+    },
+    // Why a perk can't be taken yet — null if it can.
+    perkBlock(id) {
+        let p = PERK_BY_ID[id]; if(!p) return T('Yok');
+        let br = PERKS.find(b => b.id === p.branch);
+        let s = state.player.stats, k = p.tier;
+        if(this.hasPerk(id)) return null;
+        // one of the two opposing perks per tier
+        let mate = br.tiers[k].find(x => x.id !== id);
+        if(mate && this.hasPerk(mate.id)) return T('Bu kademede karşıt perk seçildi.');
+        if(k > 0 && !br.tiers[k-1].some(x => this.hasPerk(x.id))) return T('Önce alt kademe.');
+        if((s.level || 1) < PERK_REQ_LVL[k]) return T`Seviye ${PERK_REQ_LVL[k]} gerekir.`;
+        if(this.attr(br.attr) < PERK_REQ_ATTR[k]) return T`${T(this.ATTRS[br.attr].name)} ${PERK_REQ_ATTR[k]} gerekir.`;
+        if(this.profLvl(br.prof) < PERK_REQ_PROF[k]) return T`İlgili yeterlilik ${PERK_REQ_PROF[k]}. seviye gerekir.`;
+        if(this.perkPointsLeft() <= 0) return T('Perk puanın yok.');
+        return null;
+    },
+    takePerk(id) {
+        if(this.perkBlock(id)) return;
+        (state.player.perks = state.player.perks || []).push(id);
+        this.updateStatsFromEquip();
+        this.renderCharacterScreen();
+        this.updateTopBar();
     },
 
     // --- PARTY ---
@@ -9591,7 +9778,8 @@ const Game = {
             // -1 morale per hour (Game.wageDebtTick); this line just keeps morale from recovering.
             'Maaş borcu': p.wageDebt > 0 ? -Math.min(40, 10 + Math.floor(p.wageDebt / Math.max(1, this.upkeep().wage)) * 10) : 0,
             'Kapasite aşımı': -over * 2,
-            'Aşırı yük': -this.cargoMoraleHit()
+            'Aşırı yük': -this.cargoMoraleHit(),
+            'Komuta perkleri': this.perkMod('moraleBonus')
         };
         p.moraleInfo = parts;
         let t = Object.keys(parts).reduce((a, k) => a + parts[k], 0);
@@ -9697,7 +9885,9 @@ const Game = {
             if(t.level >= 30) foodHigh += this.FOOD_MAN;
         });
         wage += this.fiefIncome().wage;   // a fief's garrison wage comes out of your pocket too (#23)
-        return { wage, foodLow, foodHigh };
+        wage *= (1 - this.perkMod('wageReduce') / 100);   // Command perks (#110)
+        let fm = this.perkFoodMult();                     // Scout/Raid foodUse perks (#110)
+        return { wage, foodLow: foodLow * fm, foodHigh: foodHigh * fm };
     },
 
     // So a morale of 0 reads correctly too: (p.morale || 50) used to count zero as 50
@@ -9745,7 +9935,7 @@ const Game = {
     // Capacity depends on the Prisoner Management skill; noble prisoners take up space too.
     prisonerCapacity() {
         let lvl = (state.player.proficiencies.prisonerMgmt || { level: 1 }).level;
-        return 5 + (lvl - 1) * 3;
+        return 5 + (lvl - 1) * 3 + this.perkMod('prisonerCap');
     },
     prisonerValue(p) {
         if(p.noble) return p.ransom || 0;
@@ -10055,7 +10245,7 @@ const Game = {
         let e = state.player.equipment;
         let defense = ['shield','armor','helmet','gloves','boots']
             .reduce((n, slot) => n + ((e[slot] || {}).defense || 0), 0);
-        s.maxHp = 50 + (s.level - 1) * 10 + Math.round((this.attr('vit') - 10) * 5) + defense;
+        s.maxHp = 50 + (s.level - 1) * 10 + Math.round((this.attr('vit') - 10) * 5) + defense + this.perkMod('maxHpBonus');
         if(s.hp > s.maxHp) s.hp = s.maxHp;
     },
 
@@ -10168,6 +10358,8 @@ const Save = {
             eq.shield = eq.armor;
             eq.armor = null;
         }
+        let pl = (((d || {}).state || {}).player);      // #110: old saves had no perks array
+        if(pl && !Array.isArray(pl.perks)) pl.perks = [];
         return d;
     },
 

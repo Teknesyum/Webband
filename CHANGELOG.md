@@ -3,6 +3,17 @@
 Oyuncu diliyle, en yeniden eskiye. Sürüm numarası `app.js` içindeki `VERSION` sabitidir ve
 başlangıç ekranının sağ alt köşesinde yazar.
 
+## 1.16.0 — Yetenek Ağacı (2026-09-17)
+
+- **Yetenek ağacı geldi (#110).** Altı dal, her dalda beş kademe, her kademede iki karşıt
+  perk — birini seçince öbürü kilitlenir. Kılıç Ustalığı, Süvari ve Okçu, Komuta, Sıhhiye ve
+  Zindan, İz Sürme, Çapul ve Ticaret. Toplam 60 perk; hasar, hız, kapasite, moral, esir,
+  görüş, harita hızı, ticaret, ganimet, yemek, can ve nam gibi gerçek sistemlere dokunuyor.
+- **Perk puanı her 2 seviyede bir.** Üst kademeler seviye, ilgili nitelik ve yeterlilik ister;
+  tek statı yığmak bir dalı açmaya yetmez.
+- **Zekâ artık odak puanı veriyor.** Zekâya harcanan her nitelik puanı anında +1 odak puanı
+  kazandırıyor — akla yatırım, öğrenmeyi hızlandırıyor.
+
 ## 1.15.0 — Muharebe Merceği (2026-09-17)
 
 - **Savaş kamerası yakınlaştı.** Muharebe artık 3 kat yakından oynanıyor; hangi askerin

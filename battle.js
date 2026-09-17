@@ -260,7 +260,8 @@ const Battle = {
         // Mount: if there's a horse the player enters as cavalry — the engine already knows cavalry (and being unhorsed)
         let mounted = !!state.player.equipment.horse;
         // The quiver fills per battle; zero if there's no bow
-        this.arrows = this.playerHasBow() ? 24 + this.prof('bow') * 2 : 0;
+        // Skill tree #110: Ranger perks add flat arrows
+        this.arrows = this.playerHasBow() ? 24 + this.prof('bow') * 2 + Game.perkMod('arrowCount') : 0;
         this.blockHeld = false;
 
         // Player
@@ -268,7 +269,8 @@ const Battle = {
             id: 'player', isPlayerTeam: true,
             hp: state.player.stats.hp, maxHp: state.player.stats.maxHp,
             x: startPlayerX, y: H/2,
-            speed: mounted ? 95 + Game.attr('agi') * 0.5 + (this.prof('riding') - 1) * 3
+            // Skill tree #110: Ranger perks scale riding/foot speed
+            speed: mounted ? (95 + Game.attr('agi') * 0.5 + (this.prof('riding') - 1) * 3) * (1 + Game.perkMod('ridingSpeed'))
                            : this.footSpeed(),
             attack: 10 + Game.attr('str') + weaponAtk,
             defense: armorDef, type: mounted ? 'cavalry' : 'infantry', mounted,
@@ -532,9 +534,10 @@ const Battle = {
     },
 
     // Swing recovery: speeds up as proficiency rises (0.75s → 0.45s)
+    // Skill tree #110: melee speed perks shorten the cooldown further
     swingCooldown() {
         let lv = this.playerWeaponProf();
-        return Math.max(0.45, 0.75 - lv * 0.005) * this.SWING_PACE;
+        return Math.max(0.45, 0.75 - lv * 0.005) * this.SWING_PACE / (1 + Game.perkMod('meleeSpeed'));
     },
 
     prof(id) { let d = state.player.proficiencies[id]; return d ? d.level : 1; },
@@ -566,7 +569,8 @@ const Battle = {
         this.projectiles.push({
             x: p.x + Math.cos(a) * 12, y: p.y + Math.sin(a) * 12,
             vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-            damage: p.attack * (0.5 + Math.min(0.5, lv * 0.005)), dmgType: 'pierce',
+            // Skill tree #110: Ranger perks add bow damage
+            damage: p.attack * (0.5 + Math.min(0.5, lv * 0.005) + Game.perkMod('dmgBow')), dmgType: 'pierce',
             isPlayerTeam: true, sourceId: 'player'
         });
         p.angleToMouse = a;
@@ -605,8 +609,9 @@ const Battle = {
     CHARGE_BURST: 2.0, CHARGE_REST: 4.0, CHARGE_TIRED: 0.9,
 
     // The player's foot speed. The ceiling stays under a horse: a human can't outrun one.
+    // Skill tree #110: Scout/Ranger perks scale foot speed
     footSpeed() {
-        return Math.min(this.FOOT_MAX, 56 + Game.attr('agi') * 0.5 + (this.prof('athletics') - 1) * 2);
+        return Math.min(this.FOOT_MAX, 56 + Game.attr('agi') * 0.5 + (this.prof('athletics') - 1) * 2) * (1 + Game.perkMod('footSpeed'));
     },
 
     // The charge's SPEED multiplier (chargeMult below scales damage, don't mix them up).
@@ -634,16 +639,17 @@ const Battle = {
     },
 
     // Charge: damage rises while fast on horseback, and stacks with a polearm (couched lance)
+    // Skill tree #110: charge perks scale the bonus (player only — this is only called for the player unit)
     chargeMult(u) {
         if(u.type !== 'cavalry') return 1;
         let sp = Math.sqrt((u.lastVx || 0) ** 2 + (u.lastVy || 0) ** 2) / Math.max(1, u.speed);
         let lance = this.playerWeaponType() === 'polearm';
-        return 1 + Math.min(1, sp) * (lance ? 1.6 : 0.6);
+        return 1 + Math.min(1, sp) * (lance ? 1.6 : 0.6) * (1 + Game.perkMod('chargeDmg'));
     },
 
-    // The sword swing's half-angle — attackAngle + the Wide Swing skill
+    // The sword swing's half-angle — attackAngle + the Wide Swing skill + skill tree #110 perks
     swingHalfAngle() {
-        let deg = (state.player.attackAngle || 30) + (state.player.skills.wideSwing || 0) * 10;
+        let deg = (state.player.attackAngle || 30) + (state.player.skills.wideSwing || 0) * 10 + Game.perkMod('blockAngle');
         return deg * Math.PI / 180;
     },
 
@@ -987,7 +993,12 @@ const Battle = {
                         });
                         if(target) {
                             // Damage depends on proficiency: 35% for a novice, 75% for a master
-                            let mult = 0.35 + Math.min(0.4, this.playerWeaponProf() * 0.004);
+                            // Skill tree #110: melee perks add damage by weapon type
+                            let wt = this.playerWeaponType();
+                            let dmgPerk = wt === 'twoHanded' ? Game.perkMod('dmg2h')
+                                        : wt === 'polearm' ? Game.perkMod('dmgPolearm')
+                                        : Game.perkMod('dmg1h');
+                            let mult = 0.35 + Math.min(0.4, this.playerWeaponProf() * 0.004) + dmgPerk;
                             let charge = this.chargeMult(u);
                             if(charge >= 1.8) this.floatingTexts.push({ x: u.x, y: u.y - 26, text: T('MIZRAK ŞARJI!'), color: '#ffcc00', life: 0.9 });
                             this.dealMelee(u, target, uAttack * mult * charge);
@@ -2278,7 +2289,8 @@ const Battle = {
         // wounded instead. The wounded stay in the group, can't fight, and heal over a few days.
         // Matching is done by id instead of order: the already-wounded who skip battle used to shift the order.
         let surgery = (state.player.proficiencies.surgery || { level: 1 }).level;
-        let saveChance = Math.min(0.75, 0.35 + surgery * 0.03);
+        // Skill tree #110: Medic perks raise wounded-survival odds
+        let saveChance = Math.min(0.95, 0.35 + surgery * 0.03 + Game.perkMod('healChance') / 100);
         let saved = 0, killed = 0;
         state.player.party.forEach(t => {
             let u = this.units.find(x => x.id === t.id);
@@ -2317,7 +2329,8 @@ const Battle = {
             // 5 bandits and a 100-strong army paid out the same amount.
             let loot = this.units.filter(u => !u.isPlayerTeam)
                 .reduce((a, u) => a + (u.beast ? 6 : 10) + (u.level || 1) * (u.beast ? 3 : 5), 0);  // looting a hide pays less
-            let moneyGain = Math.floor(loot * (0.85 + Math.random()*0.3) * (1 + (Game.profLvl('looting') - 1) * 0.04));
+            // Skill tree #110: Raid perks add a loot percentage
+            let moneyGain = Math.floor(loot * (0.85 + Math.random()*0.3) * (1 + (Game.profLvl('looting') - 1) * 0.04 + Game.perkMod('loot') / 100));
 
             // Bandit hunting shouldn't stay profitable forever
             let rScale = this.isBossFight ? 1 : this.rewardScale();
@@ -2344,7 +2357,7 @@ const Battle = {
             let spareHonor = this.spared ? Game.addHonor('spare') : 0;
 
             state.player.money += moneyGain;
-            state.player.renown += 3;
+            Game.gainRenown(3);
             state.player.morale = Math.min(100, Game.morale() + 5);
             state.player.stats.xp += xpGain;
 
