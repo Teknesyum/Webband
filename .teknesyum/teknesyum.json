@@ -1,0 +1,85 @@
+{
+  "icon": ".teknesyum/icon.png",
+  "screenshot": ".teknesyum/shot.jpg",
+  "full": ".teknesyum/full.jpg",
+  "catalog": {
+    "category": "games",
+    "tags": {
+      "tr": [
+        "oyun",
+        "tarayıcı",
+        "strateji",
+        "rpg"
+      ],
+      "en": [
+        "game",
+        "browser",
+        "strategy",
+        "rpg"
+      ]
+    },
+    "summary": {
+      "tr": "Tamamen tarayıcıda çalışan, Mount & Blade: Warband tarzında tek sayfalık bir rol yapma ve strateji oyunu. Beş krallık, lordlar ve leydilerle yordamsal olarak üretilen bir Calradia haritası, savaşlar ve ordu yönetimi içerir. Derleme adımı, bağımlılık ya da sunucu gerektirmez; index.html'i açmak yeterli. Telefonda ana ekrana eklenerek çevrimdışı oynanabilir, dokunmatik ekranda iki çubukla savaşılır. Türkçe, İngilizce ve Endonezce arayüzü vardır. Güncel sürümünü kardeşimiz Serkan geliştiriyor.",
+      "en": "A single-page, Mount & Blade: Warband style role-playing and strategy game that runs entirely in the browser. It has a procedurally generated map of Calradia with five kingdoms, lords and ladies, battles and army management. No build step, no dependencies and no server: opening index.html is enough. On a phone it can be added to the home screen and played offline, with twin-stick touch controls in battle. The interface comes in Turkish, English and Indonesian. Serkan develops the current version."
+    },
+    "points": {
+      "tr": [
+        "Tarayıcıda tek sayfada çalışan Warband tarzı RPG-strateji",
+        "Beş krallık, 23 lord, 12 leydiyle prosedürel Calradia haritası",
+        "Formasyonlu, moralli, gerçek zamanlı üstten görünüş savaşlar",
+        "Kuşatmalar, hasar tipleri, kalkanlar",
+        "Arz-talebe dayalı pazar, kervanlar, haydut avlayan köylü kafileleri",
+        "Görevler, bahisli turnuvalar, arenalar",
+        "Kur yapma, evlilik, köy yağması, tımarlar, vasallık",
+        "Oyuncudan bağımsız süren savaş simülasyonu",
+        "Dokunmatik ekranda çift analog kontrol (yürüme ve nişan/vuruş)",
+        "localStorage'da üç manuel slot artı otomatik kayıt, JSON dışa aktarım",
+        "Android/iOS için Capacitor tabanlı native paket",
+        "PWA: ana ekrana eklenip çevrimdışı çalışır",
+        "Windows için güncellemeyi kendi kontrol eden başlatıcı script",
+        "Türkçe, İngilizce, Endonezce arayüz"
+      ],
+      "en": [
+        "Single-page browser Warband-style RPG-strategy",
+        "Procedural Calradia map with five kingdoms, 23 lords, 12 ladies",
+        "Real-time top-down battles with formations and morale",
+        "Sieges, damage types, shields",
+        "Supply-demand market, caravans, villager convoys bandits hunt",
+        "Quests, tournaments with betting, arenas",
+        "Courtship, marriage, village raiding, fiefs, vassals",
+        "War simulation that runs independent of the player",
+        "Dual-stick touch controls (movement and aim/strike)",
+        "Three manual saves plus autosave in localStorage, JSON export",
+        "Capacitor-based native Android/iOS package",
+        "PWA: installs to home screen, works offline",
+        "Windows launcher that self-checks for updates",
+        "Turkish, English, Indonesian interface"
+      ]
+    },
+    "uses": {
+      "tr": [
+        "Tarayıcıda Warband tarzı oyna",
+        "Ordunu kur, savaşlara katıl",
+        "Ticaret yap, turnuvalara gir",
+        "Evlen, tımar al, krallığa hizmet et",
+        "Telefonda çevrimdışı oyna"
+      ],
+      "en": [
+        "Play Warband-style in your browser",
+        "Build an army and fight battles",
+        "Trade and join tournaments",
+        "Marry, earn fiefs, serve a kingdom",
+        "Play offline on your phone"
+      ]
+    },
+    "lead": {
+      "tr": "Tarayıcıda Warband Tarzı Rol Yapma ve Strateji Oyunu",
+      "en": "Warband-Style Browser Role-Playing and Strategy Game"
+    },
+    "fork": {
+      "by": "Serkan",
+      "repo": "https://github.com/srknzl/Webband",
+      "play": "https://serkanozel.me/webband/"
+    }
+  }
+}
